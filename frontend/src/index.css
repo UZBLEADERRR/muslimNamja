@@ -1,73 +1,71 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Outfit:wght@400;600;800&display=swap');
 
 :root {
-  /* Premium Emerald & Gold Theme */
-  --bg-primary: #fcfdfd;
-  --bg-secondary: #ffffff;
-  --bg-tertiary: #f1f5f9;
-
-  --text-primary: #064e3b;
-  /* Deep Emerald */
-  --text-secondary: #374151;
-  --text-muted: #6b7280;
-
-  --brand-primary: #059669;
-  /* Emerald 600 */
-  --brand-primary-hover: #047857;
-  --brand-dark: #064e3b;
-
-  --accent-color: #d97706;
-  /* Gold/Amber 600 */
-  --accent-light: #fef3c7;
-
-  --danger-color: #e11d48;
-  --success-color: #10b981;
-
-  --border-color: #e5e7eb;
-
-  --glass-bg: rgba(255, 255, 255, 0.82);
-  --glass-border: rgba(255, 255, 255, 0.4);
-  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
-  --shadow-md: 0 4px 12px -2px rgba(6, 78, 59, 0.08);
-  --shadow-lg: 0 12px 24px -4px rgba(6, 78, 59, 0.12);
-  --shadow-glass: 0 8px 32px 0 rgba(6, 78, 59, 0.05);
-
-  --radius-sm: 8px;
-  --radius-md: 16px;
-  --radius-lg: 24px;
-}
-
-[data-theme='dark'] {
+  /* Luxury Emerald & Gold Theme */
   --bg-primary: #022c22;
-  /* Black Emerald */
+  /* Very Dark Emerald */
   --bg-secondary: #064e3b;
+  /* Dark Emerald */
   --bg-tertiary: #065f46;
 
-  --text-primary: #ecfdf5;
+  --text-primary: #f0fdf4;
   --text-secondary: #a7f3d0;
   --text-muted: #6ee7b7;
 
   --brand-primary: #10b981;
+  /* Sparkling Emerald */
   --brand-primary-hover: #34d399;
+  --brand-gold: #d97706;
+  /* Rich Gold */
+  --brand-gold-hover: #f59e0b;
 
-  --border-color: #065f46;
+  --danger-color: #fb7185;
+  --success-color: #34d399;
 
-  --glass-bg: rgba(6, 78, 59, 0.8);
-  --glass-border: rgba(255, 255, 255, 0.1);
-  --shadow-glass: 0 8px 32px 0 rgba(0, 0, 0, 0.4);
+  --border-color: rgba(255, 255, 255, 0.08);
+
+  --glass-bg: rgba(6, 78, 59, 0.7);
+  --glass-border: rgba(255, 255, 255, 0.12);
+  --shadow-premium: 0 20px 50px rgba(0, 0, 0, 0.3);
+  --shadow-gold: 0 4px 20px rgba(217, 119, 6, 0.2);
+
+  --radius-sm: 12px;
+  --radius-md: 20px;
+  --radius-lg: 32px;
+  --radius-full: 9999px;
+}
+
+[data-theme='light'] {
+  --bg-primary: #f8fafc;
+  --bg-secondary: #ffffff;
+  --bg-tertiary: #f1f5f9;
+
+  --text-primary: #064e3b;
+  --text-secondary: #374151;
+  --text-muted: #6b7280;
+
+  --brand-primary: #059669;
+  --brand-primary-hover: #047857;
+
+  --border-color: #e5e7eb;
+
+  --glass-bg: rgba(255, 255, 255, 0.8);
+  --glass-border: rgba(0, 0, 0, 0.05);
+  --shadow-premium: 0 20px 50px rgba(6, 78, 59, 0.1);
 }
 
 * {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
 }
 
 body {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
   background-color: var(--bg-primary);
   color: var(--text-primary);
-  transition: background-color 0.3s ease, color 0.3s ease;
+  line-height: 1.5;
   overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
 }
@@ -79,83 +77,118 @@ h4,
 h5,
 h6 {
   font-family: 'Outfit', sans-serif;
-  font-weight: 700;
-  letter-spacing: -0.02em;
+  font-weight: 800;
+  letter-spacing: -0.03em;
 }
 
-/* Glassmorphism Classes */
 .glass {
   background: var(--glass-bg);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
   border: 1px solid var(--glass-border);
-  box-shadow: var(--shadow-glass);
+  box-shadow: var(--shadow-premium);
 }
 
-/* Utility Animations */
-@keyframes fadeIn {
+.floating-nav {
+  position: fixed;
+  bottom: 24px;
+  left: 20px;
+  right: 20px;
+  height: 72px;
+  border-radius: var(--radius-full);
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  padding: 0 10px;
+  z-index: 1000;
+  background: rgba(6, 78, 59, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.4);
+}
+
+.nav-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  color: var(--text-muted);
+  text-decoration: none;
+  font-size: 11px;
+  font-weight: 600;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  padding: 8px;
+  border-radius: 16px;
+}
+
+.nav-item.active {
+  color: var(--brand-primary);
+  transform: translateY(-4px);
+}
+
+.nav-item.active .icon-container {
+  background: rgba(16, 185, 129, 0.15);
+  color: var(--brand-primary);
+}
+
+.icon-container {
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 14px;
+  transition: all 0.3s ease;
+}
+
+@keyframes slideUp {
   from {
+    transform: translateY(30px);
     opacity: 0;
-    transform: translateY(10px);
   }
 
   to {
-    opacity: 1;
     transform: translateY(0);
+    opacity: 1;
   }
 }
 
-.animate-fade-in {
-  animation: fadeIn 0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+.animate-slide-up {
+  animation: slideUp 0.6s cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
 
-/* Interactive Elements */
-button {
-  cursor: pointer;
-  font-family: inherit;
-  transition: all 0.2s ease;
-}
-
-button:active {
-  transform: scale(0.96);
-}
-
-.btn-primary {
-  background-color: var(--brand-primary);
-  color: white;
-  border: none;
-  padding: 0.75rem 1.5rem;
-  border-radius: 9999px;
-  font-weight: 600;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  box-shadow: 0 4px 14px 0 rgba(0, 0, 0, 0.1);
-}
-
-.btn-primary:hover {
-  background-color: var(--brand-primary-hover);
-  box-shadow: 0 6px 20px 0 rgba(0, 0, 0, 0.15);
-  transform: translateY(-2px);
-}
-
-/* Base App Container for Telegram Mobile Dimensions */
-#root {
-  width: 100%;
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-}
-
-/* Hide scrollbar for clean UI but keep functionality */
 .hide-scrollbar::-webkit-scrollbar {
   display: none;
 }
 
-.hide-scrollbar {
-  -ms-overflow-style: none;
-  /* IE and Edge */
-  scrollbar-width: none;
-  /* Firefox */
+button {
+  border: none;
+  outline: none;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.btn-gold {
+  background: var(--brand-gold);
+  color: white;
+  padding: 14px 24px;
+  border-radius: var(--radius-md);
+  font-weight: 700;
+  box-shadow: var(--shadow-gold);
+  transition: all 0.3s ease;
+}
+
+.btn-gold:active {
+  transform: scale(0.95);
+  background: var(--brand-gold-hover);
+}
+
+.card-premium {
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  transition: all 0.3s ease;
+  position: relative;
+}
+
+.card-premium:active {
+  transform: scale(0.97);
 }

@@ -14,48 +14,56 @@ const Layout = () => {
     const cartItemsCount = cart.reduce((acc, item) => acc + item.quantity, 0);
 
     return (
-        <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: 'var(--bg-primary)' }}>
-            {/* Header */}
+        <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', background: 'var(--bg-primary)', position: 'relative' }}>
+            {/* Premium Header */}
             <header className="glass" style={{
-                padding: '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                padding: '18px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                 position: 'sticky', top: 0, zIndex: 100, borderBottom: '1px solid var(--glass-border)'
             }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <div style={{ width: '32px', height: '32px', background: 'var(--brand-primary)', borderRadius: '10px' }}></div>
-                    <h1 style={{ fontSize: '1.2rem', margin: 0, color: 'var(--brand-dark)' }}>Muslim Namja</h1>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <div style={{
+                        width: '38px', height: '38px', background: 'linear-gradient(135deg, var(--brand-primary), #065f46)',
+                        borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        boxShadow: '0 4px 12px rgba(16, 185, 129, 0.2)'
+                    }}>
+                        <Shield size={20} color="white" />
+                    </div>
+                    <div>
+                        <h1 style={{ fontSize: '1.25rem', margin: 0, color: 'var(--text-primary)', fontWeight: 800 }}>Muslim Namja</h1>
+                        <p style={{ fontSize: '10px', margin: 0, color: 'var(--brand-primary)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Premium Halal Food</p>
+                    </div>
                 </div>
 
-                <div style={{ display: 'flex', gap: '8px' }}>
+                <div style={{ display: 'flex', gap: '10px' }}>
                     <button
                         onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-                        style={{ background: 'var(--bg-tertiary)', border: 'none', borderRadius: '10px', padding: '6px 10px', color: 'var(--text-primary)' }}
+                        className="glass"
+                        style={{ border: 'none', borderRadius: '12px', width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-primary)' }}
                     >
                         {theme === 'dark' ? '☀️' : '🌙'}
                     </button>
-                    <select value={lang} onChange={handleLangChange} style={{
-                        background: 'var(--bg-tertiary)', border: 'none', borderRadius: '10px',
-                        padding: '6px 8px', color: 'var(--text-primary)', fontSize: '13px', fontWeight: 600
-                    }}>
-                        <option value="en">EN</option>
-                        <option value="ko">KO</option>
-                        <option value="uz">UZ</option>
-                        <option value="ru">RU</option>
-                    </select>
+                    <div style={{ position: 'relative' }}>
+                        <select value={lang} onChange={handleLangChange} style={{
+                            background: 'var(--glass-bg)', border: '1px solid var(--glass-border)', borderRadius: '12px',
+                            padding: '0 12px', height: '40px', color: 'var(--text-primary)', fontSize: '13px', fontWeight: 700,
+                            appearance: 'none', outline: 'none'
+                        }}>
+                            <option value="en">EN</option>
+                            <option value="ko">KO</option>
+                            <option value="uz">UZ</option>
+                            <option value="ru">RU</option>
+                        </select>
+                    </div>
                 </div>
             </header>
 
             {/* Main Content Area */}
-            <main className="hide-scrollbar" style={{ flex: 1, overflowY: 'auto', padding: '20px', paddingBottom: '100px' }}>
+            <main className="hide-scrollbar" style={{ flex: 1, overflowY: 'auto', padding: '24px', paddingBottom: '120px' }}>
                 <Outlet />
             </main>
 
-            {/* Bottom Navigation */}
-            <nav className="glass" style={{
-                position: 'fixed', bottom: '16px', left: '16px', right: '16px',
-                display: 'flex', justifyContent: 'space-around', alignItems: 'center',
-                padding: '12px 0', borderRadius: '24px', zIndex: 100,
-                boxShadow: '0 8px 32px rgba(6, 78, 59, 0.15)', border: '1px solid var(--glass-border)'
-            }}>
+            {/* Floating Pill Navigation */}
+            <nav className="floating-nav">
                 <NavItem to="/" icon={<Home size={22} />} label={t('nav_menu')} />
                 <NavItem to="/community" icon={<MessageSquare size={22} />} label={t('nav_community')} />
 
@@ -64,10 +72,10 @@ const Layout = () => {
                         <ShoppingCart size={22} />
                         {cartItemsCount > 0 && (
                             <span style={{
-                                position: 'absolute', top: '-6px', right: '-6px', background: 'var(--accent-color)',
-                                color: 'white', fontSize: '9px', borderRadius: '50%', width: '16px', height: '16px',
+                                position: 'absolute', top: '-6px', right: '-6px', background: 'var(--brand-gold)',
+                                color: 'white', fontSize: '9px', borderRadius: '50%', width: '18px', height: '18px',
                                 display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold',
-                                boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+                                border: '2px solid var(--bg-secondary)', boxShadow: '0 4px 8px rgba(0,0,0,0.3)'
                             }}>
                                 {cartItemsCount}
                             </span>
@@ -88,19 +96,12 @@ const Layout = () => {
 const NavItem = ({ to, icon, label }) => (
     <NavLink
         to={to}
-        style={({ isActive }) => ({
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            textDecoration: 'none',
-            color: isActive ? 'var(--brand-primary)' : 'var(--text-secondary)',
-            transition: 'color 0.2s ease',
-            fontSize: '12px',
-            gap: '4px'
-        })}
+        className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
     >
-        {icon}
-        <span style={{ fontWeight: 500 }}>{label}</span>
+        <div className="icon-container">
+            {icon}
+        </div>
+        <span>{label}</span>
     </NavLink>
 );
 

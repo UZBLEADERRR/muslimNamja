@@ -97,38 +97,46 @@ const MenuPage = () => {
         : products.filter(p => p.category === activeCategory);
 
     return (
-        <div className="animate-fade-in" style={{ paddingBottom: '40px' }}>
-            {/* Header / Search */}
-            <div style={{ marginBottom: '24px' }}>
-                <h2 style={{ fontSize: '24px', color: 'var(--text-primary)', marginBottom: '16px' }}>{t('explore_menu')}</h2>
+        <div className="animate-slide-up" style={{ paddingBottom: '40px' }}>
+            {/* Stunning Header Section */}
+            <div style={{ marginBottom: '32px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
+                    <h2 style={{ fontSize: '28px', color: 'var(--text-primary)', maxWidth: '200px', lineHeight: '1.1' }}>
+                        {t('explore_menu')}
+                    </h2>
+                    <div className="glass" style={{ padding: '10px', borderRadius: '14px', color: 'var(--brand-gold)' }}>
+                        <Info size={20} />
+                    </div>
+                </div>
+
                 <div style={{ position: 'relative' }}>
                     <input
                         type="text"
                         placeholder={t('search_placeholder')}
                         style={{
-                            width: '100%', padding: '14px 16px 14px 44px', borderRadius: '16px',
-                            border: '1px solid var(--border-color)', background: 'var(--bg-secondary)',
+                            width: '100%', padding: '16px 16px 16px 48px', borderRadius: '20px',
+                            border: '1px solid var(--glass-border)', background: 'var(--glass-bg)',
                             color: 'var(--text-primary)', outline: 'none',
-                            boxShadow: 'var(--shadow-md)', fontSize: '15px'
+                            boxShadow: '0 10px 25px rgba(0,0,0,0.1)', fontSize: '15px'
                         }}
                     />
-                    <Search size={20} color="var(--brand-primary)" style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)' }} />
+                    <Search size={22} color="var(--brand-primary)" style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)' }} />
                 </div>
             </div>
 
-            {/* Categories */}
-            <div className="hide-scrollbar" style={{ display: 'flex', gap: '12px', overflowX: 'auto', marginBottom: '28px', padding: '4px 0' }}>
+            {/* Premium Category Scroll */}
+            <div className="hide-scrollbar" style={{ display: 'flex', gap: '14px', overflowX: 'auto', marginBottom: '32px', padding: '4px 0' }}>
                 {categories.map(cat => (
                     <button
                         key={cat}
                         onClick={() => setActiveCategory(cat)}
                         style={{
-                            padding: '10px 20px', borderRadius: '14px', whiteSpace: 'nowrap',
-                            background: activeCategory === cat ? 'var(--brand-primary)' : 'var(--bg-secondary)',
+                            padding: '12px 24px', borderRadius: '18px', whiteSpace: 'nowrap',
+                            background: activeCategory === cat ? 'linear-gradient(135deg, var(--brand-primary), #065f46)' : 'var(--glass-bg)',
                             color: activeCategory === cat ? 'white' : 'var(--text-secondary)',
-                            border: 'none',
-                            boxShadow: activeCategory === cat ? '0 4px 12px rgba(5, 150, 105, 0.3)' : 'var(--shadow-sm)',
-                            fontWeight: 600, fontSize: '14px'
+                            border: activeCategory === cat ? 'none' : '1px solid var(--glass-border)',
+                            boxShadow: activeCategory === cat ? '0 8px 20px rgba(16, 185, 129, 0.3)' : 'none',
+                            fontWeight: 700, fontSize: '14px', transition: 'all 0.3s ease'
                         }}
                     >
                         {cat === 'All' ? t('menu_all') : t(`category_${cat.toLowerCase()}`)}
@@ -136,29 +144,41 @@ const MenuPage = () => {
                 ))}
             </div>
 
-            {/* Product List */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+            {/* Stunning Product Grid */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
                 {filteredProducts.map(product => (
                     <div
                         key={product._id}
                         onClick={() => handleProductClick(product)}
-                        className="glass"
+                        className="glass card-premium"
                         style={{
-                            borderRadius: '20px', overflow: 'hidden', display: 'flex', flexDirection: 'column',
-                            cursor: 'pointer', transition: 'transform 0.2s ease', position: 'relative'
+                            background: 'rgba(255, 255, 255, 0.03)',
+                            border: '1px solid rgba(255, 255, 255, 0.08)'
                         }}
                     >
-                        <div style={{ height: '120px', width: '100%', overflow: 'hidden' }}>
+                        <div style={{ height: '140px', width: '100%', overflow: 'hidden', position: 'relative' }}>
                             <img src={product.imageUrl} alt={product.name[lang]} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                            <div style={{
+                                position: 'absolute', top: '10px', right: '10px',
+                                background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(8px)',
+                                borderRadius: '10px', padding: '4px 8px', fontSize: '10px', fontWeight: 700, color: 'white'
+                            }}>
+                                ⭐ 4.9
+                            </div>
                         </div>
-                        <div style={{ padding: '12px', display: 'flex', flexDirection: 'column', flex: 1 }}>
-                            <h3 style={{ fontSize: '15px', color: 'var(--text-primary)', marginBottom: '8px', fontWeight: 600, lineHeight: '1.3' }}>
+                        <div style={{ padding: '14px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                            <h3 style={{ fontSize: '16px', color: 'var(--text-primary)', fontWeight: 700, lineHeight: '1.2' }}>
                                 {product.name[lang] || product.name.en}
                             </h3>
-                            <div style={{ marginTop: 'auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <span style={{ fontWeight: 800, color: 'var(--brand-primary)', fontSize: '15px' }}>{product.price.toLocaleString()} ₩</span>
-                                <div style={{ background: 'var(--brand-primary)', color: 'white', borderRadius: '10px', padding: '4px' }}>
-                                    <Plus size={16} />
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '4px' }}>
+                                <span style={{ fontWeight: 800, color: 'var(--brand-gold)', fontSize: '16px' }}>{product.price.toLocaleString()} ₩</span>
+                                <div style={{
+                                    background: 'var(--brand-primary)', color: 'white',
+                                    width: '32px', height: '32px', borderRadius: '12px',
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    boxShadow: '0 4px 10px rgba(16, 185, 129, 0.3)'
+                                }}>
+                                    <Plus size={18} />
                                 </div>
                             </div>
                         </div>
@@ -166,62 +186,71 @@ const MenuPage = () => {
                 ))}
             </div>
 
-            {/* Product Detail Modal */}
+            {/* Luxury Product Detail Modal */}
             {selectedProduct && (
                 <div style={{
                     position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
-                    background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'flex-end'
+                    background: 'rgba(0,0,0,0.85)', zIndex: 2000, display: 'flex', alignItems: 'flex-end',
+                    backdropFilter: 'blur(10px)'
                 }}>
-                    <div className="animate-fade-in" style={{
-                        width: '100%', background: 'var(--bg-primary)', borderTopLeftRadius: '32px',
-                        borderTopRightRadius: '32px', maxHeight: '90vh', overflowY: 'auto',
-                        padding: '24px', position: 'relative'
+                    <div className="animate-slide-up" style={{
+                        width: '100%', background: 'var(--bg-primary)', borderTopLeftRadius: '40px',
+                        borderTopRightRadius: '40px', maxHeight: '92vh', overflowY: 'auto',
+                        padding: '32px 24px', position: 'relative', borderTop: '1px solid rgba(255, 255, 255, 0.1)'
                     }}>
+                        <div style={{ width: '40px', height: '4px', background: 'rgba(255,255,255,0.2)', borderRadius: '2px', margin: '-16px auto 24px' }}></div>
+
                         <button
                             onClick={() => setSelectedProduct(null)}
-                            style={{ position: 'absolute', right: '24px', top: '24px', background: 'var(--bg-tertiary)', border: 'none', borderRadius: '50%', padding: '6px' }}
+                            className="glass"
+                            style={{ position: 'absolute', right: '24px', top: '24px', border: 'none', borderRadius: '50%', width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white' }}
                         >
                             <X size={20} />
                         </button>
 
-                        <div style={{ height: '240px', width: '100%', borderRadius: '24px', overflow: 'hidden', marginBottom: '20px' }}>
+                        <div style={{ height: '280px', width: '100%', borderRadius: '32px', overflow: 'hidden', marginBottom: '24px', boxShadow: '0 20px 40px rgba(0,0,0,0.4)' }}>
                             <img src={selectedProduct.imageUrl} alt={selectedProduct.name[lang]} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                         </div>
 
-                        <h2 style={{ fontSize: '24px', color: 'var(--text-primary)', marginBottom: '8px' }}>{selectedProduct.name[lang] || selectedProduct.name.en}</h2>
-                        <p style={{ color: 'var(--text-secondary)', fontSize: '15px', lineHeight: '1.5', marginBottom: '24px' }}>
-                            {selectedProduct.description?.[lang] || selectedProduct.name[lang]}
-                        </p>
+                        <div style={{ marginBottom: '24px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                                <h2 style={{ fontSize: '28px', color: 'var(--text-primary)', fontWeight: 800 }}>{selectedProduct.name[lang] || selectedProduct.name.en}</h2>
+                                <span style={{ fontSize: '22px', fontWeight: 900, color: 'var(--brand-gold)' }}>{selectedProduct.price.toLocaleString()} ₩</span>
+                            </div>
+                            <p style={{ color: 'var(--text-secondary)', fontSize: '16px', lineHeight: '1.6' }}>
+                                {selectedProduct.description?.[lang] || selectedProduct.name[lang]}
+                            </p>
+                        </div>
 
                         {/* Modifiers */}
                         {selectedProduct.modifiers?.map(mod => (
-                            <div key={mod.id} style={{ marginBottom: '24px' }}>
-                                <h4 style={{ fontSize: '16px', marginBottom: '12px', display: 'flex', justifyContent: 'space-between' }}>
+                            <div key={mod.id} style={{ marginBottom: '32px' }}>
+                                <h4 style={{ fontSize: '18px', marginBottom: '16px', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
                                     {mod.name[lang] || mod.name.en}
-                                    <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 400 }}>
-                                        {mod.multiple ? '(Many)' : '(Single)'}
+                                    <span style={{ fontSize: '11px', color: 'var(--brand-primary)', background: 'rgba(16, 185, 129, 0.1)', padding: '2px 8px', borderRadius: '8px', fontWeight: 700, textTransform: 'uppercase' }}>
+                                        {mod.multiple ? 'Barchasini tanlang' : 'Bittasini tanlang'}
                                     </span>
                                 </h4>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                                     {mod.options.map(opt => (
                                         <label key={opt.id} style={{
                                             display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                                            padding: '12px 16px', borderRadius: '16px', border: '1px solid var(--border-color)',
-                                            background: (selectedModifiers[mod.id] || []).includes(opt.id) ? 'rgba(5, 150, 105, 0.05)' : 'transparent',
-                                            cursor: 'pointer'
+                                            padding: '16px 20px', borderRadius: '20px', border: '1px solid var(--glass-border)',
+                                            background: (selectedModifiers[mod.id] || []).includes(opt.id) ? 'rgba(16, 185, 129, 0.08)' : 'rgba(255,255,255,0.02)',
+                                            cursor: 'pointer', transition: 'all 0.2s ease'
                                         }}>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
                                                 <input
                                                     type={mod.multiple ? 'checkbox' : 'radio'}
                                                     name={mod.id}
                                                     checked={(selectedModifiers[mod.id] || []).includes(opt.id)}
                                                     onChange={() => handleModifierChange(mod.id, opt.id, mod.multiple)}
-                                                    style={{ accentColor: 'var(--brand-primary)', width: '18px', height: '18px' }}
+                                                    style={{ accentColor: 'var(--brand-primary)', width: '20px', height: '20px' }}
                                                 />
-                                                <span style={{ fontSize: '15px' }}>{opt.name[lang] || opt.name.en}</span>
+                                                <span style={{ fontSize: '16px', fontWeight: 600 }}>{opt.name[lang] || opt.name.en}</span>
                                             </div>
                                             {opt.extraPrice > 0 && (
-                                                <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--brand-primary)' }}>+{opt.extraPrice} ₩</span>
+                                                <span style={{ fontSize: '15px', fontWeight: 800, color: 'var(--brand-gold)' }}>+{opt.extraPrice.toLocaleString()} ₩</span>
                                             )}
                                         </label>
                                     ))}
@@ -229,23 +258,24 @@ const MenuPage = () => {
                             </div>
                         ))}
 
-                        {/* Add to Cart Button */}
-                        <div style={{ paddingTop: '10px', paddingBottom: '20px' }}>
+                        {/* Luxury Add to Cart Button */}
+                        <div style={{ marginTop: '10px' }}>
                             <button
                                 onClick={() => {
                                     addToCart(selectedProduct, 1, selectedModifiers);
                                     setSelectedProduct(null);
                                 }}
+                                className="btn-gold"
                                 style={{
-                                    width: '100%', padding: '16px', borderRadius: '18px',
-                                    background: 'var(--brand-primary)', color: 'white',
-                                    border: 'none', fontWeight: 700, fontSize: '17px',
+                                    width: '100%', padding: '20px', borderRadius: '24px',
                                     display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                                    boxShadow: '0 8px 24px rgba(5, 150, 105, 0.3)'
+                                    fontSize: '18px', boxShadow: '0 12px 30px rgba(217, 119, 6, 0.3)'
                                 }}
                             >
-                                <span>{t('add_to_cart')}</span>
-                                <span>{calculateTotalPrice().toLocaleString()} ₩</span>
+                                <span style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                    <ShoppingCart size={22} /> {t('add_to_cart')}
+                                </span>
+                                <span style={{ fontWeight: 900 }}>{calculateTotalPrice().toLocaleString()} ₩</span>
                             </button>
                         </div>
                     </div>

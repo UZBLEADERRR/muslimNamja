@@ -50,66 +50,115 @@ const ProfilePage = () => {
     }
 
     return (
-        <div className="animate-fade-in">
-            {/* Profile Header */}
-            <div className="glass" style={{ padding: '24px', borderRadius: '24px', display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '24px' }}>
-                <div style={{ width: '64px', height: '64px', borderRadius: '50%', background: 'var(--brand-primary)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <UserIcon size={32} />
+        <div className="animate-slide-up" style={{ paddingBottom: '40px' }}>
+            {/* Luxury Profile Header */}
+            <div className="glass" style={{
+                padding: '32px 24px', borderRadius: '32px', display: 'flex', flexDirection: 'column',
+                alignItems: 'center', gap: '16px', marginBottom: '32px', textAlign: 'center',
+                background: 'linear-gradient(180deg, rgba(6, 78, 59, 0.4) 0%, rgba(2, 44, 34, 0.1) 100%)'
+            }}>
+                <div style={{
+                    width: '100px', height: '100px', borderRadius: '32px',
+                    background: 'linear-gradient(135deg, var(--brand-primary), #065f46)',
+                    color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    boxShadow: '0 15px 35px rgba(16, 185, 129, 0.3)', marginBottom: '8px'
+                }}>
+                    <UserIcon size={48} />
                 </div>
                 <div style={{ flex: 1 }}>
-                    <h2 style={{ fontSize: '20px', margin: '0 0 4px 0' }}>{user.firstName} {user.lastName || ''}</h2>
-                    <p style={{ margin: 0, color: 'var(--text-secondary)' }}>@{user.username || 'user'}</p>
+                    <h2 style={{ fontSize: '26px', margin: '0 0 4px 0', fontWeight: 800 }}>{user.firstName} {user.lastName || ''}</h2>
+                    <p style={{ margin: 0, color: 'var(--brand-primary)', fontWeight: 700 }}>@{user.username || 'premium_user'}</p>
                 </div>
-                <button onClick={logout} style={{ background: 'transparent', border: 'none', color: 'var(--danger-color)' }}>
-                    <LogOut size={24} />
+                <button
+                    onClick={logout}
+                    className="glass"
+                    style={{
+                        marginTop: '8px', padding: '10px 20px', borderRadius: '16px',
+                        display: 'flex', alignItems: 'center', gap: '8px',
+                        color: 'var(--danger-color)', fontSize: '14px', fontWeight: 700, border: 'none'
+                    }}
+                >
+                    <LogOut size={18} /> {t('logout') || 'Chiqish'}
                 </button>
             </div>
 
-            {/* Wallet Balance */}
-            <div style={{ background: 'linear-gradient(135deg, var(--brand-primary), var(--brand-primary-hover))', color: 'white', padding: '24px', borderRadius: '24px', marginBottom: '24px', boxShadow: 'var(--shadow-md)' }}>
-                <p style={{ margin: '0 0 8px 0', opacity: 0.9, fontSize: '14px' }}>Wallet Balance</p>
-                <h1 style={{ margin: 0, fontSize: '32px' }}>{user.walletBalance?.toLocaleString() || 0} ₩</h1>
+            {/* Premium Wallet Card */}
+            <div className="glass" style={{
+                padding: '32px', borderRadius: '32px', marginBottom: '32px',
+                background: 'linear-gradient(135deg, #064e3b 0%, #022c22 100%)',
+                border: '1px solid rgba(255, 255, 255, 0.1)',
+                boxShadow: '0 20px 40px rgba(0, 0, 0, 0.4)',
+                position: 'relative', overflow: 'hidden'
+            }}>
+                {/* Decorative circles */}
+                <div style={{ position: 'absolute', top: '-20px', right: '-20px', width: '100px', height: '100px', borderRadius: '50%', background: 'var(--brand-primary)', opacity: 0.1, filter: 'blur(30px)' }}></div>
+
+                <div style={{ position: 'relative', zIndex: 1 }}>
+                    <p style={{ margin: '0 0 12px 0', color: 'var(--text-muted)', fontSize: '14px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Hamyon Balansi</p>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+                        <h1 style={{ margin: 0, fontSize: '42px', color: 'white', fontWeight: 900 }}>{user.walletBalance?.toLocaleString() || 0} <span style={{ fontSize: '24px', color: 'var(--brand-gold)' }}>₩</span></h1>
+                        <div className="glass" style={{ padding: '8px 12px', borderRadius: '12px', fontSize: '12px', fontWeight: 800, color: 'var(--brand-primary)' }}>VIP</div>
+                    </div>
+                </div>
             </div>
 
             {/* Top Up Wallet feature */}
-            <h3 style={{ marginBottom: '16px' }}>{t('topup_wallet')}</h3>
-            <div className="glass" style={{ padding: '20px', borderRadius: '24px', display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '24px' }}>
-                <input
-                    type="number"
-                    value={topUpAmount}
-                    onChange={(e) => setTopUpAmount(e.target.value)}
-                    placeholder="Enter Amount to Top-Up (₩)"
-                    style={{ width: '100%', padding: '12px', borderRadius: '12px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)' }}
-                />
+            <h3 style={{ marginBottom: '20px', fontSize: '20px', color: 'var(--text-primary)' }}>Pul tushirish</h3>
+            <div className="glass" style={{ padding: '24px', borderRadius: '32px', display: 'flex', flexDirection: 'column', gap: '20px', marginBottom: '32px' }}>
+                <div style={{ position: 'relative' }}>
+                    <input
+                        type="number"
+                        value={topUpAmount}
+                        onChange={(e) => setTopUpAmount(e.target.value)}
+                        placeholder="Summani kiriting (₩)"
+                        style={{
+                            width: '100%', padding: '18px 20px', borderRadius: '20px',
+                            border: '1px solid var(--glass-border)', background: 'var(--glass-bg)',
+                            color: 'var(--text-primary)', fontSize: '16px', outline: 'none'
+                        }}
+                    />
+                </div>
 
                 <label style={{
-                    display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '8px',
-                    padding: '24px', border: '2px dashed var(--brand-primary)', borderRadius: '16px',
-                    color: 'var(--brand-primary)', cursor: 'pointer', background: 'var(--bg-primary)'
+                    display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '12px',
+                    padding: '32px', border: '2px dashed var(--glass-border)', borderRadius: '24px',
+                    color: 'var(--brand-primary)', cursor: 'pointer', background: 'rgba(255, 255, 255, 0.02)',
+                    transition: 'all 0.3s ease'
                 }}>
-                    <CreditCard size={32} />
-                    <span style={{ fontSize: '14px', fontWeight: 600 }}>
-                        {screenshot ? screenshot.name : 'Upload Transfer Receipt (AI Verify)'}
+                    <CreditCard size={40} />
+                    <span style={{ fontSize: '15px', fontWeight: 700, textAlign: 'center' }}>
+                        {screenshot ? screenshot.name : 'To\'lov rasmini yuklang\n(AI tekshiruv)'}
                     </span>
                     <input type="file" accept="image/*" onChange={handleScreenshotChange} style={{ display: 'none' }} />
                 </label>
 
-                <button onClick={handleTopUp} disabled={isProcessing} className="btn-primary" style={{ width: '100%', padding: '16px' }}>
-                    {isProcessing ? 'Verifying with AI...' : 'Submit Top-Up'}
+                <button
+                    onClick={handleTopUp}
+                    disabled={isProcessing}
+                    className="btn-gold"
+                    style={{ width: '100%', fontSize: '17px' }}
+                >
+                    {isProcessing ? 'AI tekshirmoqda...' : 'Tasdiqlash'}
                 </button>
             </div>
 
-            {/* Order History link mock */}
-            <div className="glass" style={{ padding: '16px 20px', borderRadius: '16px', display: 'flex', alignItems: 'center', gap: '16px' }}>
-                <div style={{ padding: '12px', borderRadius: '12px', background: 'var(--bg-tertiary)', color: 'var(--text-primary)' }}>
-                    <History size={24} />
-                </div>
-                <span style={{ fontWeight: 600, flex: 1 }}>Order History</span>
-                <span style={{ color: 'var(--text-muted)' }}>{'>'}</span>
+            {/* Premium Settings/History Rows */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                <RowItem icon={<History size={22} />} label="Buyurtmalar tarixi" />
+                <RowItem icon={<CreditCard size={22} />} label="To'lov usullari" />
             </div>
-
         </div>
     );
 };
+
+const RowItem = ({ icon, label }) => (
+    <div className="glass" style={{ padding: '20px 24px', borderRadius: '24px', display: 'flex', alignItems: 'center', gap: '20px', cursor: 'pointer' }}>
+        <div style={{ width: '44px', height: '44px', borderRadius: '14px', background: 'rgba(255,255,255,0.05)', color: 'var(--brand-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            {icon}
+        </div>
+        <span style={{ fontWeight: 700, flex: 1, fontSize: '16px', color: 'var(--text-primary)' }}>{label}</span>
+        <span style={{ color: 'var(--text-muted)', fontSize: '20px', fontWeight: 300 }}>›</span>
+    </div>
+);
 
 export default ProfilePage;
