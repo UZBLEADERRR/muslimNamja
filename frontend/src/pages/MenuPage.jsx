@@ -32,7 +32,9 @@ const MenuPage = () => {
     const [searchQuery, setSearchQuery] = useState('');
     const [loading, setLoading] = useState(true);
     const [winner, setWinner] = useState(null);
-    const [adBanner, setAdBanner] = useState(null);
+    const [adBanners, setAdBanners] = useState([]);
+    const [currentAdIndex, setCurrentAdIndex] = useState(0);
+    const [isStoreOpen, setIsStoreOpen] = useState(true);
 
     useEffect(() => {
         api.get('/products')
@@ -40,10 +42,25 @@ const MenuPage = () => {
             .catch(err => console.error('Fetch products error:', err))
             .finally(() => setLoading(false));
 
-        // Fetch monthly winner & ad banner (public, no auth needed)
+        // Fetch monthly winner & ad banners (public, no auth needed)
         fetch((import.meta.env.VITE_API_URL || '/api') + '/public/monthly-winner').then(r => r.json()).then(d => setWinner(d)).catch(() => { });
-        fetch((import.meta.env.VITE_API_URL || '/api') + '/public/ad-banner').then(r => r.json()).then(d => setAdBanner(d)).catch(() => { });
+        fetch((import.meta.env.VITE_API_URL || '/api') + '/public/store-status').then(r => r.json()).then(d => setIsStoreOpen(d.isOpen)).catch(() => { });
+        fetch((import.meta.env.VITE_API_URL || '/api') + '/admin/settings/adBanners').then(r => r.json()).then(d => {
+            try {
+                const parsed = JSON.parse(d);
+                if (Array.isArray(parsed)) setAdBanners(parsed);
+            } catch (e) { }
+        }).catch(() => { });
     }, []);
+
+    // Auto-slide ads every 4 seconds
+    useEffect(() => {
+        if (adBanners.length <= 1) return;
+        const interval = setInterval(() => {
+            setCurrentAdIndex(prev => (prev + 1) % adBanners.length);
+        }, 4000);
+        return () => clearInterval(interval);
+    }, [adBanners]);
 
     const handleAddToCart = (food) => {
         const name = typeof food.name === 'object' ? (food.name[lang] || food.name.en || Object.values(food.name)[0]) : food.name;
@@ -110,11 +127,37 @@ const MenuPage = () => {
                     </div>
                 )}
 
-                {/* Admin Ad Banner */}
-                {adBanner && adBanner.text && (
-                    <div style={{ background: 'linear-gradient(135deg, rgba(78,205,196,0.1), rgba(255,107,53,0.08))', border: '1px solid var(--brand-accent2)', borderRadius: 16, padding: '12px 16px', marginBottom: 16 }}>
-                        <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--brand-accent)', letterSpacing: 1, marginBottom: 4 }}>📢 E'LON</div>
-                        <div style={{ fontSize: 13, color: 'var(--text-primary)', lineHeight: 1.5 }}>{adBanner.text}</div>
+                {/* Ad Banners Carousel */}
+                {adBanners.length > 0 && (
+                    <div style={{ position: 'relative', width: '100%', borderRadius: 16, overflow: 'hidden', marginBottom: 16, background: 'linear-gradient(135deg, rgba(78,205,196,0.1), rgba(255,107,53,0.08))', border: '1px solid var(--brand-accent2)' }}>
+                        <div style={{ display: 'flex', width: `${adBanners.length * 100}%`, transform: `translateX(-${(currentAdIndex * 100) / adBanners.length}%)`, transition: 'transform 0.5s ease-in-out' }}>
+                            {adBanners.map(ad => (
+                                <div key={ad.id} style={{ width: `${100 / adBanners.length}%`, flexShrink: 0, position: 'relative' }}>
+                                    {ad.imageUrl && (
+                                        <div style={{ width: '100%', height: 160 }}>
+                                            <img src={ad.imageUrl} alt="Ad" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                            {/* Gradient overlay for text readability */}
+                                            {ad.text && <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '60%', background: 'linear-gradient(to top, rgba(0,0,0,0.8), transparent)' }} />}
+                                        </div>
+                                    )}
+                                    {ad.text && (
+                                        <div style={{ position: ad.imageUrl ? 'absolute' : 'relative', bottom: 0, left: 0, right: 0, padding: '16px', color: ad.imageUrl ? '#fff' : 'var(--text-primary)' }}>
+                                            <div style={{ fontSize: 10, fontWeight: 800, color: ad.imageUrl ? '#FFD700' : 'var(--brand-accent)', letterSpacing: 1, marginBottom: 4 }}>📢 E'LON</div>
+                                            <div style={{ fontSize: 13, fontWeight: 600, lineHeight: 1.4, textShadow: ad.imageUrl ? '0 1px 4px rgba(0,0,0,0.8)' : 'none' }}>{ad.text}</div>
+                                        </div>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+
+                        {/* Dots */}
+                        {adBanners.length > 1 && (
+                            <div style={{ position: 'absolute', bottom: 8, left: 0, right: 0, display: 'flex', justifyContent: 'center', gap: 6 }}>
+                                {adBanners.map((_, i) => (
+                                    <div key={i} style={{ width: i === currentAdIndex ? 16 : 6, height: 6, borderRadius: 3, background: i === currentAdIndex ? 'var(--brand-accent)' : 'rgba(255,255,255,0.5)', transition: 'all 0.3s' }} />
+                                ))}
+                            </div>
+                        )}
                     </div>
                 )}
 
@@ -184,15 +227,26 @@ const MenuPage = () => {
 
                                     <button
                                         onClick={() => handleAddToCart(food)}
-                                        disabled={food.stock === 0}
-                                        style={{ width: "100%", background: food.stock === 0 ? '#95a5a6' : addedFoodId === fid ? 'var(--brand-accent2)' : `linear-gradient(135deg, var(--brand-accent), #FF3CAC)`, color: "#fff", border: "none", borderRadius: 10, padding: "9px 0", fontSize: 12, fontWeight: 700, cursor: food.stock === 0 ? "not-allowed" : "pointer", transition: "all 0.3s" }}
+                                        disabled={food.stock === 0 || !isStoreOpen}
+                                        style={{ width: "100%", background: food.stock === 0 || !isStoreOpen ? '#95a5a6' : addedFoodId === fid ? 'var(--brand-accent2)' : `linear-gradient(135deg, var(--brand-accent), #FF3CAC)`, color: "#fff", border: "none", borderRadius: 10, padding: "9px 0", fontSize: 12, fontWeight: 700, cursor: food.stock === 0 || !isStoreOpen ? "not-allowed" : "pointer", transition: "all 0.3s" }}
                                     >
-                                        {food.stock === 0 ? 'Sotuvda yoq' : addedFoodId === fid ? t('added') : t('add')}
+                                        {food.stock === 0 ? 'Sotuvda yoq' : !isStoreOpen ? 'Do\'kon yopiq' : addedFoodId === fid ? t('added') : t('add')}
                                     </button>
                                 </div>
                             </div>
                         );
                     })}
+                </div>
+            )}
+
+            {/* Store Closed Overlay */}
+            {!isStoreOpen && !loading && (
+                <div style={{ position: 'fixed', bottom: 85, left: '50%', transform: 'translateX(-50%)', width: '90%', maxWidth: 400, background: 'rgba(231,76,60,0.95)', color: '#fff', padding: '16px 20px', borderRadius: 16, zIndex: 100, display: 'flex', alignItems: 'center', gap: 12, boxShadow: '0 8px 32px rgba(231,76,60,0.5)', border: '1px solid rgba(255,255,255,0.2)', backdropFilter: 'blur(10px)' }}>
+                    <span style={{ fontSize: 24 }}>🏪</span>
+                    <div>
+                        <div style={{ fontWeight: 800, fontSize: 15, marginBottom: 4 }}>Do'kon hozir yopiq</div>
+                        <div style={{ fontSize: 12, opacity: 0.9 }}>Birozdan so'ng xizmat ko'rsatishni davom ettiramiz!</div>
+                    </div>
                 </div>
             )}
         </div>

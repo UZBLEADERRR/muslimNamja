@@ -21,6 +21,7 @@ const AdminPage = () => {
     const [profitData, setProfitData] = useState(null);
     const [aiInventory, setAiInventory] = useState(null);
     const [newExpense, setNewExpense] = useState({ description: '', amount: '' });
+    const [paymentRequests, setPaymentRequests] = useState([]);
 
     // New Product State
     const [showAddProduct, setShowAddProduct] = useState(false);
@@ -44,8 +45,17 @@ const AdminPage = () => {
     const [broadcastMsg, setBroadcastMsg] = useState('');
     const [broadcasting, setBroadcasting] = useState(false);
 
+    // Store settings
+    const [isStoreOpen, setIsStoreOpen] = useState(true);
+
     // Ad Banner state
-    const [adBannerText, setAdBannerText] = useState('');
+    const [adBanners, setAdBanners] = useState([]);
+    const [newAdText, setNewAdText] = useState('');
+    const [newAdImage, setNewAdImage] = useState(null);
+    const [addingAd, setAddingAd] = useState(false);
+
+    const [editingExpenseId, setEditingExpenseId] = useState(null);
+    const [editingExpenseValue, setEditingExpenseValue] = useState('');
 
     const fetchData = async () => {
         setLoading(true);
@@ -68,6 +78,9 @@ const AdminPage = () => {
                 setFullStats(resStats.data);
                 const resProfit = await api.get('/admin/profit');
                 setProfitData(resProfit.data);
+            } else if (activeTab === 'payments') {
+                const res = await api.get('/admin/payment-requests');
+                setPaymentRequests(res.data);
             }
 
             // Always fetch settings on load
@@ -80,9 +93,21 @@ const AdminPage = () => {
                 setBankCard(val);
             }
 
+            const storeOpenSettings = await api.get('/admin/settings/isStoreOpen');
+            if (storeOpenSettings.data !== null && storeOpenSettings.data !== undefined) {
+                setIsStoreOpen(storeOpenSettings.data === 'true');
+            }
+
             const spotSettings = await api.get('/admin/settings/meetupSpots');
             if (spotSettings.data?.value) {
                 setMeetupSpots(JSON.parse(spotSettings.data.value));
+            }
+
+            const adSettings = await api.get('/admin/settings/adBanners');
+            if (adSettings.data) {
+                try {
+                    setAdBanners(JSON.parse(adSettings.data));
+                } catch (e) { }
             }
 
         } catch (err) {
@@ -125,19 +150,30 @@ const AdminPage = () => {
             formData.append('category', newProduct.category);
             formData.append('minOrderQuantity', newProduct.minOrderQuantity || 1);
             if (newProduct.stock) formData.append('stock', newProduct.stock);
+            if (newProduct.ingredientCost) formData.append('ingredientCost', newProduct.ingredientCost);
             if (productImage) formData.append('image', productImage);
 
             await api.post('/admin/products', formData, {
                 headers: { 'Content-Type': 'multipart/form-data' }
             });
             setShowAddProduct(false);
-            setNewProduct({ nameUz: '', nameKo: '', descUz: '', descKo: '', price: '', category: 'uzbek', stock: '', minOrderQuantity: '1' });
+            setNewProduct({ nameUz: '', nameKo: '', descUz: '', descKo: '', price: '', category: 'uzbek', stock: '', minOrderQuantity: '1', ingredientCost: 0 });
             setProductImage(null);
             fetchData();
         } catch (err) {
             alert('Mahsulot qo\'shishda xatolik yuz berdi');
         } finally {
             setAddingProduct(false);
+        }
+    };
+
+    const handleUpdateExpense = async (id) => {
+        try {
+            await api.put(`/admin/products/${id}`, { ingredientCost: parseFloat(editingExpenseValue) });
+            setEditingExpenseId(null);
+            fetchData();
+        } catch (error) {
+            alert("Harajatni yangilashda xatolik");
         }
     };
 
@@ -200,6 +236,56 @@ const AdminPage = () => {
         await api.post('/admin/settings', { key: 'meetupSpots', value: JSON.stringify(updatedSpots) });
     };
 
+    const handlePaymentAction = async (id, action) => {
+        try {
+            await api.put(`/admin/payment-requests/${id}`, { action });
+            alert(`To'lov ${action === 'approve' ? 'tasdiqlandi' : 'rad etildi'}!`);
+            fetchData();
+        } catch (err) {
+            alert("Xatolik yuz berdi");
+        }
+    };
+
+    const handleAddAdBanner = async () => {
+        if (!newAdText && !newAdImage) return alert('Matn yoki rasm kiriting!');
+        setAddingAd(true);
+        try {
+            const formData = new FormData();
+            formData.append('text', newAdText);
+            if (newAdImage) formData.append('image', newAdImage);
+
+            const res = await api.post('/admin/ads', formData, {
+                headers: { 'Content-Type': 'multipart/form-data' }
+            });
+            setAdBanners(res.data.banners);
+            setNewAdText('');
+            setNewAdImage(null);
+        } catch (err) {
+            alert('E\'lon qo\'shishda xatolik');
+        } finally {
+            setAddingAd(false);
+        }
+    };
+
+    const handleDeleteAdBanner = async (id) => {
+        if (!window.confirm("O'chirasizmi?")) return;
+        try {
+            const res = await api.delete(`/admin/ads/${id}`);
+            setAdBanners(res.data.banners);
+        } catch (err) {
+            alert('O\'chirishda xatolik');
+        }
+    };
+
+    const handleUpdateOrderStatus = async (id, status) => {
+        try {
+            await api.put(`/admin/orders/${id}`, { status });
+            fetchData();
+        } catch (err) {
+            alert("Buyurtma statusini o'zgartirishda xatolik");
+        }
+    };
+
     const getName = (product) => {
         if (typeof product.name === 'object') return product.name[lang] || product.name.en || Object.values(product.name)[0];
         return product.name;
@@ -210,6 +296,7 @@ const AdminPage = () => {
         { id: 'products', icon: <Package size={16} />, label: t('products') },
         { id: 'users', icon: <Users size={16} />, label: t('users') },
         { id: 'finance', icon: <DollarSign size={16} />, label: 'Moliya' },
+        { id: 'payments', icon: <DollarSign size={16} />, label: "To'lovlar" },
         { id: 'inventory', icon: <Box size={16} />, label: 'Zaxira (AI)' },
         { id: 'broadcast', icon: <Megaphone size={16} />, label: "E'lon" },
         { id: 'settings', icon: <Settings size={16} />, label: 'Sozlamalar' },
@@ -265,13 +352,26 @@ const AdminPage = () => {
                     </div>
 
                     <h3 style={{ fontSize: '16px', color: 'var(--text-primary)', marginTop: 8 }}>{t('recent_activity')}</h3>
-                    {orders.orders?.slice(0, 5).map((order) => (
+                    {orders.orders?.slice(0, 15).map((order) => (
                         <div key={order.id} style={{ padding: '14px 16px', borderRadius: '16px', background: 'var(--card-bg)', border: '1px solid var(--card-border)', boxShadow: 'var(--shadow-main)' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
                                 <span style={{ color: 'var(--text-primary)', fontWeight: 700, fontSize: 13 }}>Order #{(order.id || '').toString().slice(0, 8)}</span>
                                 <span style={{ color: order.status === 'completed' ? '#27AE60' : 'var(--brand-accent)', fontSize: 12, fontWeight: 800, textTransform: 'uppercase' }}>{order.status}</span>
                             </div>
-                            <div style={{ color: 'var(--text-secondary)', fontSize: 12 }}>₩{(order.totalAmount || 0).toLocaleString()} · {new Date(order.createdAt).toLocaleDateString()}</div>
+                            <div style={{ color: 'var(--text-secondary)', fontSize: 12, marginBottom: 12 }}>₩{(order.totalAmount || 0).toLocaleString()} · {new Date(order.createdAt).toLocaleDateString()}</div>
+
+                            {/* Order Actions */}
+                            <div style={{ display: 'flex', gap: 8 }}>
+                                {order.status === 'pending' && (
+                                    <>
+                                        <button onClick={() => handleUpdateOrderStatus(order.id, 'preparing')} style={{ flex: 1, padding: '8px', borderRadius: '8px', background: 'var(--brand-accent2)', color: '#fff', border: 'none', fontWeight: 600, fontSize: 12 }}>Tayyorlash</button>
+                                        <button onClick={() => handleUpdateOrderStatus(order.id, 'cancelled')} style={{ flex: 1, padding: '8px', borderRadius: '8px', background: 'rgba(231,76,60,0.1)', color: '#E74C3C', border: 'none', fontWeight: 600, fontSize: 12 }}>Bekor qilish</button>
+                                    </>
+                                )}
+                                {order.status === 'preparing' && (
+                                    <button onClick={() => handleUpdateOrderStatus(order.id, 'delivering')} style={{ width: '100%', padding: '8px', borderRadius: '8px', background: '#3498DB', color: '#fff', border: 'none', fontWeight: 600, fontSize: 12 }}>Yetkazishga berish</button>
+                                )}
+                            </div>
                         </div>
                     ))}
                     {(!orders.orders || orders.orders.length === 0) && (
@@ -313,7 +413,7 @@ const AdminPage = () => {
                                 </select>
                             </div>
 
-                            <div style={{ display: 'flex', gap: 10 }}>
+                            <div style={{ display: 'flex', gap: 10, marginTop: 10 }}>
                                 <div style={{ flex: 1 }}>
                                     <label style={{ fontSize: 11, color: 'var(--text-secondary)', fontWeight: 600, display: 'block', marginBottom: 4 }}>Zaxira (Bo'sh = Cheksiz)</label>
                                     <input type="number" placeholder="Masalan: 50" value={newProduct.stock} onChange={e => setNewProduct({ ...newProduct, stock: e.target.value })} style={inputStyle} />
@@ -321,6 +421,10 @@ const AdminPage = () => {
                                 <div style={{ flex: 1 }}>
                                     <label style={{ fontSize: 11, color: 'var(--text-secondary)', fontWeight: 600, display: 'block', marginBottom: 4 }}>Minimal buyurtma</label>
                                     <input type="number" value={newProduct.minOrderQuantity} onChange={e => setNewProduct({ ...newProduct, minOrderQuantity: e.target.value })} style={inputStyle} required />
+                                </div>
+                                <div style={{ flex: 1 }}>
+                                    <label style={{ fontSize: 11, color: 'var(--text-secondary)', fontWeight: 600, display: 'block', marginBottom: 4 }}>Tannarx (Harajat)</label>
+                                    <input type="number" placeholder="₩ 0" value={newProduct.ingredientCost} onChange={e => setNewProduct({ ...newProduct, ingredientCost: e.target.value })} style={inputStyle} />
                                 </div>
                             </div>
 
@@ -337,23 +441,41 @@ const AdminPage = () => {
 
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                         {products.map(p => (
-                            <div key={p.id} style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)', padding: '14px', borderRadius: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-                                    {p.imageUrl?.startsWith('data:image')
-                                        ? <img src={p.imageUrl} alt={getName(p)} style={{ width: 40, height: 40, borderRadius: 8, objectFit: 'cover' }} />
-                                        : <span style={{ fontSize: 24 }}>{p.imageUrl || '🍽️'}</span>
-                                    }
-                                    <div>
-                                        <div style={{ color: 'var(--text-primary)', fontWeight: 700, fontSize: 14 }}>{getName(p)}</div>
-                                        <div style={{ color: 'var(--brand-accent)', fontSize: 12, fontWeight: 600 }}>₩{p.price?.toLocaleString()}</div>
-                                        <div style={{ color: 'var(--text-secondary)', fontSize: 11 }}>
-                                            Zaxira: {p.stock === null ? 'Cheksiz' : p.stock} | Min: {p.minOrderQuantity || 1}
+                            <div key={p.id} style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)', padding: '14px', borderRadius: '16px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                                        {p.imageUrl?.startsWith('data:image')
+                                            ? <img src={p.imageUrl} alt={getName(p)} style={{ width: 40, height: 40, borderRadius: 8, objectFit: 'cover' }} />
+                                            : <span style={{ fontSize: 24 }}>{p.imageUrl || '🍽️'}</span>
+                                        }
+                                        <div>
+                                            <div style={{ color: 'var(--text-primary)', fontWeight: 700, fontSize: 14 }}>{getName(p)}</div>
+                                            <div style={{ color: 'var(--brand-accent)', fontSize: 12, fontWeight: 600 }}>₩{p.price?.toLocaleString()}</div>
+                                            <div style={{ color: 'var(--text-secondary)', fontSize: 11 }}>
+                                                Zaxira: {p.stock === null ? 'Cheksiz' : p.stock} | Min: {p.minOrderQuantity || 1}
+                                            </div>
                                         </div>
                                     </div>
+                                    <button onClick={() => handleDeleteProduct(p.id)} style={{ background: 'rgba(231,76,60,0.1)', color: '#E74C3C', border: 'none', borderRadius: 8, padding: '8px', cursor: 'pointer' }}>
+                                        <Trash2 size={16} />
+                                    </button>
                                 </div>
-                                <button onClick={() => handleDeleteProduct(p.id)} style={{ background: 'rgba(231,76,60,0.1)', color: '#E74C3C', border: 'none', borderRadius: 8, padding: '8px', cursor: 'pointer' }}>
-                                    <Trash2 size={16} />
-                                </button>
+
+                                {/* Edit Expense Section */}
+                                <div style={{ borderTop: '1px dashed var(--card-border)', paddingTop: 12, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                    <div style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 600 }}>Asl Harajat: ₩{(p.ingredientCost || 0).toLocaleString()}</div>
+                                    {editingExpenseId === p.id ? (
+                                        <div style={{ display: 'flex', gap: 6 }}>
+                                            <input type="number" value={editingExpenseValue} onChange={e => setEditingExpenseValue(e.target.value)} placeholder="Yangi qiymat" style={{ padding: '6px 10px', borderRadius: 8, border: '1px solid var(--card-border)', outline: 'none', background: 'var(--bg-secondary)', color: 'var(--text-primary)', width: 100, fontSize: 12 }} />
+                                            <button onClick={() => handleUpdateExpense(p.id)} style={{ background: 'var(--brand-accent)', color: '#fff', border: 'none', borderRadius: 8, padding: '6px 12px', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>Saqlash</button>
+                                            <button onClick={() => setEditingExpenseId(null)} style={{ background: 'rgba(255,255,255,0.1)', color: 'var(--text-secondary)', border: '1px solid var(--card-border)', borderRadius: 8, padding: '6px 12px', fontSize: 11, cursor: 'pointer' }}>Bekor qilish</button>
+                                        </div>
+                                    ) : (
+                                        <button onClick={() => { setEditingExpenseId(p.id); setEditingExpenseValue(p.ingredientCost || 0); }} style={{ background: 'rgba(255,107,53,0.1)', color: 'var(--brand-accent2)', border: 'none', borderRadius: 8, padding: '6px 12px', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
+                                            Harajatni Tahrirlash
+                                        </button>
+                                    )}
+                                </div>
                             </div>
                         ))}
                     </div>
@@ -549,6 +671,27 @@ const AdminPage = () => {
             {/* TAB: SETTINGS */}
             {activeTab === 'settings' && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+
+                    {/* Store Status Toggle */}
+                    <div style={{ padding: '20px', borderRadius: '16px', background: 'var(--card-bg)', border: '1px solid var(--card-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div>
+                            <h3 style={{ fontSize: '16px', color: 'var(--text-primary)', margin: '0 0 4px' }}>🏪 Do'kon Holati</h3>
+                            <p style={{ fontSize: 13, color: 'var(--text-secondary)', margin: 0 }}>Do'konni yopish buyurtma qabul qilishni vaqtincha to'xtatadi.</p>
+                        </div>
+                        <button
+                            onClick={async () => {
+                                const newVal = !isStoreOpen;
+                                setIsStoreOpen(newVal);
+                                try {
+                                    await api.post('/admin/settings', { key: 'isStoreOpen', value: String(newVal) });
+                                } catch (err) { alert('Xatolik'); setIsStoreOpen(!newVal); }
+                            }}
+                            style={{ background: isStoreOpen ? '#27AE60' : 'rgba(231,76,60,0.1)', color: isStoreOpen ? '#fff' : '#E74C3C', border: 'none', padding: '10px 16px', borderRadius: '12px', fontWeight: 800, cursor: 'pointer', transition: 'all 0.2s', minWidth: 100 }}
+                        >
+                            {isStoreOpen ? 'Ochiq' : 'Yopiq'}
+                        </button>
+                    </div>
+
                     <div style={{ padding: '20px', borderRadius: '16px', background: 'var(--card-bg)', border: '1px solid var(--card-border)' }}>
                         <h3 style={{ fontSize: '16px', color: 'var(--text-primary)', margin: '0 0 8px' }}>💳 To'lov Qabul Qilish Kartasi</h3>
                         <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 16 }}>Foydalanuvchilar o'z hamyonini to'ldirish uchun shu kartaga pul o'tkazishadi.</p>
@@ -594,26 +737,89 @@ const AdminPage = () => {
                         </div>
                     </div>
 
-                    {/* Ad Banner settings */}
+                    {/* Ad Banner Carousel settings */}
                     <div style={{ padding: '20px', borderRadius: '16px', background: 'var(--card-bg)', border: '1px solid var(--card-border)' }}>
-                        <h3 style={{ fontSize: '16px', color: 'var(--text-primary)', margin: '0 0 8px' }}>📢 Bosh sahifa E'lon / Reklama</h3>
-                        <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 16 }}>Bu matn bosh sahifada barcha userlarga ko'rinadi.</p>
-                        <textarea
-                            value={adBannerText}
-                            onChange={e => setAdBannerText(e.target.value)}
-                            placeholder="E'lon matnini yozing... (bo'sh qolsa banner ko'rinmaydi)"
-                            style={{ width: '100%', minHeight: 80, padding: 14, borderRadius: 12, border: '1px solid var(--card-border)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', fontSize: 14, outline: 'none', resize: 'vertical', boxSizing: 'border-box' }}
-                        />
-                        <button onClick={async () => {
-                            try {
-                                await api.post('/admin/settings', { key: 'adBanner', value: JSON.stringify({ text: adBannerText }) });
-                                alert('E\'lon saqlandi!');
-                            } catch { alert('Xatolik'); }
-                        }} style={{ marginTop: 8, background: 'var(--brand-accent)', color: '#fff', border: 'none', padding: '12px', borderRadius: '12px', fontWeight: 700, cursor: 'pointer', width: '100%' }}>
-                            💾 Saqlash
-                        </button>
+                        <h3 style={{ fontSize: '16px', color: 'var(--text-primary)', margin: '0 0 8px' }}>📢 Bosh sahifa E'lonlari (Carousel)</h3>
+                        <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 16 }}>Bosh sahifada rasm va matnlar ketma-ket aylanib turadi.</p>
+
+                        <div style={{ background: 'var(--bg-secondary)', padding: 12, borderRadius: 12, border: '1px dashed var(--card-border)', marginBottom: 16 }}>
+                            <textarea
+                                value={newAdText}
+                                onChange={e => setNewAdText(e.target.value)}
+                                placeholder="E'lon matnini yozing..."
+                                style={{ width: '100%', minHeight: 60, padding: 10, borderRadius: 8, border: '1px solid var(--card-border)', background: 'var(--card-bg)', color: 'var(--text-primary)', fontSize: 13, outline: 'none', resize: 'vertical', marginBottom: 8, boxSizing: 'border-box' }}
+                            />
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                <input type="file" accept="image/*" onChange={e => setNewAdImage(e.target.files?.[0])} style={{ color: 'var(--text-primary)', fontSize: 13, flex: 1 }} />
+                                <button onClick={handleAddAdBanner} disabled={addingAd} style={{ background: 'var(--brand-accent)', color: '#fff', border: 'none', padding: '10px 16px', borderRadius: '8px', fontWeight: 700, cursor: 'pointer' }}>
+                                    {addingAd ? '⏳' : <Plus size={16} />} Qo'shish
+                                </button>
+                            </div>
+                        </div>
+
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                            {adBanners.map((ad, i) => (
+                                <div key={ad.id || i} style={{ display: 'flex', gap: 12, padding: 12, background: 'var(--bg-secondary)', borderRadius: 12, border: '1px solid var(--card-border)', alignItems: 'center' }}>
+                                    {ad.imageUrl && <img src={ad.imageUrl} alt="Ad" style={{ width: 60, height: 60, borderRadius: 8, objectFit: 'cover' }} />}
+                                    <div style={{ flex: 1, color: 'var(--text-primary)', fontSize: 13 }}>{ad.text || 'Rasm (Matnsiz)'}</div>
+                                    <button onClick={() => handleDeleteAdBanner(ad.id)} style={{ background: 'rgba(231,76,60,0.1)', color: '#E74C3C', border: 'none', borderRadius: 8, padding: '8px', cursor: 'pointer' }}>
+                                        <Trash2 size={16} />
+                                    </button>
+                                </div>
+                            ))}
+                            {adBanners.length === 0 && <span style={{ color: 'var(--text-secondary)', fontSize: 12 }}>Hali e'lonlar kiritilmagan.</span>}
+                        </div>
                     </div>
 
+                </div>
+            )}
+
+            {/* TAB: PAYMENTS */}
+            {activeTab === 'payments' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                    <h2 style={{ fontSize: '20px', color: 'var(--text-primary)', margin: 0 }}>To'lov So'rovlari</h2>
+                    <p style={{ color: 'var(--text-secondary)', fontSize: 13, marginTop: -8 }}>Foydalanuvchilarning hamyon to'ldirish skrinshotlarini tasdiqlash.</p>
+
+                    {paymentRequests.length === 0 && (
+                        <div style={{ background: 'var(--card-bg)', padding: '24px', borderRadius: '16px', textAlign: 'center', color: 'var(--text-secondary)' }}>
+                            Yangi to'lov so'rovlari yo'q
+                        </div>
+                    )}
+
+                    {paymentRequests.map(req => (
+                        <div key={req.id} style={{ background: 'var(--card-bg)', borderRadius: '16px', padding: '16px', border: '1px solid var(--card-border)', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <div>
+                                    <div style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: 15 }}>
+                                        {req.User?.firstName} {req.User?.lastName} (@{req.User?.username})
+                                    </div>
+                                    <div style={{ color: 'var(--text-secondary)', fontSize: 12, marginTop: 4 }}>
+                                        Sana: {new Date(req.createdAt).toLocaleString()}
+                                    </div>
+                                </div>
+                                <div style={{ fontSize: 18, fontWeight: 900, color: 'var(--brand-accent2)', fontFamily: "'Fraunces', serif" }}>
+                                    ₩{req.amount?.toLocaleString()}
+                                </div>
+                            </div>
+
+                            <div style={{ borderRadius: '12px', overflow: 'hidden', border: '1px solid var(--card-border)', background: '#000' }}>
+                                <img src={req.imageUrl} alt="Tolov" style={{ width: '100%', maxHeight: 300, objectFit: 'contain' }} />
+                            </div>
+
+                            <div style={{ display: 'flex', gap: '12px', marginTop: 8 }}>
+                                {req.status === 'pending' ? (
+                                    <>
+                                        <button onClick={() => handlePaymentAction(req.id, 'approve')} style={{ flex: 1, padding: '12px', borderRadius: '12px', background: '#27AE60', color: '#fff', border: 'none', fontWeight: 700, cursor: 'pointer' }}>✅ Tasdiqlash</button>
+                                        <button onClick={() => handlePaymentAction(req.id, 'reject')} style={{ flex: 1, padding: '12px', borderRadius: '12px', background: 'rgba(231,76,60,0.1)', color: '#E74C3C', border: 'none', fontWeight: 700, cursor: 'pointer' }}>❌ Rad etish</button>
+                                    </>
+                                ) : (
+                                    <div style={{ flex: 1, textAlign: 'center', padding: '10px', borderRadius: '12px', background: 'var(--bg-secondary)', color: req.status === 'approved' ? '#27AE60' : '#E74C3C', fontWeight: 700, textTransform: 'uppercase', fontSize: 13 }}>
+                                        Status: {req.status}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    ))}
                 </div>
             )}
 

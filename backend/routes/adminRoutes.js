@@ -24,6 +24,10 @@ router.put('/orders/:id', adminController.updateOrderStatus);
 router.get('/users', adminController.getAllUsers);
 router.post('/role', adminController.setRole);
 
+// Payment Requests (Manual Top-ups)
+router.get('/payment-requests', adminController.getPaymentRequests);
+router.put('/payment-requests/:id', adminController.handlePaymentRequest);
+
 // Seed initial products
 router.post('/seed', adminController.seedProducts);
 
@@ -42,6 +46,10 @@ router.get('/ai-inventory', adminController.getAiInventoryAnalysis);
 // System Settings
 router.get('/settings/:key', adminController.getSetting);
 router.post('/settings', adminController.setSetting);
+
+// Ad Banners (Carousel)
+router.post('/ads', upload.single('image'), adminController.addAdBanner);
+router.delete('/ads/:id', adminController.deleteAdBanner);
 
 // Broadcast
 router.post('/broadcast', adminController.broadcast);

@@ -104,10 +104,31 @@ const TrackPage = () => {
 
     if (!activeOrder) {
         return (
-            <div className="animate-slide-up" style={{ padding: 20, textAlign: 'center', paddingTop: 60 }}>
-                <div style={{ fontSize: 64, marginBottom: 16 }}>📦</div>
-                <h3 style={{ color: "var(--text-primary)", fontFamily: "'Fraunces', serif" }}>{t('live_tracking')}</h3>
-                <p style={{ color: "var(--text-secondary)", fontSize: 14 }}>{t('no_orders')}</p>
+            <div className="animate-slide-up" style={{ padding: 20, textAlign: 'center', paddingTop: 60, height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                <div style={{ position: 'relative', width: 200, height: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 24 }}>
+                    {/* Pulsating Radar Rings */}
+                    <div style={{ position: 'absolute', width: '100%', height: '100%', borderRadius: '50%', border: '2px solid rgba(255,107,53,0.1)', animation: 'pulse-ring 2s cubic-bezier(0.215, 0.61, 0.355, 1) infinite' }} />
+                    <div style={{ position: 'absolute', width: '70%', height: '70%', borderRadius: '50%', border: '2px solid rgba(255,107,53,0.3)', animation: 'pulse-ring 2s cubic-bezier(0.215, 0.61, 0.355, 1) infinite 0.5s' }} />
+                    <div style={{ position: 'absolute', width: '40%', height: '40%', borderRadius: '50%', border: '2px solid rgba(255,107,53,0.6)', animation: 'pulse-ring 2s cubic-bezier(0.215, 0.61, 0.355, 1) infinite 1s' }} />
+                    <div style={{ zIndex: 10, background: 'var(--card-bg)', padding: 16, borderRadius: '50%', boxShadow: '0 8px 32px rgba(255,107,53,0.3)' }}>
+                        <div style={{ fontSize: 48 }}>📍</div>
+                    </div>
+                </div>
+
+                <style>
+                    {`
+                        @keyframes pulse-ring {
+                            0% { transform: scale(0.3); opacity: 1; }
+                            80% { transform: scale(1.1); opacity: 0; }
+                            100% { transform: scale(1.1); opacity: 0; }
+                        }
+                    `}
+                </style>
+
+                <h3 style={{ color: "var(--text-primary)", fontFamily: "'Fraunces', serif", fontSize: 24, marginBottom: 8 }}>{t('live_tracking')}</h3>
+                <p style={{ color: "var(--text-secondary)", fontSize: 14, maxWidth: 250, lineHeight: 1.5 }}>
+                    Hozircha faol buyurtmalar yo'q. Atrofingizdagi eng maza taomlarni qidiring!
+                </p>
             </div>
         );
     }

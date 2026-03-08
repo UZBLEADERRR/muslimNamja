@@ -1,5 +1,6 @@
 const User = require('../models/User');
 const Transaction = require('../models/Transaction');
+const PaymentRequest = require('../models/PaymentRequest');
 const SystemSetting = require('../models/SystemSetting');
 const sequelize = require('../config/database');
 const { calculateDistance } = require('../utils/distance');
@@ -21,13 +22,13 @@ const userController = {
                 return res.status(400).json({ error: 'Screenshot is required' });
             }
 
-            // Create a pending transaction
-            const transaction = await Transaction.create({
+            const base64Image = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
+
+            // Create a pending PaymentRequest instead of an instant Transaction
+            const paymentRequest = await PaymentRequest.create({
                 userId,
                 amount: parseFloat(amount),
-                type: 'topup',
-                description: 'Wallet top-up via screenshot',
-                screenshotUrl: 'uploaded',
+                imageUrl: base64Image,
                 status: 'pending'
             });
 
@@ -36,32 +37,24 @@ const userController = {
                 const result = await verifyPaymentScreenshot(req.file.buffer, req.file.mimetype);
                 if (result.isVerified && result.isPayment) {
                     const verifiedAmount = result.amount || parseFloat(amount);
-                    transaction.status = 'approved';
-                    transaction.amount = verifiedAmount;
-                    await transaction.save();
-
-                    // Add to wallet
-                    const user = await User.findByPk(userId);
-                    user.walletBalance = (user.walletBalance || 0) + verifiedAmount;
-                    await user.save();
+                    paymentRequest.amount = verifiedAmount;
+                    await paymentRequest.save();
 
                     return res.status(201).json({
-                        message: `AI tasdiqladi! ₩${verifiedAmount.toLocaleString()} hamyonga qo'shildi.`,
-                        transaction, walletBalance: user.walletBalance
+                        message: `AI tekshirdi va ₩${verifiedAmount.toLocaleString()} deya kiritildi. Admin tez orada tasdiqlaydi.`,
+                        paymentRequest
                     });
                 } else {
-                    transaction.status = 'pending';
-                    await transaction.save();
                     return res.status(201).json({
                         message: 'To\'lov screenshot yuborildi. Admin tekshiradi.',
-                        transaction
+                        paymentRequest
                     });
                 }
             } catch (aiErr) {
                 console.error('AI verification failed:', aiErr);
                 return res.status(201).json({
                     message: 'Screenshot yuborildi. Admin tekshiradi.',
-                    transaction
+                    paymentRequest
                 });
             }
         } catch (error) {

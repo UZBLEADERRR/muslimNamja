@@ -33,6 +33,7 @@ app.use('/api/public', publicRoutes);
 
 // Database connection
 const sequelize = require('./config/database');
+require('./models/PaymentRequest');
 
 sequelize.authenticate()
     .then(() => {

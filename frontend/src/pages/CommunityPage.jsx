@@ -26,6 +26,9 @@ const CommunityPage = () => {
     const [transferAmount, setTransferAmount] = useState('');
     const [transferring, setTransferring] = useState(false);
 
+    // Profile View Modal
+    const [selectedProfile, setSelectedProfile] = useState(null);
+
     const messagesEndRef = useRef(null);
     const fileInputRef = useRef(null);
     const longPressTimer = useRef(null);
@@ -239,59 +242,85 @@ const CommunityPage = () => {
                         return (
                             <div
                                 key={post.id}
-                                onTouchStart={(e) => canModify && handleTouchStart(e, post)}
-                                onTouchEnd={handleTouchEnd}
-                                onMouseDown={(e) => canModify && handleTouchStart(e, post)}
-                                onMouseUp={handleTouchEnd}
-                                onContextMenu={(e) => { e.preventDefault(); if (canModify) setContextMenu({ x: e.clientX, y: e.clientY, msg: post }); }}
                                 style={{
-                                    background: isMe ? "rgba(255,107,53,0.08)" : "var(--card-bg)",
-                                    border: `1px solid ${post.isPinned ? 'var(--brand-accent)' : isMe ? 'rgba(255,107,53,0.2)' : 'var(--card-border)'}`,
-                                    borderRadius: 16,
-                                    padding: 14,
-                                    marginBottom: 10,
-                                    position: 'relative',
-                                    userSelect: 'none'
+                                    display: 'flex',
+                                    flexDirection: isMe ? 'row-reverse' : 'row',
+                                    gap: 8,
+                                    marginBottom: 16,
+                                    alignItems: 'flex-end',
+                                    padding: '0 10px',
+                                    opacity: post.isDeleted ? 0.7 : 1
                                 }}
                             >
-                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6 }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                        <div style={{ width: 30, height: 30, borderRadius: "50%", background: isMe ? "var(--brand-accent)" : "rgba(255,255,255,0.08)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, color: isMe ? '#fff' : 'inherit', overflow: 'hidden', flexShrink: 0 }}>
-                                            {getAvatar(post.sender)}
-                                        </div>
-                                        <div>
-                                            <div style={{ color: "var(--text-primary)", fontWeight: 700, fontSize: 12 }}>{post.sender?.firstName || 'User'}</div>
-                                            <div style={{ color: "var(--text-secondary)", fontSize: 10 }}>
-                                                {new Date(post.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                                {post.editedAt && " (tahrirlangan)"}
-                                                {post.isPinned && " 📌"}
-                                            </div>
-                                        </div>
-                                    </div>
+                                {/* Avatar OUTSIDE the bubble */}
+                                <div
+                                    onClick={() => setSelectedProfile(post.sender)}
+                                    style={{
+                                        width: 36, height: 36, borderRadius: "50%",
+                                        background: isMe ? "var(--brand-accent)" : "rgba(255,107,53,0.1)",
+                                        display: "flex", alignItems: "center", justifyContent: "center",
+                                        fontSize: 16, color: isMe ? '#fff' : 'inherit',
+                                        overflow: 'hidden', flexShrink: 0,
+                                        cursor: 'pointer', border: '2px solid var(--card-bg)'
+                                    }}
+                                >
+                                    {getAvatar(post.sender)}
                                 </div>
 
-                                {/* Reply-to preview */}
-                                {post.replyTo && (
-                                    <div style={{ padding: '6px 10px', marginBottom: 6, borderLeft: '3px solid var(--brand-accent)', background: 'rgba(255,107,53,0.05)', borderRadius: '0 8px 8px 0', fontSize: 11 }}>
-                                        <div style={{ color: 'var(--brand-accent)', fontWeight: 700 }}>{post.replyTo.sender?.firstName}</div>
-                                        <div style={{ color: 'var(--text-secondary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{post.replyTo.text}</div>
+                                <div
+                                    onTouchStart={(e) => canModify && handleTouchStart(e, post)}
+                                    onTouchEnd={handleTouchEnd}
+                                    onMouseDown={(e) => canModify && handleTouchStart(e, post)}
+                                    onMouseUp={handleTouchEnd}
+                                    onContextMenu={(e) => { e.preventDefault(); if (canModify) setContextMenu({ x: e.clientX, y: e.clientY, msg: post }); }}
+                                    onDoubleClick={(e) => { e.preventDefault(); if (canModify) startReply(post); }}
+                                    style={{
+                                        background: isMe ? "var(--brand-accent)" : "var(--card-bg)",
+                                        border: `1px solid ${post.isPinned ? 'var(--brand-accent2)' : 'var(--card-border)'}`,
+                                        borderRadius: isMe ? "18px 18px 4px 18px" : "18px 18px 18px 4px",
+                                        padding: 12,
+                                        maxWidth: '75%',
+                                        position: 'relative',
+                                        userSelect: 'none',
+                                        boxShadow: 'var(--shadow-main)'
+                                    }}
+                                >
+                                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                                        <div style={{ color: isMe ? "rgba(255,255,255,0.9)" : "var(--brand-accent2)", fontWeight: 800, fontSize: 13 }}>
+                                            {post.sender?.firstName || 'User'}
+                                        </div>
                                     </div>
-                                )}
 
-                                {/* Image */}
-                                {post.imageUrl && (
-                                    <div style={{ marginBottom: 8, borderRadius: 12, overflow: 'hidden', border: '1px solid var(--card-border)' }}>
-                                        <img src={post.imageUrl} alt="chat" style={{ width: '100%', maxHeight: 200, objectFit: 'cover', display: 'block' }} />
+                                    {/* Reply-to preview */}
+                                    {post.replyTo && (
+                                        <div style={{ padding: '6px 10px', marginBottom: 8, borderLeft: `3px solid ${isMe ? '#fff' : 'var(--brand-accent)'}`, background: isMe ? 'rgba(0,0,0,0.1)' : 'rgba(255,107,53,0.05)', borderRadius: '0 8px 8px 0', fontSize: 11 }}>
+                                            <div style={{ color: isMe ? '#fff' : 'var(--brand-accent)', fontWeight: 700 }}>{post.replyTo.sender?.firstName}</div>
+                                            <div style={{ color: isMe ? 'rgba(255,255,255,0.8)' : 'var(--text-secondary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{post.replyTo.text}</div>
+                                        </div>
+                                    )}
+
+                                    {/* Image */}
+                                    {post.imageUrl && (
+                                        <div style={{ marginBottom: 8, borderRadius: 12, overflow: 'hidden', border: '1px solid var(--card-border)' }}>
+                                            <img src={post.imageUrl} alt="chat" style={{ width: '100%', maxHeight: 200, objectFit: 'cover', display: 'block' }} />
+                                        </div>
+                                    )}
+
+                                    <p style={{
+                                        color: post.isDeleted ? (isMe ? "rgba(255,255,255,0.7)" : "var(--text-secondary)") : (isMe ? "#fff" : "var(--text-primary)"),
+                                        fontStyle: post.isDeleted ? "italic" : "normal",
+                                        fontSize: 14, lineHeight: 1.5, margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-word'
+                                    }}>
+                                        {post.text}
+                                    </p>
+
+                                    <div style={{ color: isMe ? "rgba(255,255,255,0.7)" : "var(--text-secondary)", fontSize: 10, textAlign: 'right', marginTop: 4 }}>
+                                        {new Date(post.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                        {post.editedAt && " (tahrirlangan)"}
+                                        {post.isPinned && " 📌"}
                                     </div>
-                                )}
 
-                                <p style={{
-                                    color: post.isDeleted ? "var(--text-secondary)" : "var(--text-primary)",
-                                    fontStyle: post.isDeleted ? "italic" : "normal",
-                                    fontSize: 13, lineHeight: 1.5, margin: 0, whiteSpace: 'pre-wrap'
-                                }}>
-                                    {post.text}
-                                </p>
+                                </div>
                             </div>
                         );
                     })
@@ -367,6 +396,41 @@ const CommunityPage = () => {
                                 </button>
                             </div>
                         ))}
+                    </div>
+                </div>
+            )}
+
+            {/* Profile View Modal */}
+            {selectedProfile && (
+                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 1100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }} onClick={() => setSelectedProfile(null)}>
+                    <div onClick={e => e.stopPropagation()} style={{ background: 'var(--card-bg)', width: '100%', maxWidth: 320, borderRadius: 24, padding: 24, textAlign: 'center', position: 'relative', boxShadow: '0 12px 40px rgba(0,0,0,0.3)' }}>
+                        <button onClick={() => setSelectedProfile(null)} style={{ position: 'absolute', top: 16, right: 16, background: 'var(--bg-secondary)', border: 'none', borderRadius: '50%', padding: 8, color: 'var(--text-secondary)', cursor: 'pointer' }}><X size={16} /></button>
+
+                        <div style={{ width: 80, height: 80, borderRadius: '50%', background: 'linear-gradient(135deg, var(--brand-accent), #FF3CAC)', margin: '0 auto 16px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 36, color: '#fff', overflow: 'hidden', border: '4px solid var(--card-bg)', boxShadow: '0 4px 12px rgba(255,107,53,0.3)' }}>
+                            {getAvatar(selectedProfile)}
+                        </div>
+
+                        <h3 style={{ margin: '0 0 4px', fontSize: 20, color: 'var(--text-primary)', fontFamily: "'Fraunces', serif" }}>
+                            {selectedProfile.firstName} {selectedProfile.lastName || ''}
+                        </h3>
+                        <p style={{ margin: '0 0 16px', color: 'var(--brand-accent)', fontWeight: 800, fontSize: 14 }}>
+                            @{selectedProfile.username || selectedProfile.nickname || 'user'}
+                        </p>
+
+                        <div style={{ display: 'flex', gap: 12, justifyContent: 'center', marginBottom: 20 }}>
+                            <div style={{ background: 'var(--bg-secondary)', padding: '8px 16px', borderRadius: 12 }}>
+                                <div style={{ fontSize: 11, color: 'var(--text-secondary)', fontWeight: 700, textTransform: 'uppercase' }}>Rol</div>
+                                <div style={{ fontSize: 14, color: 'var(--text-primary)', fontWeight: 600 }}>{selectedProfile.role === 'admin' ? 'Admin ⭐' : 'A\'zo'}</div>
+                            </div>
+                            <div style={{ background: 'var(--bg-secondary)', padding: '8px 16px', borderRadius: 12 }}>
+                                <div style={{ fontSize: 11, color: 'var(--text-secondary)', fontWeight: 700, textTransform: 'uppercase' }}>Jinsi</div>
+                                <div style={{ fontSize: 14, color: 'var(--text-primary)', fontWeight: 600 }}>{selectedProfile.gender === 'male' ? 'Erkak 👨' : 'Ayol 👩'}</div>
+                            </div>
+                        </div>
+
+                        <button onClick={() => { setTransferTarget(selectedProfile); setSelectedProfile(null); setShowMembers(true); }} style={{ width: '100%', padding: 14, borderRadius: 14, background: 'var(--brand-accent)', color: '#fff', border: 'none', fontWeight: 800, fontSize: 15, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                            <DollarSign size={18} /> Pul O'tkazish
+                        </button>
                     </div>
                 </div>
             )}

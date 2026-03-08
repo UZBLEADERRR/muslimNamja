@@ -63,4 +63,15 @@ router.get('/ad-banner', async (req, res) => {
     }
 });
 
+// Store Open/Close Status (public)
+router.get('/store-status', async (req, res) => {
+    try {
+        const setting = await SystemSetting.findOne({ where: { key: 'isStoreOpen' } });
+        const isOpen = setting ? setting.value === 'true' : true; // Default to true if not set
+        res.json({ isOpen });
+    } catch (err) {
+        res.json({ isOpen: true }); // Fallback
+    }
+});
+
 module.exports = router;

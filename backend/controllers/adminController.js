@@ -2,6 +2,7 @@ const Product = require('../models/Product');
 const User = require('../models/User');
 const Order = require('../models/Order');
 const Expense = require('../models/Expense');
+const PaymentRequest = require('../models/PaymentRequest');
 const SystemSetting = require('../models/SystemSetting');
 const { Op } = require('sequelize');
 const { getBot } = require('../utils/globals');
@@ -147,6 +148,61 @@ const adminController = {
     },
 
     // --- Role Management ---
+    // --- Top-Up Approvals ---
+    async getPaymentRequests(req, res) {
+        try {
+            const requests = await PaymentRequest.findAll({
+                include: [{ model: User, as: 'User', attributes: ['firstName', 'lastName', 'username'] }],
+                order: [['createdAt', 'DESC']]
+            });
+            res.json(requests);
+        } catch (error) {
+            console.error('getPaymentRequests error:', error);
+            res.status(500).json({ error: 'Failed to fetch payment requests' });
+        }
+    },
+
+    async handlePaymentRequest(req, res) {
+        try {
+            const { id } = req.params;
+            const { action } = req.body; // 'approve' or 'reject'
+
+            const request = await PaymentRequest.findByPk(id);
+            if (!request) return res.status(404).json({ error: 'Payment request not found' });
+            if (request.status !== 'pending') return res.status(400).json({ error: 'Request already processed' });
+
+            if (action === 'approve') {
+                request.status = 'approved';
+                const user = await User.findByPk(request.userId);
+                if (user) {
+                    user.walletBalance = (user.walletBalance || 0) + request.amount;
+                    await user.save();
+                }
+            } else if (action === 'reject') {
+                request.status = 'rejected';
+            } else {
+                return res.status(400).json({ error: 'Invalid action' });
+            }
+
+            await request.save();
+
+            // Send telegram notification to user manually
+            const bot = getBot();
+            const user = await User.findByPk(request.userId);
+            if (bot && user && user.telegramId) {
+                const msg = action === 'approve'
+                    ? `💰 <b>To'lov tasdiqlandi!</b>\n\nHamyoningizga ₩${request.amount.toLocaleString()} qabul qilindi.\nHozirgi balansingiz: ₩${user.walletBalance.toLocaleString()}`
+                    : `❌ <b>To'lov rad etildi!</b>\n\nIltimos skrinshotni qayta tekshirib, boshqattan yuboring.`;
+                bot.sendMessage(user.telegramId, msg, { parse_mode: 'HTML' }).catch(() => { });
+            }
+
+            res.json(request);
+        } catch (error) {
+            console.error('handlePaymentRequest error:', error);
+            res.status(500).json({ error: 'Failed to process payment request' });
+        }
+    },
+
     async setRole(req, res) {
         try {
             const { userId, role } = req.body;
@@ -413,6 +469,58 @@ const adminController = {
             res.json(setting);
         } catch (err) {
             res.status(500).json({ error: 'Failed to save setting' });
+        }
+    },
+
+    // --- Ad Banners (Carousel) ---
+    async addAdBanner(req, res) {
+        try {
+            const text = req.body.text || '';
+            let imageUrl = '';
+
+            if (req.file) {
+                imageUrl = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
+            }
+
+            if (!text && !imageUrl) return res.status(400).json({ error: 'Matn yoki rasm yuklang' });
+
+            let setting = await SystemSetting.findOne({ where: { key: 'adBanners' } });
+            let banners = [];
+            if (setting && setting.value) {
+                try { banners = JSON.parse(setting.value); } catch (e) { }
+            }
+
+            const newBanner = { id: Date.now().toString(), text, imageUrl };
+            banners.push(newBanner);
+
+            if (setting) {
+                setting.value = JSON.stringify(banners);
+                await setting.save();
+            } else {
+                await SystemSetting.create({ key: 'adBanners', value: JSON.stringify(banners) });
+            }
+
+            res.json({ message: 'E\'lon qo\'shildi', banners });
+        } catch (error) {
+            console.error('addAdBanner error:', error);
+            res.status(500).json({ error: 'Failed to add ad banner' });
+        }
+    },
+
+    async deleteAdBanner(req, res) {
+        try {
+            const { id } = req.params;
+            let setting = await SystemSetting.findOne({ where: { key: 'adBanners' } });
+            if (!setting) return res.status(404).json({ error: 'Banners not found' });
+
+            let banners = JSON.parse(setting.value || '[]');
+            banners = banners.filter(b => b.id !== id);
+
+            setting.value = JSON.stringify(banners);
+            await setting.save();
+            res.json({ message: 'O\'chirildi', banners });
+        } catch (error) {
+            res.status(500).json({ error: 'Failed to delete banner' });
         }
     },
 
