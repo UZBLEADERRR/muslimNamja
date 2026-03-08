@@ -1,37 +1,46 @@
-const mongoose = require('mongoose');
+const { DataTypes } = require('sequelize');
+const sequelize = require('../config/database');
 
-const productSchema = new mongoose.Schema({
+const Product = sequelize.define('Product', {
+    id: {
+        type: DataTypes.UUID,
+        defaultValue: DataTypes.UUIDV4,
+        primaryKey: true
+    },
     name: {
-        en: { type: String, required: true },
-        ko: { type: String, required: true },
-        uz: { type: String, required: true },
-        ru: { type: String, required: true },
+        type: DataTypes.JSONB, // { en, ko, uz, ru }
+        allowNull: false
     },
     description: {
-        en: { type: String },
-        ko: { type: String },
-        uz: { type: String },
-        ru: { type: String },
+        type: DataTypes.JSONB // { en, ko, uz, ru }
     },
-    price: { type: Number, required: true },
-    category: { type: String, required: true }, // e.g., 'Food', 'Drinks', 'Salads'
-    imageUrl: { type: String },
-    ingredients: [{
-        name: { type: String },
-        cost: { type: Number }
-    }],
-    addons: [{
-        name: {
-            en: { type: String },
-            ko: { type: String },
-            uz: { type: String },
-            ru: { type: String },
-        },
-        price: { type: Number }
-    }],
-    ingredientCost: { type: Number, default: 0 }, // For admin profit calculation
-    isActive: { type: Boolean, default: true },
-    createdAt: { type: Date, default: Date.now }
+    price: {
+        type: DataTypes.INTEGER,
+        allowNull: false
+    },
+    category: {
+        type: DataTypes.STRING,
+        allowNull: false
+    },
+    imageUrl: DataTypes.STRING,
+    ingredients: {
+        type: DataTypes.JSONB, // Array of { name, cost }
+        defaultValue: []
+    },
+    addons: {
+        type: DataTypes.JSONB, // Array of { name, price }
+        defaultValue: []
+    },
+    ingredientCost: {
+        type: DataTypes.INTEGER,
+        defaultValue: 0
+    },
+    isActive: {
+        type: DataTypes.BOOLEAN,
+        defaultValue: true
+    }
+}, {
+    timestamps: true
 });
 
-module.exports = mongoose.model('Product', productSchema);
+module.exports = Product;

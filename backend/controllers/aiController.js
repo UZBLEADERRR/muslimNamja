@@ -1,8 +1,11 @@
 const { verifyPaymentScreenshot } = require('../utils/aiVerifier');
 const Transaction = require('../models/Transaction');
+const User = require('../models/User');
+const sequelize = require('../config/database');
 
 const aiController = {
     async verifyPayment(req, res) {
+        const trans = await sequelize.transaction();
         try {
             if (!req.file) {
                 return res.status(400).json({ error: 'No image provided' });
@@ -22,35 +25,42 @@ const aiController = {
 
             // 2. Evaluate AI Result
             if (aiResult.isPayment && aiResult.isVerified && aiResult.amount > 0) {
-                // Automatically approve if amount matches the expected transaction amount? 
-                // We can just mark as AI verified and let admin double check, or auto-complete it.
                 verificationMessage = `AI verified payment of ${aiResult.amount}.`;
-                transactionStatus = 'completed'; // Auto-approve for seamless flow
+                transactionStatus = 'completed';
             } else {
                 verificationMessage = 'AI could not fully verify the payment via screenshot. Forwarded to Admin.';
-                transactionStatus = 'pending'; // Leave for admin
+                transactionStatus = 'pending';
             }
 
-            // 3. Update Transaction if ID was provided
+            // 3. Update Transaction
             let updatedTransaction = null;
             if (transactionId) {
-                updatedTransaction = await Transaction.findByIdAndUpdate(
-                    transactionId,
+                const [count, transactions] = await Transaction.update(
                     {
                         aiVerified: aiResult.isVerified,
                         status: transactionStatus
                     },
-                    { new: true }
+                    {
+                        where: { id: transactionId },
+                        returning: true,
+                        transaction: trans
+                    }
                 );
+                updatedTransaction = transactions[0];
 
                 // If completed, add to user wallet
                 if (transactionStatus === 'completed' && updatedTransaction && updatedTransaction.type === 'topup') {
-                    const User = require('../models/User');
-                    await User.findByIdAndUpdate(updatedTransaction.user, {
-                        $inc: { walletBalance: updatedTransaction.amount }
-                    });
+                    await User.increment(
+                        { walletBalance: updatedTransaction.amount },
+                        {
+                            where: { id: updatedTransaction.userId },
+                            transaction: trans
+                        }
+                    );
                 }
             }
+
+            await trans.commit();
 
             res.json({
                 message: verificationMessage,
@@ -59,6 +69,7 @@ const aiController = {
             });
 
         } catch (error) {
+            await trans.rollback();
             console.error('AI Controller Error:', error);
             res.status(500).json({ error: 'Failed to process AI verification' });
         }

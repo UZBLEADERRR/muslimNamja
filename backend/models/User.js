@@ -1,22 +1,44 @@
-const mongoose = require('mongoose');
+const { DataTypes } = require('sequelize');
+const sequelize = require('../config/database');
 
-const userSchema = new mongoose.Schema({
-    telegramId: { type: String, required: true, unique: true },
-    firstName: { type: String, required: true },
-    lastName: { type: String },
-    username: { type: String },
-    phone: { type: String },
-    address: { type: String },
-    location: {
-        lat: { type: Number },
-        lng: { type: Number },
+const User = sequelize.define('User', {
+    id: {
+        type: DataTypes.UUID,
+        defaultValue: DataTypes.UUIDV4,
+        primaryKey: true
     },
-    registrationIp: { type: String },
-    lastLoginIp: { type: String },
-    distanceFromRestaurant: { type: Number, default: 0 }, // in km
-    role: { type: String, enum: ['user', 'admin', 'delivery'], default: 'user' },
-    walletBalance: { type: Number, default: 0 },
-    createdAt: { type: Date, default: Date.now }
+    telegramId: {
+        type: DataTypes.STRING,
+        allowNull: false,
+        unique: true
+    },
+    firstName: {
+        type: DataTypes.STRING,
+        allowNull: false
+    },
+    lastName: DataTypes.STRING,
+    username: DataTypes.STRING,
+    phone: DataTypes.STRING,
+    address: DataTypes.STRING,
+    location: {
+        type: DataTypes.JSONB, // Stores { lat, lng }
+    },
+    registrationIp: DataTypes.STRING,
+    lastLoginIp: DataTypes.STRING,
+    distanceFromRestaurant: {
+        type: DataTypes.FLOAT,
+        defaultValue: 0
+    },
+    role: {
+        type: DataTypes.ENUM('user', 'admin', 'delivery'),
+        defaultValue: 'user'
+    },
+    walletBalance: {
+        type: DataTypes.INTEGER,
+        defaultValue: 0
+    }
+}, {
+    timestamps: true
 });
 
-module.exports = mongoose.model('User', userSchema);
+module.exports = User;

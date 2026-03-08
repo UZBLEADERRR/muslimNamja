@@ -1,19 +1,28 @@
-const mongoose = require('mongoose');
+const { DataTypes } = require('sequelize');
+const sequelize = require('../config/database');
 
-const chatMessageSchema = new mongoose.Schema({
-    sender: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-    text: { type: String },
-    isSystem: { type: Boolean, default: false }, // If sent by admin/system as a button offer
-    offerAction: {
-        type: String, // e.g., 'buy_special_menu'
+const ChatMessage = sequelize.define('ChatMessage', {
+    id: {
+        type: DataTypes.UUID,
+        defaultValue: DataTypes.UUIDV4,
+        primaryKey: true
     },
+    senderId: {
+        type: DataTypes.UUID,
+        allowNull: false
+    },
+    text: DataTypes.STRING,
+    isSystem: {
+        type: DataTypes.BOOLEAN,
+        defaultValue: false
+    },
+    offerAction: DataTypes.STRING,
     offerData: {
-        productId: { type: mongoose.Schema.Types.ObjectId, ref: 'Product' },
-        specialPrice: { type: Number },
-        maxUses: { type: Number },
-        currentUses: { type: Number, default: 0 }
-    },
-    createdAt: { type: Date, default: Date.now }
+        type: DataTypes.JSONB, // { productId, specialPrice, maxUses, currentUses }
+        defaultValue: {}
+    }
+}, {
+    timestamps: true
 });
 
-module.exports = mongoose.model('ChatMessage', chatMessageSchema);
+module.exports = ChatMessage;

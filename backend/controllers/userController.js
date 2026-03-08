@@ -13,17 +13,14 @@ const userController = {
             }
 
             // Create a pending transaction
-            // AI verification happens asynchronously (Phase 3)
-            const transaction = new Transaction({
-                user: userId,
+            const transaction = await Transaction.create({
+                userId,
                 amount,
                 type: 'topup',
                 description: 'Wallet top-up via screenshot',
                 screenshotUrl,
-                status: 'pending' // Pending AI / Admin verification
+                status: 'pending'
             });
-
-            await transaction.save();
 
             res.status(201).json({ message: 'Top-up request submitted for verification', transaction });
         } catch (error) {
@@ -38,15 +35,19 @@ const userController = {
             const { phone, address, location } = req.body;
             const userId = req.user.userId;
 
-            // Note: Recalculate distance if location changes (implementation later)
-
-            const updatedUser = await User.findByIdAndUpdate(
-                userId,
-                { $set: { phone, address, location } },
-                { new: true, runValidators: true }
+            const [updatedRowsCount, updatedUsers] = await User.update(
+                { phone, address, location },
+                {
+                    where: { id: userId },
+                    returning: true
+                }
             );
 
-            res.json(updatedUser);
+            if (updatedRowsCount === 0) {
+                return res.status(404).json({ error: 'User not found' });
+            }
+
+            res.json(updatedUsers[0]);
         } catch (error) {
             console.error('Update Profile Error:', error);
             res.status(500).json({ error: 'Internal server error' });

@@ -25,15 +25,15 @@ app.use('/api/ai', aiRoutes);
 app.use('/api/chat', chatRoutes);
 
 // Database connection
-const MONGODB_URI = process.env.MONGODB_URI;
+const sequelize = require('./config/database');
 
-if (MONGODB_URI) {
-    mongoose.connect(MONGODB_URI, { useNewUrlParser: true, useUnifiedTopology: true })
-        .then(() => console.log('MongoDB connected'))
-        .catch(err => console.error('MongoDB connection error:', err));
-} else {
-    console.log('MongoDB URI is not defined. Skipping DB connection.');
-}
+sequelize.authenticate()
+    .then(() => {
+        console.log('PostgreSQL connected');
+        return sequelize.sync({ alter: true }); // Sync models to database
+    })
+    .then(() => console.log('Database synced'))
+    .catch(err => console.error('PostgreSQL connection error:', err));
 
 const path = require('path');
 

@@ -10,7 +10,7 @@ const RESTAURANT_LNG = 127.0731;
 const authController = {
     async telegramLogin(req, res) {
         try {
-            const { initData, location, address, phone } = req.body; // Location from frontend
+            const { initData, location, address, phone } = req.body;
 
             if (!initData) {
                 return res.status(400).json({ error: 'initData is required' });
@@ -18,22 +18,21 @@ const authController = {
 
             const botToken = process.env.TELEGRAM_BOT_TOKEN;
             if (!botToken) {
-                console.error('TELEGRAM_BOT_TOKEN is not set in environment variables');
                 return res.status(500).json({ error: 'Server configuration error' });
             }
 
             // 1. Validate the initData
-            const tgUser = validateTelegramWebAppData(initData, botToken);
+            const tgUser = validateTelegramWebAppData(initData, botToken.trim());
 
             if (!tgUser) {
-                return res.status(401).json({ error: 'Invalid Telegram data. Authentication failed.' });
+                return res.status(401).json({ error: 'Invalid Telegram data.' });
             }
 
-            // 2. Check if user exists
-            let user = await User.findOne({ telegramId: tgUser.id.toString() });
+            // 2. Check if user exists (Sequelize findOne)
+            let user = await User.findOne({ where: { telegramId: tgUser.id.toString() } });
             const userIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
 
-            // 3. If new user, create them (require location)
+            // 3. If new user, create them
             if (!user) {
                 if (!location || !location.lat || !location.lng || !address || !phone) {
                     return res.status(400).json({
@@ -43,10 +42,16 @@ const authController = {
                     });
                 }
 
-                // AI registration safety check placeholder
-                console.log(`AI checking registration for ${tgUser.first_name} from IP ${userIp}`);
+                const distance = calculateDistance(RESTAURANT_LAT, RESTAURANT_LNG, location.lat, location.lng);
 
-                user = new User({
+                if (distance > 3) {
+                    return res.status(403).json({
+                        error: `Delivery only within 3km of Sejong University. You are ${distance.toFixed(1)}km away.`,
+                        distance
+                    });
+                }
+
+                user = await User.create({
                     telegramId: tgUser.id.toString(),
                     firstName: tgUser.first_name,
                     lastName: tgUser.last_name,
@@ -56,10 +61,8 @@ const authController = {
                     registrationIp: userIp,
                     lastLoginIp: userIp,
                     location,
-                    distanceFromRestaurant: calculateDistance(RESTAURANT_LAT, RESTAURANT_LNG, location.lat, location.lng)
+                    distanceFromRestaurant: distance
                 });
-
-                await user.save();
             } else {
                 user.lastLoginIp = userIp;
                 await user.save();
@@ -67,7 +70,7 @@ const authController = {
 
             // 4. Generate JWT
             const token = jwt.sign(
-                { userId: user._id, role: user.role },
+                { userId: user.id, role: user.role },
                 process.env.JWT_SECRET || 'fallback_secret',
                 { expiresIn: '7d' }
             );
@@ -75,7 +78,7 @@ const authController = {
             res.status(200).json({
                 token,
                 user: {
-                    id: user._id,
+                    id: user.id,
                     firstName: user.firstName,
                     lastName: user.lastName,
                     role: user.role,

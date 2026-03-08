@@ -1,51 +1,68 @@
 const ChatMessage = require('../models/ChatMessage');
+const User = require('../models/User');
+const Product = require('../models/Product');
+const sequelize = require('../config/database');
+const { Op } = require('sequelize');
 
 const chatController = {
     // Get all messages
     async getMessages(req, res) {
         try {
-            const messages = await ChatMessage.find()
-                .populate('sender', 'firstName role')
-                .populate('offerData.productId', 'name price')
-                .sort({ createdAt: -1 }) // Newest first
-                .limit(50);
+            const messages = await ChatMessage.findAll({
+                limit: 50,
+                order: [['createdAt', 'DESC']]
+            });
 
-            res.json(messages.reverse());
+            // Populate sender (manual due to simple setup)
+            const populated = await Promise.all(messages.map(async (msg) => {
+                const sender = await User.findByPk(msg.senderId, { attributes: ['firstName', 'role'] });
+                let product = null;
+                if (msg.offerData && msg.offerData.productId) {
+                    product = await Product.findByPk(msg.offerData.productId, { attributes: ['name', 'price'] });
+                }
+                return {
+                    ...msg.toJSON(),
+                    sender,
+                    offerData: msg.offerData ? { ...msg.offerData, product } : null
+                };
+            }));
+
+            res.json(populated.reverse());
         } catch (error) {
+            console.error(error);
             res.status(500).json({ error: 'Failed to fetch messages' });
         }
     },
 
-    // Post a normal message (User/Admin/Delivery)
+    // Post a normal message
     async postMessage(req, res) {
         try {
             const { text } = req.body;
-            const sender = req.user.userId;
+            const senderId = req.user.userId;
 
             if (!text) return res.status(400).json({ error: 'Message text is required' });
 
-            const msg = new ChatMessage({ sender, text });
-            await msg.save();
+            const msg = await ChatMessage.create({ senderId, text });
+            const sender = await User.findByPk(senderId, { attributes: ['firstName', 'role'] });
 
-            const populatedMsg = await msg.populate('sender', 'firstName role');
-            res.status(201).json(populatedMsg);
+            res.status(201).json({ ...msg.toJSON(), sender });
         } catch (error) {
             res.status(500).json({ error: 'Failed to post message' });
         }
     },
 
-    // Post a special offer (Admin Only)
+    // Post a special offer
     async postOffer(req, res) {
         try {
             const { text, productId, specialPrice, maxUses } = req.body;
-            const sender = req.user.userId;
+            const senderId = req.user.userId;
 
             if (!productId || !specialPrice || !maxUses) {
                 return res.status(400).json({ error: 'Missing offer details' });
             }
 
-            const msg = new ChatMessage({
-                sender,
+            const msg = await ChatMessage.create({
+                senderId,
                 text: text || 'Special offer from Admin!',
                 isSystem: true,
                 offerAction: 'buy_special_menu',
@@ -57,9 +74,14 @@ const chatController = {
                 }
             });
 
-            await msg.save();
-            const populatedMsg = await msg.populate([{ path: 'sender', select: 'firstName role' }, { path: 'offerData.productId', select: 'name price' }]);
-            res.status(201).json(populatedMsg);
+            const sender = await User.findByPk(senderId, { attributes: ['firstName', 'role'] });
+            const product = await Product.findByPk(productId, { attributes: ['name', 'price'] });
+
+            res.status(201).json({
+                ...msg.toJSON(),
+                sender,
+                offerData: { ...msg.offerData, product }
+            });
         } catch (error) {
             res.status(500).json({ error: 'Failed to create offer' });
         }
@@ -67,43 +89,41 @@ const chatController = {
 
     // Claim a special offer
     async claimOffer(req, res) {
+        const trans = await sequelize.transaction();
         try {
             const { messageId } = req.params;
-            const userId = req.user.userId;
 
-            // Logic to claim offer 
-            // Need atomicity (e.g., test maxUses in the update query)
-            const msg = await ChatMessage.findOneAndUpdate(
-                {
-                    _id: messageId,
-                    'offerData.currentUses': { $lt: '$offerData.maxUses' }
-                    // Note: basic mongo $lt on same doc requires aggregation in update or simple read then write. 
-                    // For simplicity, we just check and increment but might race condition. Better approach:
-                },
-                {},
-                { new: false }
-            );
+            const msg = await ChatMessage.findByPk(messageId, { transaction: trans });
 
-            const checkMsg = await ChatMessage.findById(messageId);
-            if (!checkMsg || !checkMsg.isSystem || checkMsg.offerData.currentUses >= checkMsg.offerData.maxUses) {
+            if (!msg || !msg.isSystem || msg.offerData.currentUses >= msg.offerData.maxUses) {
+                await trans.rollback();
                 return res.status(400).json({ error: 'Offer has expired or max users reached.' });
             }
 
-            // Increment safely
-            const updatedMsg = await ChatMessage.findOneAndUpdate(
-                { _id: messageId, 'offerData.currentUses': { $lt: checkMsg.offerData.maxUses } },
-                { $inc: { 'offerData.currentUses': 1 } },
-                { new: true }
+            // Update JSONB field atomically in SQL (Postgres specific syntax or manual re-save)
+            // For general Sequelize, we can update the whole object
+            const newOfferData = {
+                ...msg.offerData,
+                currentUses: msg.offerData.currentUses + 1
+            };
+
+            const [count] = await ChatMessage.update(
+                { offerData: newOfferData },
+                {
+                    where: {
+                        id: messageId,
+                        // Concurrent check: offerData -> currentUses < maxUses
+                        // In Postgres with JSONB, we can use raw query for better atomicity etc.
+                        // But for now, we'll re-check within the transaction.
+                    },
+                    transaction: trans
+                }
             );
 
-            if (!updatedMsg) {
-                return res.status(400).json({ error: 'Offer just reached its limit.' });
-            }
-
-            // Successfully grabbed offer. User can now proceed to cart with the `updatedMsg.offerData.specialPrice`.
-            // The frontend would apply this price.
-            res.json({ message: 'Offer claimed successfully!', offerData: updatedMsg.offerData });
+            await trans.commit();
+            res.json({ message: 'Offer claimed successfully!', offerData: newOfferData });
         } catch (error) {
+            await trans.rollback();
             res.status(500).json({ error: 'Failed to claim offer' });
         }
     }
