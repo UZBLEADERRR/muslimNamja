@@ -10,7 +10,7 @@ router.post('/login', authController.telegramLogin);
 router.get('/me', authMiddleware(), async (req, res) => {
     try {
         const User = require('../models/User');
-        const user = await User.findById(req.user.userId);
+        const user = await User.findByPk(req.user.userId);
         if (!user) return res.status(404).json({ error: 'User not found' });
 
         res.json(user);
