@@ -55,7 +55,8 @@ if (process.env.NODE_ENV === 'production' || process.env.RAILWAY_STATIC_URL) {
 }
 
 // Bot Setup
-const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
+const FRONTEND_URL = process.env.FRONTEND_URL
+    || (process.env.RAILWAY_STATIC_URL ? `https://${process.env.RAILWAY_STATIC_URL}` : 'http://localhost:5173');
 const bot = setupBot(process.env.TELEGRAM_BOT_TOKEN, FRONTEND_URL);
 setBot(bot);
 
