@@ -11,6 +11,10 @@ const ChatMessage = sequelize.define('ChatMessage', {
         type: DataTypes.UUID,
         allowNull: false
     },
+    orderId: {
+        type: DataTypes.UUID,
+        allowNull: true // If null, it's a community message
+    },
     text: DataTypes.STRING,
     isSystem: {
         type: DataTypes.BOOLEAN,
@@ -20,7 +24,13 @@ const ChatMessage = sequelize.define('ChatMessage', {
     offerData: {
         type: DataTypes.JSONB, // { productId, specialPrice, maxUses, currentUses }
         defaultValue: {}
-    }
+    },
+    imageUrl: DataTypes.STRING,
+    isDeleted: {
+        type: DataTypes.BOOLEAN,
+        defaultValue: false
+    },
+    editedAt: DataTypes.DATE
 }, {
     timestamps: true
 });

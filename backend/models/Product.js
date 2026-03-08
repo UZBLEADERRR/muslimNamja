@@ -22,7 +22,18 @@ const Product = sequelize.define('Product', {
         type: DataTypes.STRING,
         allowNull: false
     },
-    imageUrl: DataTypes.STRING,
+    imageUrl: {
+        type: DataTypes.TEXT // Changed from STRING to TEXT to support base64 images
+    },
+    stock: {
+        type: DataTypes.INTEGER,
+        allowNull: true, // null means unlimited
+        defaultValue: null
+    },
+    minOrderQuantity: {
+        type: DataTypes.INTEGER,
+        defaultValue: 1
+    },
     ingredients: {
         type: DataTypes.JSONB, // Array of { name, cost }
         defaultValue: []

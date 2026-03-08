@@ -1,5 +1,6 @@
 const User = require('../models/User');
 const Transaction = require('../models/Transaction');
+const SystemSetting = require('../models/SystemSetting');
 const { calculateDistance } = require('../utils/distance');
 const { verifyPaymentScreenshot } = require('../utils/aiVerifier');
 
@@ -102,6 +103,16 @@ const userController = {
         } catch (error) {
             console.error('Update Profile Error:', error);
             res.status(500).json({ error: 'Internal server error' });
+        }
+    },
+
+    // Get Global System Setting (e.g., adminBankCard)
+    async getSetting(req, res) {
+        try {
+            const setting = await SystemSetting.findOne({ where: { key: req.params.key } });
+            res.json(setting ? setting.value : null);
+        } catch (error) {
+            res.status(500).json({ error: 'Failed to fetch setting' });
         }
     }
 };

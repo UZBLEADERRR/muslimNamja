@@ -1,11 +1,13 @@
 import React, { useEffect } from 'react';
-import { Outlet, NavLink } from 'react-router-dom';
+import { Outlet, NavLink, useLocation } from 'react-router-dom';
 import { useTranslation } from '../i18n';
 import { useAppStore } from '../store/useAppStore';
 
 const Layout = () => {
     const { t, lang } = useTranslation();
     const { setLang, setTheme, theme, user, cart } = useAppStore();
+    const location = useLocation();
+    const showTopNav = location.pathname === '/';
 
     // Map theme names for cycle
     const themeCycle = {
@@ -29,23 +31,25 @@ const Layout = () => {
     return (
         <div style={{ maxWidth: 430, margin: "0 auto", minHeight: "100vh", background: "var(--bg-primary)", position: "relative", overflow: "hidden" }}>
 
-            {/* Main Header */}
-            <div style={{ padding: "16px 20px 12px", background: "var(--glass-header)", backdropFilter: "blur(20px)", position: "sticky", top: 0, zIndex: 100, borderBottom: "1px solid var(--card-border)" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <div>
-                        <div style={{ fontFamily: "'Fraunces', serif", color: "var(--brand-accent)", fontWeight: 900, fontSize: 18, letterSpacing: "-0.5px" }}>SEJONG EATS</div>
-                        <div style={{ color: "var(--text-secondary)", fontSize: 11 }}>Muslim Namja Delivery APP</div>
-                    </div>
-                    <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-                        <button onClick={handleThemeToggle} style={{ background: "none", border: "none", fontSize: 20, cursor: "pointer" }}>
-                            {themeIcons[theme] || '🌙'}
-                        </button>
+            {/* Main Header - Only on Home */}
+            {showTopNav && (
+                <div style={{ padding: "16px 20px 12px", background: "var(--glass-header)", backdropFilter: "blur(20px)", position: "sticky", top: 0, zIndex: 100, borderBottom: "1px solid var(--card-border)" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <div>
+                            <div style={{ fontFamily: "'Fraunces', serif", color: "var(--brand-accent)", fontWeight: 900, fontSize: 18, letterSpacing: "-0.5px" }}>SEJONG EATS</div>
+                            <div style={{ color: "var(--text-secondary)", fontSize: 11 }}>Muslim Namja Delivery APP</div>
+                        </div>
+                        <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                            <button onClick={handleThemeToggle} style={{ background: "none", border: "none", fontSize: 20, cursor: "pointer" }}>
+                                {themeIcons[theme] || '🌙'}
+                            </button>
+                        </div>
                     </div>
                 </div>
-            </div>
+            )}
 
             {/* Content Area */}
-            <div className="hide-scrollbar" style={{ paddingBottom: "100px", overflowY: "auto", minHeight: "calc(100vh - 60px)" }}>
+            <div className="hide-scrollbar" style={{ paddingBottom: "100px", overflowY: "auto", height: showTopNav ? "calc(100vh - 60px)" : "100vh" }}>
                 <Outlet />
             </div>
 

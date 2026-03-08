@@ -6,7 +6,7 @@ import api from '../utils/api';
 
 const CartPage = () => {
     const { t } = useTranslation();
-    const { user, cart, removeFromCart, clearCart } = useAppStore();
+    const { user, cart, removeFromCart, clearCart, updateQuantity } = useAppStore();
     const navigate = useNavigate();
 
     const [screenshot, setScreenshot] = useState(null);
@@ -101,12 +101,20 @@ const CartPage = () => {
                     const product = item.product || {};
                     return (
                         <div key={i} style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)', borderRadius: 16, padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 12, boxShadow: 'var(--shadow-main)' }}>
-                            <div style={{ width: 44, height: 44, borderRadius: 12, background: 'rgba(255,107,53,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, flexShrink: 0 }}>
-                                {product.emoji || '🍽️'}
+                            <div style={{ width: 44, height: 44, borderRadius: 12, background: 'rgba(255,107,53,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, flexShrink: 0, overflow: 'hidden' }}>
+                                {product.emoji?.startsWith('data:image')
+                                    ? <img src={product.emoji} alt={product.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                    : (product.emoji || '🍽️')
+                                }
                             </div>
                             <div style={{ flex: 1 }}>
                                 <div style={{ color: 'var(--text-primary)', fontWeight: 700, fontSize: 14 }}>{product.name || 'Item'}</div>
-                                <div style={{ color: 'var(--text-secondary)', fontSize: 12 }}>x{item.quantity} · ₩{((product.price || item.priceAtTime || 0) * (item.quantity || 1)).toLocaleString()}</div>
+                                <div style={{ color: 'var(--text-secondary)', fontSize: 12, marginBottom: 4 }}>₩{((product.price || item.priceAtTime || 0) * (item.quantity || 1)).toLocaleString()}</div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                    <button onClick={() => updateQuantity(i, -1)} style={{ width: 26, height: 26, borderRadius: 8, border: 'none', background: 'var(--bg-secondary)', color: 'var(--text-primary)', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>-</button>
+                                    <span style={{ fontWeight: 800, color: 'var(--text-primary)', width: 20, textAlign: 'center', fontSize: 14 }}>{item.quantity}</span>
+                                    <button onClick={() => updateQuantity(i, 1)} style={{ width: 26, height: 26, borderRadius: 8, border: 'none', background: 'var(--bg-secondary)', color: 'var(--text-primary)', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>+</button>
+                                </div>
                             </div>
                             <button onClick={() => removeFromCart(i)} style={{ background: 'none', border: 'none', color: '#E74C3C', fontSize: 18, cursor: 'pointer', padding: '4px 8px' }}>✕</button>
                         </div>

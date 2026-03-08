@@ -28,6 +28,7 @@ const ProfilePage = () => {
     const [screenshot, setScreenshot] = useState(null);
     const [uploading, setUploading] = useState(false);
     const [topUpMsg, setTopUpMsg] = useState('');
+    const [adminCard, setAdminCard] = useState('');
 
     useEffect(() => {
         if (user) {
@@ -36,6 +37,14 @@ const ProfilePage = () => {
             setLocation(user.location || null);
             api.get('/orders/my')
                 .then(res => setOrderCount(res.data?.length || 0))
+                .catch(() => { });
+
+            api.get('/users/settings/adminBankCard')
+                .then(res => {
+                    let val = res.data;
+                    if (typeof val === 'string' && val.startsWith('"')) val = JSON.parse(val);
+                    setAdminCard(val || '');
+                })
                 .catch(() => { });
         }
     }, [user]);
@@ -160,7 +169,15 @@ const ProfilePage = () => {
 
             {/* Wallet Top-Up */}
             <div style={{ background: `linear-gradient(135deg, rgba(78,205,196,0.08), rgba(78,205,196,0.03))`, borderRadius: 18, padding: 18, marginBottom: 16, border: `1px solid rgba(78,205,196,0.2)` }}>
-                <div style={{ color: "var(--text-primary)", fontWeight: 700, fontSize: 14, marginBottom: 14 }}>💰 {t('wallet_balance')} to'ldirish</div>
+                <div style={{ color: "var(--text-primary)", fontWeight: 700, fontSize: 14, marginBottom: 12 }}>💰 {t('wallet_balance')} to'ldirish</div>
+
+                {adminCard && (
+                    <div style={{ background: 'var(--card-bg)', padding: '12px', borderRadius: '12px', border: '1px solid var(--brand-accent2)', marginBottom: '14px' }}>
+                        <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 4 }}>💳 To'lov uchun karta (Admin):</div>
+                        <div style={{ fontSize: 15, fontWeight: 900, color: 'var(--text-primary)', letterSpacing: 0.5 }}>{adminCard}</div>
+                        <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 4 }}>Ushbu raqamga pul o'tkazib, skrinshotni yuklang.</div>
+                    </div>
+                )}
 
                 <label style={{ color: "var(--text-secondary)", fontSize: 11, fontWeight: 600, display: 'block', marginBottom: 4 }}>Summa (₩)</label>
                 <input type="number" value={topUpAmount} onChange={e => setTopUpAmount(e.target.value)} placeholder="10000" style={inputStyle} />

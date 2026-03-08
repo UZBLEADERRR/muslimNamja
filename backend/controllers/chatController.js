@@ -1,29 +1,28 @@
 const ChatMessage = require('../models/ChatMessage');
 const User = require('../models/User');
-const Product = require('../models/Product');
-const sequelize = require('../config/database');
-const { Op } = require('sequelize');
+
+// Helper to save image locally (for MVP/Railway without S3)
+// We will return base64 for simplicity in this system to avoid file system persistence issues,
+// since Railway ephemeral storage gets wiped on deploy. For a real app, use AWS S3.
+// But we'll try to just store base64 in DB or handle it lightweight.
+// Actually, storing large base64 in Postgres can bloat it. 
+// A better simple approach is a public directory, but Railway wipes it.
+// We'll return a base64 string for now in `imageUrl` but prefix it.
 
 const chatController = {
     // Get all messages
     async getMessages(req, res) {
         try {
             const messages = await ChatMessage.findAll({
-                limit: 50,
+                limit: 100,
                 order: [['createdAt', 'DESC']]
             });
 
-            // Populate sender (manual due to simple setup)
             const populated = await Promise.all(messages.map(async (msg) => {
-                const sender = await User.findByPk(msg.senderId, { attributes: ['firstName', 'role'] });
-                let product = null;
-                if (msg.offerData && msg.offerData.productId) {
-                    product = await Product.findByPk(msg.offerData.productId, { attributes: ['name', 'price'] });
-                }
+                const sender = await User.findByPk(msg.senderId, { attributes: ['id', 'firstName', 'role'] });
                 return {
                     ...msg.toJSON(),
-                    sender,
-                    offerData: msg.offerData ? { ...msg.offerData, product } : null
+                    sender
                 };
             }));
 
@@ -40,10 +39,10 @@ const chatController = {
             const { text } = req.body;
             const senderId = req.user.userId;
 
-            if (!text) return res.status(400).json({ error: 'Message text is required' });
+            if (!text || !text.trim()) return res.status(400).json({ error: 'Message text is required' });
 
-            const msg = await ChatMessage.create({ senderId, text });
-            const sender = await User.findByPk(senderId, { attributes: ['firstName', 'role'] });
+            const msg = await ChatMessage.create({ senderId, text: text.trim() });
+            const sender = await User.findByPk(senderId, { attributes: ['id', 'firstName', 'role'] });
 
             res.status(201).json({ ...msg.toJSON(), sender });
         } catch (error) {
@@ -51,80 +50,83 @@ const chatController = {
         }
     },
 
-    // Post a special offer
-    async postOffer(req, res) {
+    // Post an image message
+    async postImageMessage(req, res) {
         try {
-            const { text, productId, specialPrice, maxUses } = req.body;
             const senderId = req.user.userId;
 
-            if (!productId || !specialPrice || !maxUses) {
-                return res.status(400).json({ error: 'Missing offer details' });
+            if (!req.file) {
+                return res.status(400).json({ error: 'Image is required' });
             }
+
+            // Convert to base64 for MVP storage
+            const base64Image = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
 
             const msg = await ChatMessage.create({
                 senderId,
-                text: text || 'Special offer from Admin!',
-                isSystem: true,
-                offerAction: 'buy_special_menu',
-                offerData: {
-                    productId,
-                    specialPrice,
-                    maxUses,
-                    currentUses: 0
-                }
+                text: req.body.text || '', // Optional caption
+                imageUrl: base64Image
             });
+            const sender = await User.findByPk(senderId, { attributes: ['id', 'firstName', 'role'] });
 
-            const sender = await User.findByPk(senderId, { attributes: ['firstName', 'role'] });
-            const product = await Product.findByPk(productId, { attributes: ['name', 'price'] });
-
-            res.status(201).json({
-                ...msg.toJSON(),
-                sender,
-                offerData: { ...msg.offerData, product }
-            });
+            res.status(201).json({ ...msg.toJSON(), sender });
         } catch (error) {
-            res.status(500).json({ error: 'Failed to create offer' });
+            console.error(error);
+            res.status(500).json({ error: 'Failed to post image message' });
         }
     },
 
-    // Claim a special offer
-    async claimOffer(req, res) {
-        const trans = await sequelize.transaction();
+    // Edit message
+    async editMessage(req, res) {
         try {
-            const { messageId } = req.params;
+            const { id } = req.params;
+            const { text } = req.body;
+            const userId = req.user.userId;
 
-            const msg = await ChatMessage.findByPk(messageId, { transaction: trans });
+            const msg = await ChatMessage.findByPk(id);
+            if (!msg) return res.status(404).json({ error: 'Message not found' });
 
-            if (!msg || !msg.isSystem || msg.offerData.currentUses >= msg.offerData.maxUses) {
-                await trans.rollback();
-                return res.status(400).json({ error: 'Offer has expired or max users reached.' });
+            if (msg.senderId !== userId) {
+                return res.status(403).json({ error: 'Not authorized to edit this message' });
+            }
+            if (msg.isDeleted) {
+                return res.status(400).json({ error: 'Cannot edit deleted message' });
             }
 
-            // Update JSONB field atomically in SQL (Postgres specific syntax or manual re-save)
-            // For general Sequelize, we can update the whole object
-            const newOfferData = {
-                ...msg.offerData,
-                currentUses: msg.offerData.currentUses + 1
-            };
+            msg.text = text.trim();
+            msg.editedAt = new Date();
+            await msg.save();
 
-            const [count] = await ChatMessage.update(
-                { offerData: newOfferData },
-                {
-                    where: {
-                        id: messageId,
-                        // Concurrent check: offerData -> currentUses < maxUses
-                        // In Postgres with JSONB, we can use raw query for better atomicity etc.
-                        // But for now, we'll re-check within the transaction.
-                    },
-                    transaction: trans
-                }
-            );
-
-            await trans.commit();
-            res.json({ message: 'Offer claimed successfully!', offerData: newOfferData });
+            res.json(msg);
         } catch (error) {
-            await trans.rollback();
-            res.status(500).json({ error: 'Failed to claim offer' });
+            res.status(500).json({ error: 'Failed to edit message' });
+        }
+    },
+
+    // Delete message (Soft delete)
+    async deleteMessage(req, res) {
+        try {
+            const { id } = req.params;
+            const userId = req.user.userId;
+
+            const msg = await ChatMessage.findByPk(id);
+            if (!msg) return res.status(404).json({ error: 'Message not found' });
+
+            const user = await User.findByPk(userId);
+
+            // Only sender or admin can delete
+            if (msg.senderId !== userId && user.role !== 'admin') {
+                return res.status(403).json({ error: 'Not authorized to delete this message' });
+            }
+
+            msg.isDeleted = true;
+            msg.text = 'O\'chirilgan xabar';
+            msg.imageUrl = null;
+            await msg.save();
+
+            res.json({ message: 'Message deleted', msg });
+        } catch (error) {
+            res.status(500).json({ error: 'Failed to delete message' });
         }
     }
 };

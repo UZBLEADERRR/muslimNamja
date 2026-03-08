@@ -10,7 +10,7 @@ const RESTAURANT_LNG = 127.0731;
 const authController = {
     async telegramLogin(req, res) {
         try {
-            const { initData, location, address, phone } = req.body;
+            const { initData, location, address, phone, gender } = req.body;
 
             if (!initData) {
                 return res.status(400).json({ error: 'initData is required' });
@@ -59,6 +59,7 @@ const authController = {
                     username: tgUser.username,
                     phone,
                     address,
+                    gender,
                     registrationIp: userIp,
                     lastLoginIp: userIp,
                     location,
@@ -99,6 +100,7 @@ const authController = {
                     phone: user.phone,
                     address: user.address,
                     location: user.location,
+                    gender: user.gender,
                 }
             });
         } catch (error) {

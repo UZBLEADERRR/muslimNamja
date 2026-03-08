@@ -1,6 +1,9 @@
 const Product = require('../models/Product');
 const User = require('../models/User');
 const Order = require('../models/Order');
+const Expense = require('../models/Expense');
+const SystemSetting = require('../models/SystemSetting');
+const { Op } = require('sequelize');
 
 // Default seed data for initial menu
 const SEED_PRODUCTS = [
@@ -18,7 +21,28 @@ const adminController = {
     // --- Product Management ---
     async addProduct(req, res) {
         try {
-            const product = await Product.create(req.body);
+            const { name, description, price, category, stock, minOrderQuantity, ingredientCost } = req.body;
+
+            // Build product payload
+            const payload = {
+                name: typeof name === 'string' ? JSON.parse(name) : name,
+                description: typeof description === 'string' ? JSON.parse(description) : description,
+                price: parseInt(price),
+                category,
+                stock: stock !== undefined && stock !== '' && stock !== 'null' ? parseInt(stock) : null,
+                minOrderQuantity: parseInt(minOrderQuantity) || 1,
+                ingredientCost: parseInt(ingredientCost) || 0
+            };
+
+            // Handle image upload
+            if (req.file) {
+                const base64Image = req.file.buffer.toString('base64');
+                payload.imageUrl = `data:${req.file.mimetype};base64,${base64Image}`;
+            } else if (req.body.imageUrl) {
+                payload.imageUrl = req.body.imageUrl;
+            }
+
+            const product = await Product.create(payload);
             res.status(201).json(product);
         } catch (error) {
             console.error(error);
@@ -28,12 +52,33 @@ const adminController = {
 
     async updateProduct(req, res) {
         try {
-            const product = await Product.update(req.body, {
+            const { name, description, price, category, stock, minOrderQuantity, ingredientCost, isActive } = req.body;
+
+            const payload = {};
+            if (name) payload.name = typeof name === 'string' ? JSON.parse(name) : name;
+            if (description) payload.description = typeof description === 'string' ? JSON.parse(description) : description;
+            if (price) payload.price = parseInt(price);
+            if (category) payload.category = category;
+            if (stock !== undefined) payload.stock = stock === 'null' || stock === '' ? null : parseInt(stock);
+            if (minOrderQuantity) payload.minOrderQuantity = parseInt(minOrderQuantity);
+            if (ingredientCost) payload.ingredientCost = parseInt(ingredientCost);
+            if (isActive !== undefined) payload.isActive = isActive === 'true' || isActive === true;
+
+            if (req.file) {
+                const base64Image = req.file.buffer.toString('base64');
+                payload.imageUrl = `data:${req.file.mimetype};base64,${base64Image}`;
+            } else if (req.body.imageUrl === 'null' || req.body.imageUrl === '') {
+                // Allows clearing the image
+                payload.imageUrl = null;
+            }
+
+            const product = await Product.update(payload, {
                 where: { id: req.params.id },
                 returning: true
             });
             res.json(product[1][0]);
         } catch (error) {
+            console.error(error);
             res.status(500).json({ error: 'Failed to update product' });
         }
     },
@@ -174,31 +219,171 @@ const adminController = {
             const netProfit = totalRevenue - totalIngredientCost - totalDeliveryPay;
 
             // AI Summary
-            let aiSummary = `Jami daromad: ${totalRevenue.toLocaleString()}₩. Xarajatlar: ${(totalIngredientCost + totalDeliveryPay).toLocaleString()}₩. Sof foyda: ${netProfit.toLocaleString()}₩.`;
+            let aiSummary = `Jami daromad: ${totalRevenue.toLocaleString()}₩. Zaruriy Xarajatlar: ${(totalIngredientCost + totalDeliveryPay).toLocaleString()}₩. Qolgan sof foyda (Kanselyariya va qo'shimcha xarajatlarsiz): ${netProfit.toLocaleString()}₩.`;
+
+            // Merge true manual expenses
+            const expenses = await Expense.findAll();
+            const manualExpensesTotal = expenses.reduce((sum, e) => sum + e.amount, 0);
+
+            const finalNetProfit = netProfit - manualExpensesTotal;
+
+            res.json({
+                totalRevenue,
+                totalIngredientCost,
+                totalDeliveryPay,
+                manualExpensesTotal,
+                netProfit: finalNetProfit,
+                aiSummary
+            });
+        } catch (error) {
+            console.error('Profit Analysis error:', error);
+            res.status(500).json({ error: 'Profit analysis failed' });
+        }
+    },
+
+    // --- Expanded Finance & Demographic Stats ---
+    async getFullStats(req, res) {
+        try {
+            const users = await User.findAll({ attributes: ['id', 'walletBalance', 'gender', 'createdAt'] });
+
+            // Wallet Pool
+            const totalWalletPool = users.reduce((sum, u) => sum + (u.walletBalance || 0), 0);
+
+            // Gender Demographics
+            let maleCount = 0;
+            let femaleCount = 0;
+            let unknownCount = 0;
+            users.forEach(u => {
+                if (u.gender === 'male') maleCount++;
+                else if (u.gender === 'female') femaleCount++;
+                else unknownCount++;
+            });
+
+            // Recent manual expenses
+            const recentExpenses = await Expense.findAll({
+                order: [['createdAt', 'DESC']],
+                limit: 20
+            });
+
+            res.json({
+                totalUsers: users.length,
+                totalWalletPool,
+                demographics: { male: maleCount, female: femaleCount, unknown: unknownCount },
+                recentExpenses
+            });
+        } catch (error) {
+            console.error('Stats error:', error);
+            res.status(500).json({ error: 'Failed to fetch full stats' });
+        }
+    },
+
+    async addExpense(req, res) {
+        try {
+            const { description, amount, category } = req.body;
+            if (!description || !amount) return res.status(400).json({ error: 'Description and amount required' });
+
+            const expense = await Expense.create({
+                description,
+                amount,
+                category: category || 'other',
+                date: new Date()
+            });
+
+            res.status(201).json(expense);
+        } catch (error) {
+            console.error(error);
+            res.status(500).json({ error: 'Failed to add expense' });
+        }
+    },
+
+    // --- AI Inventory Output ---
+    async getAiInventoryAnalysis(req, res) {
+        try {
+            const completedOrders = await Order.findAll({ where: { status: 'completed' } });
+
+            // Map products
+            const productUsage = {};
+            completedOrders.forEach(o => {
+                if (o.items) {
+                    o.items.forEach(item => {
+                        if (item.productName) {
+                            productUsage[item.productName] = (productUsage[item.productName] || 0) + (item.quantity || 1);
+                        }
+                    });
+                }
+            });
+
+            let aiInventoryDoc = `Zaxira hisoboti hozircha mavjud emas (AI ulanmadi).`;
 
             try {
                 const { GoogleGenerativeAI } = require('@google/generative-ai');
                 const apiKey = process.env.AI_API_KEY;
-                if (apiKey) {
+                if (apiKey && Object.keys(productUsage).length > 0) {
                     const genAI = new GoogleGenerativeAI(apiKey);
                     const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
-                    const prompt = `You are a business analyst for a food delivery startup called Muslim Namja near Sejong University, Seoul. Analyze these numbers and give a brief 2-3 sentence summary in Uzbek language:
-                    Total Revenue: ${totalRevenue}₩
-                    Ingredient Cost: ${totalIngredientCost}₩  
-                    Delivery Pay: ${totalDeliveryPay}₩
-                    Net Profit: ${netProfit}₩
-                    Total Orders: ${completedOrders.length}`;
+
+                    const prompt = `You are an AI Inventory Manager for 'Muslim Namja' restaurant.
+                    Based on these purchased products and their quantities:
+                    ${JSON.stringify(productUsage, null, 2)}
+                    
+                    Output a JSON object estimating the raw ingredients consumed. 
+                    Structure MUST be:
+                    {
+                      "ingredients": [
+                         {"name": "string (e.g., Rice, Meat, Pasta)", "estimated_amount": "string (e.g. 5kg, 10 liters)"}
+                      ],
+                      "restock_suggestions": ["string"]
+                    }
+                    Respond ONLY with the JSON, no Markdown formatting.`;
+
                     const result = await model.generateContent(prompt);
-                    aiSummary = result.response.text().trim();
+                    const rawResponse = result.response.text().trim();
+                    let cleanJsonStr = rawResponse;
+                    if (cleanJsonStr.startsWith('```json')) {
+                        cleanJsonStr = cleanJsonStr.replace(/^```json\n?/, '').replace(/\n?```$/, '');
+                    }
+                    aiInventoryDoc = JSON.parse(cleanJsonStr);
+                } else if (Object.keys(productUsage).length === 0) {
+                    aiInventoryDoc = { ingredients: [], restock_suggestions: ["Hali buyurtmalar yo'q, xodimlar e'tibor bersin."] };
                 }
             } catch (aiErr) {
-                console.error('AI Summary error (non-critical):', aiErr.message);
+                console.error('AI Inventory error:', aiErr.message);
+                aiInventoryDoc = { error: "AI ulanishida xatolik" };
             }
 
-            res.json({ totalRevenue, totalIngredientCost, totalDeliveryPay, netProfit, aiSummary });
+            res.json({
+                productUsage,
+                aiAnalysis: aiInventoryDoc
+            });
         } catch (error) {
-            console.error('Profit Analysis error:', error);
-            res.status(500).json({ error: 'Profit analysis failed' });
+            console.error(error);
+            res.status(500).json({ error: 'Failed to run AI Inventory Analysis' });
+        }
+    },
+
+    // --- System Settings ---
+    async getSetting(req, res) {
+        try {
+            const setting = await SystemSetting.findOne({ where: { key: req.params.key } });
+            res.json(setting ? setting.value : null);
+        } catch (err) {
+            res.status(500).json({ error: 'Failed to get setting' });
+        }
+    },
+
+    async setSetting(req, res) {
+        try {
+            const { key, value } = req.body;
+            let setting = await SystemSetting.findOne({ where: { key } });
+            if (setting) {
+                setting.value = value;
+                await setting.save();
+            } else {
+                setting = await SystemSetting.create({ key, value });
+            }
+            res.json(setting);
+        } catch (err) {
+            res.status(500).json({ error: 'Failed to save setting' });
         }
     }
 };

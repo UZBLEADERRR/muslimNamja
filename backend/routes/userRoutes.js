@@ -12,5 +12,6 @@ router.use(authMiddleware());
 
 router.post('/topup', upload.single('screenshot'), userController.topUpWallet);
 router.put('/profile', userController.updateProfile);
+router.get('/settings/:key', userController.getSetting);
 
 module.exports = router;

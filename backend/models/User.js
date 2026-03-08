@@ -25,6 +25,10 @@ const User = sequelize.define('User', {
     },
     registrationIp: DataTypes.STRING,
     lastLoginIp: DataTypes.STRING,
+    gender: {
+        type: DataTypes.ENUM('male', 'female'),
+        allowNull: true
+    },
     distanceFromRestaurant: {
         type: DataTypes.FLOAT,
         defaultValue: 0

@@ -11,6 +11,7 @@ const RegisterPage = () => {
     const [phone, setPhone] = useState('');
     const [address, setAddress] = useState('');
     const [location, setLocation] = useState(null);
+    const [gender, setGender] = useState(''); // new gender state
     const [loading, setLoading] = useState(false);
     const [gettingLocation, setGettingLocation] = useState(false);
     const [error, setError] = useState('');
@@ -49,8 +50,8 @@ const RegisterPage = () => {
 
     const handleRegister = async (e) => {
         e.preventDefault();
-        if (!phone || !address || !location) {
-            setError('Iltimos, barcha maydonlarni to\'ldiring va manzilni aniqlang.');
+        if (!phone || !address || !location || !gender) {
+            setError('Iltimos, barcha maydonlarni to\'ldiring, manzilni aniqlang va jinsingizni tanlang.');
             return;
         }
 
@@ -65,7 +66,8 @@ const RegisterPage = () => {
                 initData,
                 phone,
                 address,
-                location
+                location,
+                gender
             });
 
             setUser(response.data.user, response.data.token);
@@ -119,6 +121,36 @@ const RegisterPage = () => {
                             }}
                             required
                         />
+                    </div>
+
+                    {/* Gender Selection */}
+                    <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', marginTop: '4px' }}>
+                        <button
+                            type="button"
+                            onClick={() => setGender('male')}
+                            style={{
+                                flex: 1, padding: '12px', borderRadius: '12px',
+                                border: `1px solid ${gender === 'male' ? 'var(--brand-primary)' : 'var(--border-color)'}`,
+                                background: gender === 'male' ? 'rgba(255, 64, 129, 0.1)' : 'var(--bg-secondary)',
+                                color: gender === 'male' ? 'var(--brand-primary)' : 'var(--text-primary)',
+                                fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s'
+                            }}
+                        >
+                            👨 Erkak
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setGender('female')}
+                            style={{
+                                flex: 1, padding: '12px', borderRadius: '12px',
+                                border: `1px solid ${gender === 'female' ? 'var(--brand-primary)' : 'var(--border-color)'}`,
+                                background: gender === 'female' ? 'rgba(255, 64, 129, 0.1)' : 'var(--bg-secondary)',
+                                color: gender === 'female' ? 'var(--brand-primary)' : 'var(--text-primary)',
+                                fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s'
+                            }}
+                        >
+                            👩 Ayol
+                        </button>
                     </div>
 
                     <button

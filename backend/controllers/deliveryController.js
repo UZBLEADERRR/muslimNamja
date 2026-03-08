@@ -40,6 +40,40 @@ const deliveryController = {
         }
     },
 
+    async getActiveOrder(req, res) {
+        try {
+            const deliveryManId = req.user.userId;
+            const order = await Order.findOne({
+                where: { deliveryManId, status: 'delivering' }
+            });
+
+            if (!order) return res.json(null);
+
+            const user = await User.findByPk(order.userId, { attributes: ['location', 'address', 'phone', 'firstName'] });
+            res.json({ ...order.toJSON(), user });
+        } catch (error) {
+            res.status(500).json({ error: 'Failed to fetch active order' });
+        }
+    },
+
+    async getStats(req, res) {
+        try {
+            const deliveryManId = req.user.userId;
+            const orders = await Order.findAll({
+                where: { deliveryManId, status: 'completed' },
+                attributes: ['distance', 'deliveryManEarning']
+            });
+
+            const totalDeliveries = orders.length;
+            const totalDistance = orders.reduce((sum, o) => sum + (o.distance || 0), 0);
+            const totalEarnings = orders.reduce((sum, o) => sum + (o.deliveryManEarning || 0), 0);
+
+            res.json({ totalDeliveries, totalDistance, totalEarnings });
+        } catch (error) {
+            res.status(500).json({ error: 'Failed to fetch delivery stats' });
+        }
+    },
+
     async acceptOrder(req, res) {
         try {
             const { orderId } = req.params;

@@ -41,11 +41,35 @@ export const useAppStore = create((set) => ({
 
         if (existingIndex >= 0) {
             const newCart = [...state.cart];
-            newCart[existingIndex].quantity += quantity;
+            const newQty = newCart[existingIndex].quantity + quantity;
+            if (product.stock !== null && product.stock !== undefined && newQty > product.stock) {
+                newCart[existingIndex].quantity = product.stock;
+            } else {
+                newCart[existingIndex].quantity = newQty;
+            }
             return { cart: newCart };
         }
 
         return { cart: [...state.cart, { product, quantity, addons, priceAtTime: product.price }] };
+    }),
+    updateQuantity: (index, delta) => set((state) => {
+        const newCart = [...state.cart];
+        const item = newCart[index];
+        const newQty = item.quantity + delta;
+
+        // Max bounds check
+        if (item.product.stock !== null && item.product.stock !== undefined) {
+            if (newQty > item.product.stock) return state;
+        }
+
+        // Min bounds check
+        const minQty = item.product.minOrderQuantity || 1;
+        if (newQty < minQty) {
+            return { cart: state.cart.filter((_, i) => i !== index) };
+        }
+
+        item.quantity = newQty;
+        return { cart: newCart };
     }),
     removeFromCart: (index) => set((state) => ({
         cart: state.cart.filter((_, i) => i !== index)

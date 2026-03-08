@@ -45,9 +45,12 @@ const MenuPage = () => {
             _id: food.id || food._id,
             name,
             price: food.price,
-            emoji: food.imageUrl || '🍽️'
+            emoji: food.imageUrl || '🍽️',
+            stock: food.stock,
+            minOrderQuantity: food.minOrderQuantity || 1
         };
-        addToCart(cartItem, 1, []);
+        const qtyToAdd = food.minOrderQuantity || 1;
+        addToCart(cartItem, qtyToAdd, []);
         setAddedFoodId(food.id || food._id);
         setTimeout(() => setAddedFoodId(null), 900);
     };
@@ -128,16 +131,29 @@ const MenuPage = () => {
                         return (
                             <div key={fid} style={{ background: 'var(--card-bg)', borderRadius: 20, overflow: "hidden", border: `1px solid var(--card-border)`, boxShadow: 'var(--shadow-main)', transition: "transform 0.2s", transform: addedFoodId === fid ? "scale(0.96)" : "scale(1)" }}>
                                 <div style={{ height: 100, background: `linear-gradient(135deg, ${color}33, ${color}66)`, display: "flex", alignItems: "center", justifyContent: "center", position: "relative" }}>
-                                    <span style={{ fontSize: 48 }}>{emoji}</span>
+                                    {emoji?.startsWith('data:image')
+                                        ? <img src={emoji} alt={getName(food)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                        : <span style={{ fontSize: 48 }}>{emoji}</span>
+                                    }
                                 </div>
                                 <div style={{ padding: "12px 12px 14px" }}>
                                     <div style={{ color: "var(--text-primary)", fontWeight: 700, fontSize: 13, marginBottom: 2 }}>{getName(food)}</div>
-                                    <div style={{ color: "var(--text-secondary)", fontSize: 10, marginBottom: 8, lineHeight: 1.4 }}>{getDesc(food).substring(0, 40)}</div>
-                                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                                    <div style={{ color: "var(--text-secondary)", fontSize: 10, marginBottom: 6, lineHeight: 1.4, height: 28, overflow: 'hidden' }}>{getDesc(food)}</div>
+
+                                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 8 }}>
                                         <span style={{ color: "var(--brand-accent)", fontWeight: 800, fontSize: 15, fontFamily: "'Fraunces', serif" }}>₩{food.price?.toLocaleString()}</span>
+                                        <div style={{ color: "var(--text-secondary)", fontSize: 10, textAlign: 'right' }}>
+                                            {food.stock === 0 ? <span style={{ color: '#E74C3C', fontWeight: 800 }}>Tugagan</span> : `Zaxira: ${food.stock === null ? '∞' : food.stock}`}
+                                            {food.minOrderQuantity > 1 && <div style={{ color: 'var(--brand-accent2)' }}>Min {food.minOrderQuantity} ta</div>}
+                                        </div>
                                     </div>
-                                    <button onClick={() => handleAddToCart(food)} style={{ width: "100%", background: addedFoodId === fid ? 'var(--brand-accent2)' : `linear-gradient(135deg, var(--brand-accent), #FF3CAC)`, color: "#fff", border: "none", borderRadius: 10, padding: "9px 0", fontSize: 12, fontWeight: 700, cursor: "pointer", transition: "all 0.3s" }}>
-                                        {addedFoodId === fid ? t('added') : t('add')}
+
+                                    <button
+                                        onClick={() => handleAddToCart(food)}
+                                        disabled={food.stock === 0}
+                                        style={{ width: "100%", background: food.stock === 0 ? '#95a5a6' : addedFoodId === fid ? 'var(--brand-accent2)' : `linear-gradient(135deg, var(--brand-accent), #FF3CAC)`, color: "#fff", border: "none", borderRadius: 10, padding: "9px 0", fontSize: 12, fontWeight: 700, cursor: food.stock === 0 ? "not-allowed" : "pointer", transition: "all 0.3s" }}
+                                    >
+                                        {food.stock === 0 ? 'Sotuvda yoq' : addedFoodId === fid ? t('added') : t('add')}
                                     </button>
                                 </div>
                             </div>
