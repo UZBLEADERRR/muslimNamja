@@ -4,13 +4,15 @@ export const useAppStore = create((set) => ({
     // Authentication & User
     user: null,
     token: localStorage.getItem('token') || null,
+    tempTgUser: null, // Temporary storage for registration
     setUser: (userData, token) => {
         if (token) localStorage.setItem('token', token);
-        set({ user: userData, token });
+        set({ user: userData, token, tempTgUser: null });
     },
+    setTempTgUser: (tgUser) => set({ tempTgUser: tgUser }),
     logout: () => {
         localStorage.removeItem('token');
-        set({ user: null, token: null });
+        set({ user: null, token: null, tempTgUser: null });
     },
 
     // Theming (light, dark, pink)

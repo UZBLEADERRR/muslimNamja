@@ -78,25 +78,25 @@ const MenuPage = () => {
             </div>
 
             {/* Product List */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '16px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '12px' }}>
                 {filteredProducts.map(product => (
-                    <div key={product._id} className="glass" style={{ borderRadius: '16px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-                        <div style={{ height: '140px', width: '100%', overflow: 'hidden' }}>
+                    <div key={product._id} className="glass" style={{ borderRadius: '12px', overflow: 'hidden', display: 'flex', flexDirection: 'column', fontSize: '12px' }}>
+                        <div style={{ height: '110px', width: '100%', overflow: 'hidden' }}>
                             <img src={product.imageUrl} alt={product.name[lang]} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                         </div>
-                        <div style={{ padding: '12px', display: 'flex', flexDirection: 'column', flex: 1 }}>
-                            <h3 style={{ fontSize: '14px', marginBottom: '4px', flex: 1, color: 'var(--text-primary)' }}>{product.name[lang] || product.name.en}</h3>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '8px' }}>
-                                <span style={{ fontWeight: 700, color: 'var(--brand-primary)' }}>{product.price.toLocaleString()} ₩</span>
+                        <div style={{ padding: '8px', display: 'flex', flexDirection: 'column', flex: 1 }}>
+                            <h3 style={{ fontSize: '13px', marginBottom: '4px', flex: 1, color: 'var(--text-primary)', fontWeight: 500, lineHeight: '1.2' }}>{product.name[lang] || product.name.en}</h3>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '6px' }}>
+                                <span style={{ fontWeight: 700, color: 'var(--brand-primary)', fontSize: '14px' }}>{product.price.toLocaleString()} ₩</span>
                                 <button
                                     onClick={() => addToCart(product)}
                                     style={{
-                                        background: 'var(--bg-primary)', border: 'none', borderRadius: '50%',
-                                        width: '32px', height: '32px', display: 'flex', alignItems: 'center',
-                                        justifyContent: 'center', boxShadow: 'var(--shadow-sm)', color: 'var(--brand-primary)'
+                                        background: 'rgba(255, 64, 129, 0.1)', border: 'none', borderRadius: '8px',
+                                        width: '28px', height: '28px', display: 'flex', alignItems: 'center',
+                                        justifyContent: 'center', color: 'var(--brand-primary)'
                                     }}
                                 >
-                                    <Plus size={18} />
+                                    <Plus size={16} />
                                 </button>
                             </div>
                         </div>

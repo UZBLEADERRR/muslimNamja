@@ -11,9 +11,10 @@ import CartPage from './pages/CartPage';
 import ProfilePage from './pages/ProfilePage';
 import DeliveryPage from './pages/DeliveryPage';
 import AdminPage from './pages/AdminPage';
+import RegisterPage from './pages/RegisterPage';
 
 function App() {
-  const { setUser, user, setLocationBlocked } = useAppStore();
+  const { setUser, user, setLocationBlocked, setTempTgUser } = useAppStore();
 
   useEffect(() => {
     // Check Telegram WebApp Init
@@ -24,20 +25,21 @@ function App() {
 
       const initData = tg.initData;
 
-      // Request location implicitly or just auth if available
-      // For this skeleton, we'll try to auth without location first.
-      // Real app: prompt for location if 400 requiresRegistration
       if (initData && !user) {
         api.post('/auth/login', { initData })
-          .then(res => setUser(res.data.user, res.data.token))
-          .catch(err => {
-            if (err.response?.data?.distance) {
-              setLocationBlocked(true);
+          .then(res => {
+            if (res.data.requiresRegistration) {
+              setTempTgUser(res.data.tgUser);
+            } else {
+              setUser(res.data.user, res.data.token);
             }
+          })
+          .catch(err => {
+            console.error('Auth error:', err);
           });
       }
     }
-  }, [setUser, user, setLocationBlocked]);
+  }, [setUser, user, setTempTgUser]);
 
   return (
     <Router>
@@ -47,6 +49,7 @@ function App() {
           <Route path="community" element={<CommunityPage />} />
           <Route path="cart" element={<CartPage />} />
           <Route path="profile" element={<ProfilePage />} />
+          <Route path="register" element={<RegisterPage />} />
 
           {/* Protected Routes */}
           <Route path="delivery" element={

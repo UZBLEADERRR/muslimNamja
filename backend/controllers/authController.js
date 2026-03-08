@@ -32,24 +32,28 @@ const authController = {
             let user = await User.findOne({ where: { telegramId: tgUser.id.toString() } });
             const userIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
 
-            // 3. If new user, create them
+            const adminChatId = process.env.ADMIN_CHAT_ID;
+            const isAdmin = adminChatId && adminChatId.toString() === tgUser.id.toString();
+
+            // 3. If new user, create them or signal registration needed
             if (!user) {
-                if (!location || !location.lat || !location.lng || !address || !phone) {
-                    return res.status(400).json({
-                        error: 'Registration requires location, address, and phone number',
+                if (!phone || !address || !location) {
+                    return res.status(200).json({
                         requiresRegistration: true,
-                        tgUser
+                        tgUser: {
+                            id: tgUser.id,
+                            first_name: tgUser.first_name,
+                            last_name: tgUser.last_name,
+                            username: tgUser.username
+                        }
                     });
                 }
 
+                // Calculate distance for new registration
                 const distance = calculateDistance(RESTAURANT_LAT, RESTAURANT_LNG, location.lat, location.lng);
 
-                if (distance > 3) {
-                    return res.status(403).json({
-                        error: `Delivery only within 3km of Sejong University. You are ${distance.toFixed(1)}km away.`,
-                        distance
-                    });
-                }
+                // Optional: enforce distance limit
+                // if (distance > 3) { ... }
 
                 user = await User.create({
                     telegramId: tgUser.id.toString(),
@@ -61,9 +65,14 @@ const authController = {
                     registrationIp: userIp,
                     lastLoginIp: userIp,
                     location,
-                    distanceFromRestaurant: distance
+                    distanceFromRestaurant: distance,
+                    role: isAdmin ? 'admin' : 'user'
                 });
             } else {
+                // Auto-promote if they are admin but role is 'user'
+                if (isAdmin && user.role !== 'admin') {
+                    user.role = 'admin';
+                }
                 user.lastLoginIp = userIp;
                 await user.save();
             }
