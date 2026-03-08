@@ -28,7 +28,7 @@ const authController = {
                 return res.status(401).json({ error: 'Invalid Telegram data.' });
             }
 
-            // 2. Check if user exists (Sequelize findOne)
+            // 2. Check if user exists
             let user = await User.findOne({ where: { telegramId: tgUser.id.toString() } });
             const userIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
 
@@ -49,11 +49,7 @@ const authController = {
                     });
                 }
 
-                // Calculate distance for new registration
                 const distance = calculateDistance(RESTAURANT_LAT, RESTAURANT_LNG, location.lat, location.lng);
-
-                // Optional: enforce distance limit
-                // if (distance > 3) { ... }
 
                 user = await User.create({
                     telegramId: tgUser.id.toString(),
@@ -69,10 +65,14 @@ const authController = {
                     role: isAdmin ? 'admin' : 'user'
                 });
             } else {
-                // Auto-promote if they are admin but role is 'user'
+                // Auto-promote if they are admin
                 if (isAdmin && user.role !== 'admin') {
                     user.role = 'admin';
                 }
+                // Update name in case user changed it in Telegram
+                user.firstName = tgUser.first_name || user.firstName;
+                user.lastName = tgUser.last_name || user.lastName;
+                user.username = tgUser.username || user.username;
                 user.lastLoginIp = userIp;
                 await user.save();
             }
@@ -84,15 +84,20 @@ const authController = {
                 { expiresIn: '7d' }
             );
 
+            // 5. Return FULL user data — frontend needs everything
             res.status(200).json({
                 token,
                 user: {
                     id: user.id,
                     firstName: user.firstName,
                     lastName: user.lastName,
+                    username: user.username,
                     role: user.role,
                     walletBalance: user.walletBalance,
-                    distanceFromRestaurant: user.distanceFromRestaurant
+                    distanceFromRestaurant: user.distanceFromRestaurant,
+                    phone: user.phone,
+                    address: user.address,
+                    location: user.location,
                 }
             });
         } catch (error) {

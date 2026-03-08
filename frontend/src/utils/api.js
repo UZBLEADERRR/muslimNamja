@@ -1,8 +1,10 @@
 import axios from 'axios';
 import { useAppStore } from '../store/useAppStore';
 
+// In production (Railway), frontend and backend are served from same origin
+// so we use relative /api path. In dev, use VITE_API_URL or localhost.
 const api = axios.create({
-    baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5000/api',
+    baseURL: import.meta.env.VITE_API_URL || '/api',
 });
 
 // Interceptor to attach token
@@ -14,14 +16,11 @@ api.interceptors.request.use((config) => {
     return config;
 });
 
-// Interceptor to handle errors, maybe logout on 401
+// Interceptor to handle errors
+// DO NOT auto-logout on 401 — let the Authenticator handle it
 api.interceptors.response.use(
     (response) => response,
     (error) => {
-        if (error.response && error.response.status === 401) {
-            // Token probably expired
-            useAppStore.getState().logout();
-        }
         return Promise.reject(error);
     }
 );
