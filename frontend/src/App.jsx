@@ -9,6 +9,7 @@ import MenuPage from './pages/MenuPage';
 import CommunityPage from './pages/CommunityPage';
 import CartPage from './pages/CartPage';
 import ProfilePage from './pages/ProfilePage';
+import TrackPage from './pages/TrackPage';
 import DeliveryPage from './pages/DeliveryPage';
 import AdminPage from './pages/AdminPage';
 import RegisterPage from './pages/RegisterPage';
@@ -61,6 +62,7 @@ function App() {
           <Route path="community" element={<CommunityPage />} />
           <Route path="cart" element={<CartPage />} />
           <Route path="profile" element={<ProfilePage />} />
+          <Route path="track" element={<TrackPage />} />
           <Route path="register" element={<RegisterPage />} />
 
           {/* Protected Routes */}

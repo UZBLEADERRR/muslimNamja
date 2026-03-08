@@ -1,173 +1,88 @@
 import React, { useState } from 'react';
 import { useTranslation } from '../i18n';
 import { useAppStore } from '../store/useAppStore';
-import { CreditCard, History, User as UserIcon, LogOut } from 'lucide-react';
-import api from '../utils/api';
+
+const LANG_LIST = [
+    { code: "en", name: "English", flag: "🇬🇧" },
+    { code: "ko", name: "한국어", flag: "🇰🇷" },
+    { code: "uz", name: "O'zbek", flag: "🇺🇿" },
+    { code: "ru", name: "Русский", flag: "🇷🇺" },
+];
 
 const ProfilePage = () => {
-    const { t } = useTranslation();
-    const { user, logout } = useAppStore();
-
-    const [screenshot, setScreenshot] = useState(null);
-    const [topUpAmount, setTopUpAmount] = useState('');
-    const [isProcessing, setIsProcessing] = useState(false);
-
-    const handleScreenshotChange = (e) => {
-        if (e.target.files && e.target.files[0]) {
-            setScreenshot(e.target.files[0]);
-        }
-    };
-
-    const handleTopUp = async () => {
-        if (!screenshot || !topUpAmount) return alert('Enter amount and upload screenshot');
-
-        setIsProcessing(true);
-        try {
-            // Create FormData to send file to AI verifier backend
-            // const formData = new FormData();
-            // formData.append('screenshot', screenshot);
-            // formData.append('amount', topUpAmount);
-            // await api.post('/ai/verify-payment', formData);
-
-            await new Promise(r => setTimeout(r, 1500));
-            alert('Top-up requested! AI is verifying the screenshot.');
-            setTopUpAmount('');
-            setScreenshot(null);
-        } catch (e) {
-            console.error(e);
-            alert('Failed to top up');
-        } finally {
-            setIsProcessing(false);
-        }
-    };
+    const { t, lang } = useTranslation();
+    const { user, logout, setLang } = useAppStore();
 
     if (!user) {
         return (
-            <div className="glass animate-slide-up" style={{ padding: '40px 24px', borderRadius: '32px', textAlign: 'center', marginTop: '40px' }}>
-                <div style={{ width: '80px', height: '80px', borderRadius: '50%', background: 'rgba(59, 130, 246, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px', color: 'var(--brand-primary)' }}>
-                    <UserIcon size={40} />
-                </div>
-                <h3 style={{ marginBottom: '12px', fontSize: '20px' }}>Profilingiz tayyor emas</h3>
-                <p style={{ color: 'var(--text-secondary)', marginBottom: '24px', fontSize: '14px', lineHeight: 1.5 }}>
-                    Profil ma'lumotlarini yuklash uchun iltimos, Telegram orqali qaytadan kiring yoki botda ro'yxatdan o'ting.
-                </p>
-                <button onClick={() => window.location.reload()} className="btn-gold" style={{ width: '100%' }}>
-                    Qayta yuklash
-                </button>
+            <div className="animate-slide-up" style={{ padding: 40, textAlign: "center" }}>
+                <div style={{ fontSize: 64, marginBottom: 16 }}>👤</div>
+                <h3 style={{ color: "var(--text-primary)", marginBottom: 12 }}>Profile Not Ready</h3>
+                <p style={{ color: "var(--text-secondary)", marginBottom: 24, fontSize: 14 }}>Please login via Telegram to view your profile.</p>
+                <button onClick={() => window.location.reload()} style={{ background: "var(--brand-accent)", color: "#fff", padding: "12px 24px", borderRadius: 12, border: "none", fontWeight: 700, cursor: "pointer" }}>Reload</button>
             </div>
         );
     }
 
     return (
-        <div className="animate-slide-up" style={{ paddingBottom: '40px' }}>
-            {/* Luxury Profile Header */}
-            <div className="glass" style={{
-                padding: '32px 24px', borderRadius: '32px', display: 'flex', flexDirection: 'column',
-                alignItems: 'center', gap: '16px', marginBottom: '32px', textAlign: 'center',
-                background: 'linear-gradient(180deg, rgba(6, 78, 59, 0.4) 0%, rgba(2, 44, 34, 0.1) 100%)'
-            }}>
-                <div style={{
-                    width: '100px', height: '100px', borderRadius: '32px',
-                    background: 'linear-gradient(135deg, var(--brand-primary), #065f46)',
-                    color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    boxShadow: '0 15px 35px rgba(16, 185, 129, 0.3)', marginBottom: '8px'
-                }}>
-                    <UserIcon size={48} />
-                </div>
-                <div style={{ flex: 1 }}>
-                    <h2 style={{ fontSize: '26px', margin: '0 0 4px 0', fontWeight: 800 }}>{user.firstName} {user.lastName || ''}</h2>
-                    <p style={{ margin: 0, color: 'var(--brand-primary)', fontWeight: 700 }}>@{user.username || 'premium_user'}</p>
-                </div>
-                <button
-                    onClick={logout}
-                    className="glass"
-                    style={{
-                        marginTop: '8px', padding: '10px 20px', borderRadius: '16px',
-                        display: 'flex', alignItems: 'center', gap: '8px',
-                        color: 'var(--danger-color)', fontSize: '14px', fontWeight: 700, border: 'none'
-                    }}
-                >
-                    <LogOut size={18} /> {t('logout') || 'Chiqish'}
-                </button>
-            </div>
-
-            {/* Premium Wallet Card */}
-            <div className="glass" style={{
-                padding: '32px', borderRadius: '32px', marginBottom: '32px',
-                background: 'linear-gradient(135deg, #064e3b 0%, #022c22 100%)',
-                border: '1px solid rgba(255, 255, 255, 0.1)',
-                boxShadow: '0 20px 40px rgba(0, 0, 0, 0.4)',
-                position: 'relative', overflow: 'hidden'
-            }}>
-                {/* Decorative circles */}
-                <div style={{ position: 'absolute', top: '-20px', right: '-20px', width: '100px', height: '100px', borderRadius: '50%', background: 'var(--brand-primary)', opacity: 0.1, filter: 'blur(30px)' }}></div>
-
-                <div style={{ position: 'relative', zIndex: 1 }}>
-                    <p style={{ margin: '0 0 12px 0', color: 'var(--text-muted)', fontSize: '14px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Hamyon Balansi</p>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
-                        <h1 style={{ margin: 0, fontSize: '42px', color: 'white', fontWeight: 900 }}>{user.walletBalance?.toLocaleString() || 0} <span style={{ fontSize: '24px', color: 'var(--brand-gold)' }}>₩</span></h1>
-                        <div className="glass" style={{ padding: '8px 12px', borderRadius: '12px', fontSize: '12px', fontWeight: 800, color: 'var(--brand-primary)' }}>VIP</div>
-                    </div>
+        <div className="animate-slide-up" style={{ padding: 20 }}>
+            {/* Profile Hero */}
+            <div style={{ background: `linear-gradient(135deg, rgba(255,107,53,0.1), rgba(255,60,172,0.1))`, borderRadius: 24, padding: 24, marginBottom: 20, textAlign: "center", border: `1px solid rgba(255,107,53,0.2)` }}>
+                <div style={{ width: 72, height: 72, borderRadius: "50%", background: `linear-gradient(135deg, var(--brand-accent), #FF3CAC)`, margin: "0 auto 12px", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 36, boxShadow: "var(--shadow-main)" }}>👤</div>
+                <div style={{ color: "var(--text-primary)", fontFamily: "'Fraunces', serif", fontWeight: 900, fontSize: 20 }}>{user.firstName} {user.lastName || ''}</div>
+                <div style={{ color: "var(--text-secondary)", fontSize: 12, marginBottom: 12 }}>@{user.username || 'sejong_student'}</div>
+                <div style={{ display: "flex", gap: 16, justifyContent: "center" }}>
+                    <div style={{ textAlign: "center" }}><div style={{ color: "var(--brand-accent)", fontWeight: 900, fontSize: 18, fontFamily: "'Fraunces', serif" }}>{user.walletBalance?.toLocaleString() || 0}</div><div style={{ color: "var(--text-secondary)", fontSize: 11 }}>Wallet (₩)</div></div>
+                    <div style={{ textAlign: "center" }}><div style={{ color: "var(--brand-accent)", fontWeight: 900, fontSize: 18, fontFamily: "'Fraunces', serif" }}>0</div><div style={{ color: "var(--text-secondary)", fontSize: 11 }}>Orders</div></div>
                 </div>
             </div>
 
-            {/* Top Up Wallet feature */}
-            <h3 style={{ marginBottom: '20px', fontSize: '20px', color: 'var(--text-primary)' }}>Pul tushirish</h3>
-            <div className="glass" style={{ padding: '24px', borderRadius: '32px', display: 'flex', flexDirection: 'column', gap: '20px', marginBottom: '32px' }}>
-                <div style={{ position: 'relative' }}>
-                    <input
-                        type="number"
-                        value={topUpAmount}
-                        onChange={(e) => setTopUpAmount(e.target.value)}
-                        placeholder="Summani kiriting (₩)"
-                        style={{
-                            width: '100%', padding: '18px 20px', borderRadius: '20px',
-                            border: '1px solid var(--glass-border)', background: 'var(--glass-bg)',
-                            color: 'var(--text-primary)', fontSize: '16px', outline: 'none'
-                        }}
-                    />
+            {/* Delivery Zone */}
+            <div style={{ background: "var(--card-bg)", borderRadius: 16, padding: 16, marginBottom: 14, border: `1px solid var(--card-border)`, boxShadow: "var(--shadow-main)" }}>
+                <div style={{ color: "var(--text-primary)", fontWeight: 700, fontSize: 14, marginBottom: 10 }}>📍 Delivery Zone Status</div>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <div style={{ width: 10, height: 10, borderRadius: "50%", background: "#27AE60" }} />
+                    <span style={{ color: "var(--text-primary)", fontSize: 13 }}>{user.address || 'Sejong Campus'} · {(user.distanceFromRestaurant || 0.4).toFixed(1)}km</span>
+                    <span style={{ marginLeft: "auto", color: "#27AE60", fontSize: 12, fontWeight: 700 }}>FREE zone ✓</span>
                 </div>
-
-                <label style={{
-                    display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '12px',
-                    padding: '32px', border: '2px dashed var(--glass-border)', borderRadius: '24px',
-                    color: 'var(--brand-primary)', cursor: 'pointer', background: 'rgba(255, 255, 255, 0.02)',
-                    transition: 'all 0.3s ease'
-                }}>
-                    <CreditCard size={40} />
-                    <span style={{ fontSize: '15px', fontWeight: 700, textAlign: 'center' }}>
-                        {screenshot ? screenshot.name : 'To\'lov rasmini yuklang\n(AI tekshiruv)'}
-                    </span>
-                    <input type="file" accept="image/*" onChange={handleScreenshotChange} style={{ display: 'none' }} />
-                </label>
-
-                <button
-                    onClick={handleTopUp}
-                    disabled={isProcessing}
-                    className="btn-gold"
-                    style={{ width: '100%', fontSize: '17px' }}
-                >
-                    {isProcessing ? 'AI tekshirmoqda...' : 'Tasdiqlash'}
-                </button>
             </div>
 
-            {/* Premium Settings/History Rows */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                <RowItem icon={<History size={22} />} label="Buyurtmalar tarixi" />
-                <RowItem icon={<CreditCard size={22} />} label="To'lov usullari" />
+            {/* Language Selector */}
+            <div style={{ background: "var(--card-bg)", borderRadius: 16, padding: 16, marginBottom: 14, border: `1px solid var(--card-border)`, boxShadow: "var(--shadow-main)" }}>
+                <div style={{ color: "var(--text-primary)", fontWeight: 700, fontSize: 14, marginBottom: 12 }}>🌐 Language</div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                    {LANG_LIST.map(l => (
+                        <button
+                            key={l.code}
+                            onClick={() => setLang(l.code)}
+                            style={{
+                                padding: "7px 12px", borderRadius: 20,
+                                border: `1.5px solid ${lang === l.code ? 'var(--brand-accent)' : 'var(--card-border)'}`,
+                                background: lang === l.code ? `rgba(255,107,53,0.1)` : "transparent",
+                                color: lang === l.code ? 'var(--brand-accent)' : 'var(--text-secondary)',
+                                fontSize: 12, fontWeight: 600, cursor: "pointer", transition: "all 0.2s"
+                            }}>
+                            {l.flag} {l.name}
+                        </button>
+                    ))}
+                </div>
             </div>
+
+            {/* Referral */}
+            <div style={{ background: `linear-gradient(135deg, rgba(78,205,196,0.1), rgba(78,205,196,0.05))`, border: `1px solid rgba(78,205,196,0.2)`, borderRadius: 16, padding: 16, marginBottom: 14 }}>
+                <div style={{ color: "var(--text-primary)", fontWeight: 700, fontSize: 14, marginBottom: 4 }}>🎁 Referral Code</div>
+                <div style={{ color: "var(--text-secondary)", fontSize: 12, marginBottom: 12 }}>Invite friends → earn ₩2,000 each</div>
+                <div style={{ background: "rgba(0,0,0,0.1)", borderRadius: 10, padding: "10px 14px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <span style={{ color: "var(--text-primary)", fontWeight: 800, fontSize: 16, letterSpacing: 2 }}>{user.username ? user.username.toUpperCase() + '25' : 'SEJONG25'}</span>
+                    <button style={{ background: "var(--brand-accent2)", color: "#fff", border: "none", borderRadius: 8, padding: "6px 14px", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>Copy 📋</button>
+                </div>
+            </div>
+
+            <button onClick={logout} style={{ width: "100%", background: "transparent", border: `1.5px solid var(--card-border)`, color: "#e74c3c", borderRadius: 14, padding: "14px 0", fontSize: 14, fontWeight: 700, cursor: "pointer", marginTop: 10 }}>
+                Logout
+            </button>
         </div>
     );
 };
-
-const RowItem = ({ icon, label }) => (
-    <div className="glass" style={{ padding: '20px 24px', borderRadius: '24px', display: 'flex', alignItems: 'center', gap: '20px', cursor: 'pointer' }}>
-        <div style={{ width: '44px', height: '44px', borderRadius: '14px', background: 'rgba(255,255,255,0.05)', color: 'var(--brand-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            {icon}
-        </div>
-        <span style={{ fontWeight: 700, flex: 1, fontSize: '16px', color: 'var(--text-primary)' }}>{label}</span>
-        <span style={{ color: 'var(--text-muted)', fontSize: '20px', fontWeight: 300 }}>›</span>
-    </div>
-);
 
 export default ProfilePage;

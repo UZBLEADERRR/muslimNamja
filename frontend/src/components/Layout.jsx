@@ -1,6 +1,5 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Outlet, NavLink } from 'react-router-dom';
-import { Home, MessageSquare, ShoppingCart, User as UserIcon, Truck, Shield } from 'lucide-react';
 import { useTranslation } from '../i18n';
 import { useAppStore } from '../store/useAppStore';
 
@@ -8,87 +7,83 @@ const Layout = () => {
     const { t, lang } = useTranslation();
     const { setLang, setTheme, theme, user, cart } = useAppStore();
 
-    const handleLangChange = (e) => setLang(e.target.value);
-    // const handleThemeChange = (e) => setTheme(e.target.value); // This line is commented out or removed in the new code
+    // Map theme names for cycle
+    const themeCycle = {
+        'light': 'dark',
+        'dark': 'pink',
+        'pink': 'light'
+    };
 
-    const cartItemsCount = cart.reduce((acc, item) => acc + item.quantity, 0);
+    const themeIcons = {
+        'light': '☀️',
+        'dark': '🌙',
+        'pink': '🌸'
+    };
+
+    const handleThemeToggle = () => {
+        setTheme(themeCycle[theme] || 'dark');
+    };
+
+    const cartCount = cart.reduce((acc, item) => acc + item.quantity, 0);
 
     return (
-        <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', background: 'var(--bg-primary)', position: 'relative' }}>
-            {/* Premium Header */}
-            <header className="glass" style={{
-                padding: '18px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                position: 'sticky', top: 0, zIndex: 100, borderBottom: '1px solid var(--glass-border)'
-            }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <div style={{
-                        width: '38px', height: '38px', background: 'linear-gradient(135deg, var(--brand-primary), #1e40af)',
-                        borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        boxShadow: '0 4px 12px rgba(59, 130, 246, 0.3)'
-                    }}>
-                        <Shield size={20} color="white" />
-                    </div>
+        <div style={{ maxWidth: 430, margin: "0 auto", minHeight: "100vh", background: "var(--bg-primary)", position: "relative", overflow: "hidden" }}>
+
+            {/* Main Header */}
+            <div style={{ padding: "16px 20px 12px", background: "var(--glass-header)", backdropFilter: "blur(20px)", position: "sticky", top: 0, zIndex: 100, borderBottom: "1px solid var(--card-border)" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                     <div>
-                        <h1 style={{ fontSize: '1.25rem', margin: 0, color: 'var(--text-primary)', fontWeight: 800 }}>Muslim Namja</h1>
-                        <p style={{ fontSize: '10px', margin: 0, color: 'var(--brand-primary)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Premium Halal Food</p>
+                        <div style={{ fontFamily: "'Fraunces', serif", color: "var(--brand-accent)", fontWeight: 900, fontSize: 18, letterSpacing: "-0.5px" }}>SEJONG EATS</div>
+                        <div style={{ color: "var(--text-secondary)", fontSize: 11 }}>Muslim Namja Delivery APP</div>
+                    </div>
+                    <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                        <button onClick={handleThemeToggle} style={{ background: "none", border: "none", fontSize: 20, cursor: "pointer" }}>
+                            {themeIcons[theme] || '🌙'}
+                        </button>
                     </div>
                 </div>
+            </div>
 
-                <div style={{ display: 'flex', gap: '10px' }}>
-                    <button
-                        onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-                        className="glass"
-                        style={{ border: 'none', borderRadius: '12px', width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-primary)' }}
-                    >
-                        {theme === 'dark' ? '☀️' : '🌙'}
-                    </button>
-                    <div style={{ position: 'relative' }}>
-                        <select value={lang} onChange={handleLangChange} style={{
-                            background: 'var(--glass-bg)', border: '1px solid var(--glass-border)', borderRadius: '12px',
-                            padding: '0 12px', height: '40px', color: 'var(--text-primary)', fontSize: '13px', fontWeight: 700,
-                            appearance: 'none', outline: 'none'
-                        }}>
-                            <option value="en">EN</option>
-                            <option value="ko">KO</option>
-                            <option value="uz">UZ</option>
-                            <option value="ru">RU</option>
-                        </select>
-                    </div>
-                </div>
-            </header>
-
-            {/* Main Content Area */}
-            <main className="hide-scrollbar" style={{ flex: 1, overflowY: 'auto', padding: '24px', paddingBottom: '120px' }}>
+            {/* Content Area */}
+            <div className="hide-scrollbar" style={{ padding: "0 0 90px", overflowY: "auto", height: "calc(100vh - 120px)" }}>
                 <Outlet />
-            </main>
+            </div>
 
-            {/* Floating Pill Navigation */}
-            <nav className="floating-nav">
-                <NavItem to="/" icon={<Home size={22} />} label={t('nav_menu')} />
-                <NavItem to="/community" icon={<MessageSquare size={22} />} label={t('nav_community')} />
+            {/* Bottom Floating Nav */}
+            <div style={{ position: "fixed", bottom: 0, left: "50%", transform: "translateX(-50%)", width: "100%", maxWidth: 430, background: "var(--glass-nav)", backdropFilter: "blur(24px)", borderTop: "1px solid var(--card-border)", padding: "8px 0 12px", display: "flex", justifyContent: "space-around", zIndex: 100 }}>
+                <NavItem to="/" icon="🏠" label={t('home') || 'Home'} />
+                <NavItem to="/community" icon="💬" label={t('community') || 'Community'} />
 
-                <NavItem to="/cart" icon={
-                    <div style={{ position: 'relative' }}>
-                        <ShoppingCart size={22} />
-                        {cartItemsCount > 0 && (
-                            <span style={{
-                                position: 'absolute', top: '-6px', right: '-6px', background: 'var(--brand-gold)',
-                                color: 'white', fontSize: '9px', borderRadius: '50%', width: '18px', height: '18px',
-                                display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold',
-                                border: '2px solid var(--bg-secondary)', boxShadow: '0 4px 8px rgba(0,0,0,0.3)'
-                            }}>
-                                {cartItemsCount}
-                            </span>
-                        )}
-                    </div>
-                } label={t('nav_cart')} />
+                <NavLink to="/track" className={({ isActive }) => `nav-btn ${isActive ? 'active' : ''}`} style={{ background: "none", border: "none", display: "flex", flexDirection: "column", alignItems: "center", gap: 3, cursor: "pointer", padding: "4px 12px", borderRadius: 12, textDecoration: "none" }}>
+                    {({ isActive }) => (
+                        <>
+                            <span style={{ fontSize: 22, filter: isActive ? "none" : "grayscale(1) opacity(0.5)" }}>📍</span>
+                            <span style={{ fontSize: 10, color: isActive ? "var(--brand-accent)" : "var(--text-secondary)", fontWeight: isActive ? 700 : 500 }}>{t('tracking') || 'Track'}</span>
+                            {isActive && <div style={{ width: 4, height: 4, borderRadius: "50%", background: "var(--brand-accent)" }} />}
+                        </>
+                    )}
+                </NavLink>
 
-                <NavItem to="/profile" icon={<UserIcon size={22} />} label={t('nav_profile')} />
+                <NavLink to="/cart" className={({ isActive }) => `nav-btn ${isActive ? 'active' : ''}`} style={{ background: "none", border: "none", display: "flex", flexDirection: "column", alignItems: "center", gap: 3, cursor: "pointer", padding: "4px 12px", borderRadius: 12, textDecoration: "none", position: 'relative' }}>
+                    {({ isActive }) => (
+                        <>
+                            <span style={{ fontSize: 22, filter: isActive ? "none" : "grayscale(1) opacity(0.5)" }}>🛒</span>
+                            {cartCount > 0 && <span style={{ position: "absolute", top: 0, right: 6, background: "var(--brand-accent)", color: "#fff", fontSize: 9, borderRadius: "50%", width: 16, height: 16, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700 }}>{cartCount}</span>}
+                            <span style={{ fontSize: 10, color: isActive ? "var(--brand-accent)" : "var(--text-secondary)", fontWeight: isActive ? 700 : 500 }}>{t('cart') || 'Cart'}</span>
+                            {isActive && <div style={{ width: 4, height: 4, borderRadius: "50%", background: "var(--brand-accent)" }} />}
+                        </>
+                    )}
+                </NavLink>
+
+                <NavItem to="/profile" icon="👤" label={t('profile') || 'Profile'} />
 
                 {user?.role === 'admin' && (
-                    <NavItem to="/admin" icon={<Shield size={22} />} label={t('nav_admin')} />
+                    <NavItem to="/admin" icon="🛡️" label="Admin" />
                 )}
-            </nav>
+                {user?.role === 'delivery' && (
+                    <NavItem to="/delivery" icon="🛵" label="Driver" />
+                )}
+            </div>
         </div>
     );
 };
@@ -96,12 +91,15 @@ const Layout = () => {
 const NavItem = ({ to, icon, label }) => (
     <NavLink
         to={to}
-        className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
+        style={{ background: "none", border: "none", display: "flex", flexDirection: "column", alignItems: "center", gap: 3, cursor: "pointer", padding: "4px 12px", borderRadius: 12, textDecoration: "none" }}
     >
-        <div className="icon-container">
-            {icon}
-        </div>
-        <span>{label}</span>
+        {({ isActive }) => (
+            <>
+                <span style={{ fontSize: 22, filter: isActive ? "none" : "grayscale(1) opacity(0.5)" }}>{icon}</span>
+                <span style={{ fontSize: 10, color: isActive ? "var(--brand-accent)" : "var(--text-secondary)", fontWeight: isActive ? 700 : 500 }}>{label}</span>
+                {isActive && <div style={{ width: 4, height: 4, borderRadius: "50%", background: "var(--brand-accent)" }} />}
+            </>
+        )}
     </NavLink>
 );
 
