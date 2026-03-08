@@ -13,8 +13,9 @@ import DeliveryPage from './pages/DeliveryPage';
 import AdminPage from './pages/AdminPage';
 import RegisterPage from './pages/RegisterPage';
 
-function App() {
-  const { setUser, user, setLocationBlocked, setTempTgUser } = useAppStore();
+function Authenticator() {
+  const { setUser, user, setTempTgUser, tempTgUser } = useAppStore();
+  const navigate = useNavigate();
 
   useEffect(() => {
     // Check Telegram WebApp Init
@@ -25,11 +26,12 @@ function App() {
 
       const initData = tg.initData;
 
-      if (initData && !user) {
+      if (initData && !user && !tempTgUser) {
         api.post('/auth/login', { initData })
           .then(res => {
             if (res.data.requiresRegistration) {
               setTempTgUser(res.data.tgUser);
+              navigate('/register');
             } else {
               setUser(res.data.user, res.data.token);
             }
@@ -39,10 +41,17 @@ function App() {
           });
       }
     }
-  }, [setUser, user, setTempTgUser]);
+  }, [setUser, user, setTempTgUser, tempTgUser, navigate]);
+
+  return null;
+}
+
+function App() {
+  const { user } = useAppStore();
 
   return (
     <Router>
+      <Authenticator />
       <Routes>
         <Route path="/" element={<Layout />}>
           <Route index element={<MenuPage />} />
