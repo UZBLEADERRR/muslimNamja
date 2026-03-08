@@ -13,8 +13,8 @@ async function verifyPaymentScreenshot(imageBuffer, mimeType) {
     }
 
     const genAI = new GoogleGenerativeAI(apiKey);
-    // Use gemini-1.5-pro or gemini-1.5-flash for vision
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+    // Use the latest flash model for vision
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash-exp' });
 
     const prompt = `
     Analyze this image and determine if it is a valid bank transfer or payment receipt.
