@@ -16,6 +16,7 @@ const deliveryRoutes = require('./routes/deliveryRoutes');
 const aiRoutes = require('./routes/aiRoutes');
 const chatRoutes = require('./routes/chatRoutes');
 const orderRoutes = require('./routes/orderRoutes');
+const productRoutes = require('./routes/productRoutes');
 const { setBot } = require('./utils/globals');
 const setupBot = require('./bot');
 
@@ -26,6 +27,7 @@ app.use('/api/delivery', deliveryRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api/orders', orderRoutes);
+app.use('/api/products', productRoutes);
 
 // Database connection
 const sequelize = require('./config/database');

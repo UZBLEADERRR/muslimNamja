@@ -43,6 +43,29 @@ const MenuPage = () => {
     const [countdown, setCountdown] = useState(600);
     const [addedFoodId, setAddedFoodId] = useState(null);
     const [searchQuery, setSearchQuery] = useState('');
+    const [loading, setLoading] = useState(true);
+
+    const fetchProducts = async () => {
+        try {
+            const api = (await import('../utils/api')).default;
+            const res = await api.get('/products');
+            if (res.data && res.data.length > 0) {
+                // Formatting data from db if needed
+                setProducts(res.data);
+            } else {
+                setProducts(MOCK_FOODS);
+            }
+        } catch (err) {
+            console.error('Fetch products error:', err);
+            setProducts(MOCK_FOODS);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchProducts();
+    }, []);
 
     useEffect(() => {
         if (!offerClaimed) {
@@ -137,32 +160,36 @@ const MenuPage = () => {
             </div>
 
             {/* Food Grid */}
-            <div style={{ padding: "0 20px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-                {filtered.map(food => (
-                    <div key={food._id} style={{ background: 'var(--card-bg)', borderRadius: 20, overflow: "hidden", border: `1px solid var(--card-border)`, boxShadow: 'var(--shadow-main)', transition: "transform 0.2s", transform: addedFoodId === food._id ? "scale(0.96)" : "scale(1)" }}>
-                        <div style={{ height: 100, background: `linear-gradient(135deg, ${food.color}33, ${food.color}66)`, display: "flex", alignItems: "center", justifyContent: "center", position: "relative" }}>
-                            <span style={{ fontSize: 48 }}>{food.emoji}</span>
-                            {food.halal && <span style={{ position: "absolute", top: 8, right: 8, background: "#27AE60", color: "#fff", fontSize: 9, fontWeight: 700, padding: "2px 6px", borderRadius: 20 }}>Halal</span>}
-                            {food.stock <= 8 && <span style={{ position: "absolute", bottom: 6, left: 8, color: "#FF6B35", fontSize: 9, fontWeight: 700 }}>{food.stock} left</span>}
-                        </div>
-                        <div style={{ padding: "12px 12px 14px" }}>
-                            <div style={{ color: "var(--text-primary)", fontWeight: 700, fontSize: 13, marginBottom: 2 }}>{food.name[lang] || food.name.en}</div>
-                            <div style={{ color: "var(--text-secondary)", fontSize: 10, marginBottom: 8, lineHeight: 1.4 }}>{(food.desc[lang] || food.desc.en).substring(0, 32)}...</div>
-                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
-                                <span style={{ color: "var(--brand-accent)", fontWeight: 800, fontSize: 15, fontFamily: "'Fraunces', serif" }}>₩{food.price.toLocaleString()}</span>
-                                {food.spicy > 0 && <SpicyDots level={food.spicy} />}
+            {loading ? (
+                <div style={{ textAlign: "center", padding: "40px", color: "var(--text-secondary)" }}>Loading Menu...</div>
+            ) : (
+                <div style={{ padding: "0 20px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+                    {filtered.map(food => (
+                        <div key={food._id} style={{ background: 'var(--card-bg)', borderRadius: 20, overflow: "hidden", border: `1px solid var(--card-border)`, boxShadow: 'var(--shadow-main)', transition: "transform 0.2s", transform: addedFoodId === food._id ? "scale(0.96)" : "scale(1)" }}>
+                            <div style={{ height: 100, background: `linear-gradient(135deg, ${food.color}33, ${food.color}66)`, display: "flex", alignItems: "center", justifyContent: "center", position: "relative" }}>
+                                <span style={{ fontSize: 48 }}>{food.emoji}</span>
+                                {food.halal && <span style={{ position: "absolute", top: 8, right: 8, background: "#27AE60", color: "#fff", fontSize: 9, fontWeight: 700, padding: "2px 6px", borderRadius: 20 }}>Halal</span>}
+                                {food.stock <= 8 && <span style={{ position: "absolute", bottom: 6, left: 8, color: "#FF6B35", fontSize: 9, fontWeight: 700 }}>{food.stock} left</span>}
                             </div>
-                            <div style={{ display: "flex", gap: 6, color: "var(--text-secondary)", fontSize: 10, marginBottom: 10 }}>
-                                <span>🔥 {food.cal}kcal</span>
-                                <span>⏱ {food.time}m</span>
+                            <div style={{ padding: "12px 12px 14px" }}>
+                                <div style={{ color: "var(--text-primary)", fontWeight: 700, fontSize: 13, marginBottom: 2 }}>{food.name[lang] || food.name.en}</div>
+                                <div style={{ color: "var(--text-secondary)", fontSize: 10, marginBottom: 8, lineHeight: 1.4 }}>{(food.desc[lang] || food.desc.en).substring(0, 32)}...</div>
+                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+                                    <span style={{ color: "var(--brand-accent)", fontWeight: 800, fontSize: 15, fontFamily: "'Fraunces', serif" }}>₩{food.price.toLocaleString()}</span>
+                                    {food.spicy > 0 && <SpicyDots level={food.spicy} />}
+                                </div>
+                                <div style={{ display: "flex", gap: 6, color: "var(--text-secondary)", fontSize: 10, marginBottom: 10 }}>
+                                    <span>🔥 {food.cal}kcal</span>
+                                    <span>⏱ {food.time}m</span>
+                                </div>
+                                <button onClick={() => handleAddToCart(food)} style={{ width: "100%", background: addedFoodId === food._id ? 'var(--brand-accent2)' : `linear-gradient(135deg, var(--brand-accent), #FF3CAC)`, color: "#fff", border: "none", borderRadius: 10, padding: "9px 0", fontSize: 12, fontWeight: 700, cursor: "pointer", transition: "all 0.3s" }}>
+                                    {addedFoodId === food._id ? "✓ Added!" : `+ Add`}
+                                </button>
                             </div>
-                            <button onClick={() => handleAddToCart(food)} style={{ width: "100%", background: addedFoodId === food._id ? 'var(--brand-accent2)' : `linear-gradient(135deg, var(--brand-accent), #FF3CAC)`, color: "#fff", border: "none", borderRadius: 10, padding: "9px 0", fontSize: 12, fontWeight: 700, cursor: "pointer", transition: "all 0.3s" }}>
-                                {addedFoodId === food._id ? "✓ Added!" : `+ Add`}
-                            </button>
                         </div>
-                    </div>
-                ))}
-            </div>
+                    ))}
+                </div>
+            )}
         </div>
     );
 };

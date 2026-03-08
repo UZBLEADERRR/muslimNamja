@@ -24,61 +24,82 @@ const CommunityPage = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     };
 
+    const fetchChats = async () => {
+        try {
+            const api = (await import('../utils/api')).default;
+            const res = await api.get('/chat');
+            setPosts(res.data.length ? res.data : MOCK_POSTS);
+        } catch (err) {
+            console.error(err);
+        }
+    };
+
+    useEffect(() => {
+        if (user) {
+            fetchChats();
+        }
+    }, [user]);
+
     useEffect(() => {
         scrollToBottom();
     }, [posts]);
 
-    const handleSendMessage = (e) => {
+    const handleSendMessage = async (e) => {
         e.preventDefault();
         if (!newMessage.trim()) return;
 
-        const newPost = {
-            id: Date.now(),
-            user: user?.firstName || "Guest",
-            avatar: "👤",
-            time: "Just now",
-            text: newMessage,
-            likes: 0,
-            comments: 0,
-            tag: "chat"
-        };
-        setPosts(prev => [...prev, newPost]);
-        setNewMessage('');
+        try {
+            const api = (await import('../utils/api')).default;
+            const res = await api.post('/chat', { content: newMessage });
+
+            const newPost = {
+                id: res.data.id || Date.now(),
+                user: user?.firstName || "You",
+                avatar: "👤",
+                time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                text: newMessage,
+                likes: 0,
+                comments: 0,
+                tag: "chat"
+            };
+            setPosts(prev => [...prev, newPost]);
+            setNewMessage('');
+            setTimeout(scrollToBottom, 50);
+        } catch (err) {
+            console.error('Failed to send:', err);
+        }
     };
 
-    const claimOffer = (post) => {
+    const claimOffer = async (post) => {
         const item = {
-            id: post.offerData.productId._id,
-            productId: post.offerData.productId._id,
-            name: post.offerData.productId.name[lang] || post.offerData.productId.name.en,
-            price: post.offerData.specialPrice,
+            id: post.offerData?.productId?._id || post.id,
+            productId: post.offerData?.productId?._id || post.id,
+            name: post.offerData?.productId?.name?.en || "Special Offer",
+            price: post.offerData?.specialPrice || 0,
             quantity: 1,
-            emoji: post.offerData.emoji
+            emoji: post.offerData?.emoji || "🎁"
         };
         addToCart(item, 1, {});
+        try {
+            const api = (await import('../utils/api')).default;
+            await api.post(`/chat/${post.id}/claim`);
+        } catch (e) { }
         alert(`Claimed: ${item.name} for ₩${item.price.toLocaleString()}`);
     };
 
     return (
-        <div className="animate-slide-up" style={{ padding: "8px 20px 20px" }}>
-            <h2 style={{ color: "var(--text-primary)", fontFamily: "'Fraunces', serif", fontSize: 22, fontWeight: 900, marginBottom: 4 }}>
-                Campus Feed 🏫
-            </h2>
-            <p style={{ color: "var(--text-secondary)", fontSize: 13, marginBottom: 20 }}>Share, ask, discover at Sejong</p>
+        <div className="animate-fade-in" style={{ padding: "8px 20px 100px", minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+            <div style={{ position: 'sticky', top: '70px', background: 'var(--bg-primary)', paddingBottom: '10px', zIndex: 10, display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--card-border)' }}>
+                <div>
+                    <h2 style={{ color: "var(--text-primary)", fontFamily: "'Fraunces', serif", fontSize: 22, fontWeight: 900, marginBottom: 4 }}>
+                        Campus Feed 🏫
+                    </h2>
+                    <p style={{ color: "var(--text-secondary)", fontSize: 12, margin: 0 }}>{posts.length} messages · Online</p>
+                </div>
+                <div style={{ background: 'rgba(255,107,53,0.1)', color: 'var(--brand-accent)', padding: '6px 12px', borderRadius: '14px', fontSize: '12px', fontWeight: 700 }}>Live View</div>
+            </div>
 
-            {/* Post Input */}
-            <form onSubmit={handleSendMessage} style={{ background: "var(--card-bg)", border: `1px solid var(--card-border)`, borderRadius: 16, padding: "12px 14px", marginBottom: 20, display: "flex", gap: 12, alignItems: "center", boxShadow: "var(--shadow-main)" }}>
-                <div style={{ width: 36, height: 36, borderRadius: "50%", background: `linear-gradient(135deg, var(--brand-accent), #FF3CAC)`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 }}>👤</div>
-                <input
-                    value={newMessage}
-                    onChange={e => setNewMessage(e.target.value)}
-                    placeholder="Share something with campus... ✍️"
-                    style={{ flex: 1, background: "none", border: "none", color: "var(--text-primary)", fontSize: 13, outline: "none" }}
-                />
-                <button type="submit" style={{ background: "var(--brand-accent)", color: "#fff", border: "none", borderRadius: 10, padding: "8px 14px", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>Post</button>
-            </form>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '14px', paddingTop: '14px' }}>
                 {posts.map(post => (
                     <div key={post.id} style={{ background: "var(--card-bg)", border: `1px solid ${post.pinned ? 'var(--brand-accent)' : 'var(--card-border)'}`, borderRadius: 18, padding: 16, boxShadow: "var(--shadow-main)" }}>
                         {post.pinned && <div style={{ color: "var(--brand-accent)", fontSize: 11, fontWeight: 700, marginBottom: 8 }}>📌 PINNED BY ADMIN</div>}
@@ -121,6 +142,25 @@ const CommunityPage = () => {
                     </div>
                 ))}
             </div>
+
+            {/* Post Input (Telegram Fixed Bottom Style) */}
+            <div style={{ position: 'fixed', bottom: '85px', left: 0, right: 0, padding: '10px 20px', background: 'var(--bg-primary)', borderTop: '1px solid var(--card-border)', zIndex: 100 }}>
+                <form onSubmit={handleSendMessage} style={{ background: "var(--card-bg)", border: `1px solid var(--card-border)`, borderRadius: 24, padding: "8px 12px", display: "flex", gap: 12, alignItems: "center", boxShadow: '0 -4px 12px rgba(0,0,0,0.05)' }}>
+                    <div style={{ width: 32, height: 32, borderRadius: "50%", background: `var(--card-border)`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16 }}>😊</div>
+                    <input
+                        value={newMessage}
+                        onChange={e => setNewMessage(e.target.value)}
+                        placeholder="Message..."
+                        style={{ flex: 1, background: "none", border: "none", color: "var(--text-primary)", fontSize: 14, outline: "none", padding: '8px 0' }}
+                    />
+                    {newMessage.trim() && (
+                        <button type="submit" style={{ width: 36, height: 36, borderRadius: '50%', background: "var(--brand-accent)", color: "#fff", border: "none", display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: "pointer", padding: 0 }}>
+                            <span style={{ fontSize: '18px', transform: 'translateX(1px)' }}>↑</span>
+                        </button>
+                    )}
+                </form>
+            </div>
+
             <div ref={messagesEndRef} style={{ height: 20 }} />
         </div>
     );
