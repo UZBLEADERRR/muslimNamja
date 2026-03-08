@@ -11,7 +11,7 @@ function setupBot(botToken, appUrl) {
     const bot = new TelegramBot(token, { polling: true });
     // Use User model for registration checks
     const User = require('./models/User');
-    const { calculateDistance } = require('./controllers/authController');
+    const { calculateDistance } = require('./utils/distance');
     const RESTAURANT_LAT = 37.5503; // Sejong University coords
     const RESTAURANT_LNG = 127.0731;
 
