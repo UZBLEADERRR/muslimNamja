@@ -34,6 +34,7 @@ const authController = {
 
             const adminChatId = process.env.ADMIN_CHAT_ID;
             const isAdmin = adminChatId && adminChatId.toString() === tgUser.id.toString();
+            console.log(`[AUTH] TG User: ${tgUser.id} (${tgUser.first_name}), ADMIN_CHAT_ID: ${adminChatId}, isAdmin: ${isAdmin}`);
 
             // 3. If new user, create them or signal registration needed
             if (!user) {

@@ -22,39 +22,43 @@ function Authenticator() {
     if (authAttempted || user) return;
 
     const authenticate = async () => {
-      // Step 1: If token exists, try to restore session
-      if (token) {
-        try {
-          const res = await api.get('/auth/me');
-          if (res.data && res.data.id) {
-            setUser(res.data, token);
-            setAuthAttempted(true);
-            return; // Success — session restored
-          }
-        } catch (err) {
-          console.warn('Token expired or invalid, clearing...');
-          logout(); // Clear stale token
-        }
-      }
-
-      // Step 2: Try Telegram WebApp login (only if no valid session)
       const tg = window.Telegram?.WebApp;
+
+      // PRIORITY 1: If inside Telegram, ALWAYS use initData
+      // This ensures EACH user gets their OWN session
       if (tg && tg.initData) {
         tg.ready();
         tg.expand();
 
         try {
           const res = await api.post('/auth/login', { initData: tg.initData });
+
           if (res.data.requiresRegistration) {
             setTempTgUser(res.data.tgUser);
-            if (window.location.pathname !== '/register') {
-              navigate('/register');
-            }
+            navigate('/register');
           } else if (res.data.token) {
             setUser(res.data.user, res.data.token);
           }
         } catch (err) {
           console.error('Telegram auth error:', err);
+        }
+
+        setAuthAttempted(true);
+        return;
+      }
+
+      // PRIORITY 2: Outside Telegram (browser testing), try cached token
+      if (token) {
+        try {
+          const res = await api.get('/auth/me');
+          if (res.data && res.data.id) {
+            setUser(res.data, token);
+            setAuthAttempted(true);
+            return;
+          }
+        } catch (err) {
+          console.warn('Token expired, clearing...');
+          logout();
         }
       }
 
@@ -86,7 +90,6 @@ function App() {
           <Route path="delivery" element={
             user && (user.role === 'delivery' || user.role === 'admin') ? <DeliveryPage /> : <Navigate to="/" />
           } />
-
           <Route path="admin" element={
             user && user.role === 'admin' ? <AdminPage /> : <Navigate to="/" />
           } />
