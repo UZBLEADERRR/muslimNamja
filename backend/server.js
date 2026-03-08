@@ -16,6 +16,9 @@ const adminRoutes = require('./routes/adminRoutes');
 const deliveryRoutes = require('./routes/deliveryRoutes');
 const aiRoutes = require('./routes/aiRoutes');
 const chatRoutes = require('./routes/chatRoutes');
+const orderRoutes = require('./routes/orderRoutes');
+const { setBot } = require('./utils/globals');
+const setupBot = require('./bot');
 
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
@@ -23,6 +26,7 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/delivery', deliveryRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/chat', chatRoutes);
+app.use('/api/orders', orderRoutes);
 
 // Database connection
 const sequelize = require('./config/database');
@@ -52,9 +56,9 @@ if (process.env.NODE_ENV === 'production' || process.env.RAILWAY_STATIC_URL) {
 }
 
 // Bot Setup
-const setupBot = require('./bot');
-const FRONTEND_URL = process.env.FRONTEND_URL || 'https://google.com'; // Fallback until we start ngrok
-setupBot(process.env.TELEGRAM_BOT_TOKEN, FRONTEND_URL);
+const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
+const bot = setupBot(process.env.TELEGRAM_BOT_TOKEN, FRONTEND_URL);
+setBot(bot);
 
 app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
