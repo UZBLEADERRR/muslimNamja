@@ -9,67 +9,76 @@ const Layout = () => {
     const { setLang, setTheme, theme, user, cart } = useAppStore();
 
     const handleLangChange = (e) => setLang(e.target.value);
-    const handleThemeChange = (e) => setTheme(e.target.value);
+    // const handleThemeChange = (e) => setTheme(e.target.value); // This line is commented out or removed in the new code
 
     const cartItemsCount = cart.reduce((acc, item) => acc + item.quantity, 0);
 
     return (
-        <div className="layout-container" style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: 'var(--bg-primary)' }}>
             {/* Header */}
-            <header className="glass" style={{ padding: '15px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'sticky', top: 0, zIndex: 50 }}>
-                <h1 style={{ fontSize: '1.25rem', margin: 0 }}>Muslim Namja</h1>
+            <header className="glass" style={{
+                padding: '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                position: 'sticky', top: 0, zIndex: 100, borderBottom: '1px solid var(--glass-border)'
+            }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div style={{ width: '32px', height: '32px', background: 'var(--brand-primary)', borderRadius: '10px' }}></div>
+                    <h1 style={{ fontSize: '1.2rem', margin: 0, color: 'var(--brand-dark)' }}>Muslim Namja</h1>
+                </div>
 
-                <div style={{ display: 'flex', gap: '10px' }}>
-                    <select value={lang} onChange={handleLangChange} style={{ background: 'transparent', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '4px 8px', color: 'var(--text-primary)' }}>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                    <button
+                        onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+                        style={{ background: 'var(--bg-tertiary)', border: 'none', borderRadius: '10px', padding: '6px 10px', color: 'var(--text-primary)' }}
+                    >
+                        {theme === 'dark' ? '☀️' : '🌙'}
+                    </button>
+                    <select value={lang} onChange={handleLangChange} style={{
+                        background: 'var(--bg-tertiary)', border: 'none', borderRadius: '10px',
+                        padding: '6px 8px', color: 'var(--text-primary)', fontSize: '13px', fontWeight: 600
+                    }}>
                         <option value="en">EN</option>
                         <option value="ko">KO</option>
                         <option value="uz">UZ</option>
                         <option value="ru">RU</option>
                     </select>
-
-                    <select value={theme} onChange={handleThemeChange} style={{ background: 'transparent', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '4px 8px', color: 'var(--text-primary)' }}>
-                        <option value="light">Light</option>
-                        <option value="dark">Dark</option>
-                        <option value="pink">Pink</option>
-                    </select>
                 </div>
             </header>
 
             {/* Main Content Area */}
-            <main className="hide-scrollbar" style={{ flex: 1, overflowY: 'auto', padding: '20px', paddingBottom: '80px' }}>
+            <main className="hide-scrollbar" style={{ flex: 1, overflowY: 'auto', padding: '20px', paddingBottom: '100px' }}>
                 <Outlet />
             </main>
 
             {/* Bottom Navigation */}
             <nav className="glass" style={{
-                position: 'fixed', bottom: 0, width: '100%', display: 'flex', justifyContent: 'space-around',
-                padding: '10px 0', paddingBottom: 'max(10px, env(safe-area-inset-bottom))', zIndex: 50
+                position: 'fixed', bottom: '16px', left: '16px', right: '16px',
+                display: 'flex', justifyContent: 'space-around', alignItems: 'center',
+                padding: '12px 0', borderRadius: '24px', zIndex: 100,
+                boxShadow: '0 8px 32px rgba(6, 78, 59, 0.15)', border: '1px solid var(--glass-border)'
             }}>
-                <NavItem to="/" icon={<Home size={24} />} label={t('menu')} />
-                <NavItem to="/community" icon={<MessageSquare size={24} />} label={t('community')} />
+                <NavItem to="/" icon={<Home size={22} />} label={t('nav_menu')} />
+                <NavItem to="/community" icon={<MessageSquare size={22} />} label={t('nav_community')} />
 
                 <NavItem to="/cart" icon={
                     <div style={{ position: 'relative' }}>
-                        <ShoppingCart size={24} />
+                        <ShoppingCart size={22} />
                         {cartItemsCount > 0 && (
                             <span style={{
-                                position: 'absolute', top: '-8px', right: '-8px', background: 'var(--brand-primary)',
-                                color: 'white', fontSize: '10px', borderRadius: '50%', padding: '2px 6px', fontWeight: 'bold'
+                                position: 'absolute', top: '-6px', right: '-6px', background: 'var(--accent-color)',
+                                color: 'white', fontSize: '9px', borderRadius: '50%', width: '16px', height: '16px',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold',
+                                boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
                             }}>
                                 {cartItemsCount}
                             </span>
                         )}
                     </div>
-                } label={t('cart')} />
+                } label={t('nav_cart')} />
 
-                <NavItem to="/profile" icon={<UserIcon size={24} />} label={t('profile')} />
-
-                {user?.role === 'delivery' && (
-                    <NavItem to="/delivery" icon={<Truck size={24} />} label={t('delivery')} />
-                )}
+                <NavItem to="/profile" icon={<UserIcon size={22} />} label={t('nav_profile')} />
 
                 {user?.role === 'admin' && (
-                    <NavItem to="/admin" icon={<Shield size={24} />} label={t('admin')} />
+                    <NavItem to="/admin" icon={<Shield size={22} />} label={t('nav_admin')} />
                 )}
             </nav>
         </div>

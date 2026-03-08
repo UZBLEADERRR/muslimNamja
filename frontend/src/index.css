@@ -1,69 +1,60 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Outfit:wght@400;600;800&display=swap');
 
 :root {
-  /* Light Theme (Default) */
-  --bg-primary: #f8fafc;
+  /* Premium Emerald & Gold Theme */
+  --bg-primary: #fcfdfd;
   --bg-secondary: #ffffff;
   --bg-tertiary: #f1f5f9;
-  
-  --text-primary: #0f172a;
-  --text-secondary: #64748b;
-  --text-muted: #94a3b8;
-  
-  --brand-primary: #2563eb;
-  --brand-primary-hover: #1d4ed8;
-  
-  --accent-color: #f59e0b;
-  --danger-color: #ef4444;
+
+  --text-primary: #064e3b;
+  /* Deep Emerald */
+  --text-secondary: #374151;
+  --text-muted: #6b7280;
+
+  --brand-primary: #059669;
+  /* Emerald 600 */
+  --brand-primary-hover: #047857;
+  --brand-dark: #064e3b;
+
+  --accent-color: #d97706;
+  /* Gold/Amber 600 */
+  --accent-light: #fef3c7;
+
+  --danger-color: #e11d48;
   --success-color: #10b981;
-  
-  --border-color: #e2e8f0;
-  
-  --glass-bg: rgba(255, 255, 255, 0.7);
-  --glass-border: rgba(255, 255, 255, 0.3);
+
+  --border-color: #e5e7eb;
+
+  --glass-bg: rgba(255, 255, 255, 0.82);
+  --glass-border: rgba(255, 255, 255, 0.4);
   --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
-  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
-  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
-  --shadow-glass: 0 8px 32px 0 rgba(31, 38, 135, 0.07);
+  --shadow-md: 0 4px 12px -2px rgba(6, 78, 59, 0.08);
+  --shadow-lg: 0 12px 24px -4px rgba(6, 78, 59, 0.12);
+  --shadow-glass: 0 8px 32px 0 rgba(6, 78, 59, 0.05);
+
+  --radius-sm: 8px;
+  --radius-md: 16px;
+  --radius-lg: 24px;
 }
 
 [data-theme='dark'] {
-  --bg-primary: #0f172a;
-  --bg-secondary: #1e293b;
-  --bg-tertiary: #334155;
-  
-  --text-primary: #f8fafc;
-  --text-secondary: #94a3b8;
-  --text-muted: #64748b;
-  
-  --brand-primary: #3b82f6;
-  --brand-primary-hover: #60a5fa;
-  
-  --border-color: #334155;
-  
-  --glass-bg: rgba(30, 41, 59, 0.7);
-  --glass-border: rgba(255, 255, 255, 0.05);
-  --shadow-glass: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
-}
+  --bg-primary: #022c22;
+  /* Black Emerald */
+  --bg-secondary: #064e3b;
+  --bg-tertiary: #065f46;
 
-[data-theme='pink'] {
-  --bg-primary: #fff1f2;
-  --bg-secondary: #ffffff;
-  --bg-tertiary: #ffe4e6;
-  
-  --text-primary: #881337;
-  --text-secondary: #be123c;
-  --text-muted: #f43f5e;
-  
-  --brand-primary: #e11d48;
-  --brand-primary-hover: #be123c;
-  
-  --accent-color: #fb7185;
-  --border-color: #fecdd3;
-  
-  --glass-bg: rgba(255, 255, 255, 0.6);
-  --glass-border: rgba(255, 228, 230, 0.8);
-  --shadow-glass: 0 8px 32px 0 rgba(225, 29, 72, 0.1);
+  --text-primary: #ecfdf5;
+  --text-secondary: #a7f3d0;
+  --text-muted: #6ee7b7;
+
+  --brand-primary: #10b981;
+  --brand-primary-hover: #34d399;
+
+  --border-color: #065f46;
+
+  --glass-bg: rgba(6, 78, 59, 0.8);
+  --glass-border: rgba(255, 255, 255, 0.1);
+  --shadow-glass: 0 8px 32px 0 rgba(0, 0, 0, 0.4);
 }
 
 * {
@@ -81,7 +72,12 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-h1, h2, h3, h4, h5, h6 {
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
   font-family: 'Outfit', sans-serif;
   font-weight: 700;
   letter-spacing: -0.02em;
@@ -98,8 +94,15 @@ h1, h2, h3, h4, h5, h6 {
 
 /* Utility Animations */
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .animate-fade-in {
@@ -128,12 +131,12 @@ button:active {
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
-  box-shadow: 0 4px 14px 0 rgba(0,0,0,0.1);
+  box-shadow: 0 4px 14px 0 rgba(0, 0, 0, 0.1);
 }
 
 .btn-primary:hover {
   background-color: var(--brand-primary-hover);
-  box-shadow: 0 6px 20px 0 rgba(0,0,0,0.15);
+  box-shadow: 0 6px 20px 0 rgba(0, 0, 0, 0.15);
   transform: translateY(-2px);
 }
 
@@ -149,7 +152,10 @@ button:active {
 .hide-scrollbar::-webkit-scrollbar {
   display: none;
 }
+
 .hide-scrollbar {
-  -ms-overflow-style: none;  /* IE and Edge */
-  scrollbar-width: none;  /* Firefox */
+  -ms-overflow-style: none;
+  /* IE and Edge */
+  scrollbar-width: none;
+  /* Firefox */
 }
