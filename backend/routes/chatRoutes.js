@@ -15,5 +15,6 @@ router.post('/', authMiddleware(), chatController.postMessage);
 router.post('/image', authMiddleware(), upload.single('image'), chatController.postImageMessage);
 router.put('/:id', authMiddleware(), chatController.editMessage);
 router.delete('/:id', authMiddleware(), chatController.deleteMessage);
+router.post('/:id/pin', authMiddleware(), chatController.pinMessage);
 
 module.exports = router;

@@ -19,10 +19,19 @@ const chatController = {
             });
 
             const populated = await Promise.all(messages.map(async (msg) => {
-                const sender = await User.findByPk(msg.senderId, { attributes: ['id', 'firstName', 'role'] });
+                const sender = await User.findByPk(msg.senderId, { attributes: ['id', 'firstName', 'role', 'avatarUrl'] });
+                let replyTo = null;
+                if (msg.replyToId) {
+                    const replyMsg = await ChatMessage.findByPk(msg.replyToId);
+                    if (replyMsg) {
+                        const replySender = await User.findByPk(replyMsg.senderId, { attributes: ['id', 'firstName'] });
+                        replyTo = { id: replyMsg.id, text: replyMsg.text?.substring(0, 60), sender: replySender };
+                    }
+                }
                 return {
                     ...msg.toJSON(),
-                    sender
+                    sender,
+                    replyTo
                 };
             }));
 
@@ -36,13 +45,13 @@ const chatController = {
     // Post a normal message
     async postMessage(req, res) {
         try {
-            const { text } = req.body;
+            const { text, replyToId } = req.body;
             const senderId = req.user.userId;
 
             if (!text || !text.trim()) return res.status(400).json({ error: 'Message text is required' });
 
-            const msg = await ChatMessage.create({ senderId, text: text.trim() });
-            const sender = await User.findByPk(senderId, { attributes: ['id', 'firstName', 'role'] });
+            const msg = await ChatMessage.create({ senderId, text: text.trim(), replyToId: replyToId || null });
+            const sender = await User.findByPk(senderId, { attributes: ['id', 'firstName', 'role', 'avatarUrl'] });
 
             res.status(201).json({ ...msg.toJSON(), sender });
         } catch (error) {
@@ -64,10 +73,11 @@ const chatController = {
 
             const msg = await ChatMessage.create({
                 senderId,
-                text: req.body.text || '', // Optional caption
-                imageUrl: base64Image
+                text: req.body.text || '',
+                imageUrl: base64Image,
+                replyToId: req.body.replyToId || null
             });
-            const sender = await User.findByPk(senderId, { attributes: ['id', 'firstName', 'role'] });
+            const sender = await User.findByPk(senderId, { attributes: ['id', 'firstName', 'role', 'avatarUrl'] });
 
             res.status(201).json({ ...msg.toJSON(), sender });
         } catch (error) {
@@ -127,6 +137,28 @@ const chatController = {
             res.json({ message: 'Message deleted', msg });
         } catch (error) {
             res.status(500).json({ error: 'Failed to delete message' });
+        }
+    },
+
+    // Pin/Unpin message (Admin only)
+    async pinMessage(req, res) {
+        try {
+            const { id } = req.params;
+            const userId = req.user.userId;
+            const user = await User.findByPk(userId);
+            if (user.role !== 'admin') return res.status(403).json({ error: 'Only admins can pin messages' });
+
+            const msg = await ChatMessage.findByPk(id);
+            if (!msg) return res.status(404).json({ error: 'Message not found' });
+
+            // Unpin all others first
+            await ChatMessage.update({ isPinned: false }, { where: { isPinned: true } });
+            msg.isPinned = !msg.isPinned;
+            await msg.save();
+
+            res.json({ message: msg.isPinned ? 'Pinned' : 'Unpinned', msg });
+        } catch (error) {
+            res.status(500).json({ error: 'Failed to pin message' });
         }
     }
 };

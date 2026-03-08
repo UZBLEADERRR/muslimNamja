@@ -9,7 +9,7 @@ const orderController = {
     async createOrder(req, res) {
         const trans = await sequelize.transaction();
         try {
-            const { items, paymentMethod, totalAmount, deliveryFee, distance } = req.body;
+            const { items, paymentMethod, totalAmount, deliveryFee, distance, deliveryType, meetupLocation, giftInfo } = req.body;
             const userId = req.user.userId;
 
             if (!items || items.length === 0) {
@@ -24,6 +24,9 @@ const orderController = {
                 totalAmount,
                 deliveryFee,
                 distance,
+                deliveryType: deliveryType || 'home',
+                meetupLocation: meetupLocation || null,
+                giftInfo: giftInfo || null,
                 status: 'pending'
             }, { transaction: trans });
 
@@ -46,13 +49,23 @@ const orderController = {
             const channelId = process.env.ORDERS_CHANNEL_ID;
 
             const orderDetails = items.map(item => `- ${item.productName || 'Taom'} x ${item.quantity}`).join('\n');
+            let deliveryText = `🚚 <b>Yetkazib berish (Uyga):</b> ${deliveryFee} ₩`;
+            if (deliveryType === 'pickup') deliveryText = `🚶 <b>Olib ketish (Pick up)</b> (-1000 ₩ chegirma)`;
+            if (deliveryType === 'meetup') deliveryText = `📍 <b>Uchrashuv hududi (Meet up):</b> ${meetupLocation}`;
+
+            let giftText = '';
+            if (giftInfo?.isGift) {
+                giftText = `\n🎁 <b>SOVG'A:</b> Kimga: ${giftInfo.toUserId} | Anonim: ${giftInfo.isAnonymous ? 'Ha' : 'Yoq'}`;
+            }
+
             const message = `
 🛍 <b>Yangi Buyurtma!</b> (#${order.id.toString().slice(0, 8)})
 
 👤 <b>Mijoz ID:</b> ${userId.toString().slice(0, 8)}
-💰 <b>Jami:</b> ${totalAmount} ₩
-🚚 <b>Yetkazib berish:</b> ${deliveryFee} ₩
-📍 <b>Masofa:</b> ${distance} km
+💰 <b>Jami to'lov:</b> ${totalAmount} ₩ (Maxsulotlar + yo'lkira yig'indisi)
+${deliveryText}
+📍 <b>Mijoz/Uchrashuv masofasi:</b> ${distance} km
+${giftText}
 
 <b>Savat:</b>
 ${orderDetails}

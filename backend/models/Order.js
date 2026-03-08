@@ -26,6 +26,18 @@ const Order = sequelize.define('Order', {
         type: DataTypes.ENUM('pending', 'accepted', 'preparing', 'delivering', 'completed', 'cancelled'),
         defaultValue: 'pending'
     },
+    deliveryType: {
+        type: DataTypes.ENUM('pickup', 'meetup', 'home'),
+        defaultValue: 'home'
+    },
+    meetupLocation: {
+        type: DataTypes.STRING,
+        allowNull: true
+    },
+    giftInfo: {
+        type: DataTypes.JSONB, // { isGift: boolean, toUserId: string, isAnonymous: boolean }
+        allowNull: true
+    },
     deliveryFee: {
         type: DataTypes.INTEGER,
         defaultValue: 0

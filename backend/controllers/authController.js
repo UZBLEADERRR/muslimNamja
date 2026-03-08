@@ -52,6 +52,13 @@ const authController = {
 
                 const distance = calculateDistance(RESTAURANT_LAT, RESTAURANT_LNG, location.lat, location.lng);
 
+                // Enforce 3km Geofence limits
+                if (distance > 3) {
+                    return res.status(403).json({
+                        error: `Kechirasiz, siz Sejong universitetidan uzoqda joylashgansiz (${distance.toFixed(1)} km). Xizmat doirasi: 3 km gacha.`
+                    });
+                }
+
                 user = await User.create({
                     telegramId: tgUser.id.toString(),
                     firstName: tgUser.first_name,
@@ -101,6 +108,9 @@ const authController = {
                     address: user.address,
                     location: user.location,
                     gender: user.gender,
+                    nickname: user.nickname,
+                    isPrivate: user.isPrivate,
+                    avatarUrl: user.avatarUrl,
                 }
             });
         } catch (error) {

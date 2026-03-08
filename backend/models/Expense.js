@@ -9,7 +9,7 @@ const Expense = sequelize.define('Expense', {
     },
     adminId: {
         type: DataTypes.UUID,
-        allowNull: false
+        allowNull: true
     },
     amount: {
         type: DataTypes.INTEGER,
@@ -17,9 +17,13 @@ const Expense = sequelize.define('Expense', {
     },
     category: {
         type: DataTypes.STRING,
-        allowNull: false // e.g., 'ingredients', 'delivery_pay', 'refund', 'other'
+        defaultValue: 'other'
     },
     description: DataTypes.STRING,
+    date: {
+        type: DataTypes.DATE,
+        defaultValue: DataTypes.NOW
+    }
 }, {
     timestamps: true
 });

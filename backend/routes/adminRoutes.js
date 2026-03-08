@@ -43,4 +43,7 @@ router.get('/ai-inventory', adminController.getAiInventoryAnalysis);
 router.get('/settings/:key', adminController.getSetting);
 router.post('/settings', adminController.setSetting);
 
+// Broadcast
+router.post('/broadcast', adminController.broadcast);
+
 module.exports = router;

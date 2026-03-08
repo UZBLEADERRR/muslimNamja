@@ -4,8 +4,9 @@ import { useAppStore } from '../store/useAppStore';
 import api from '../utils/api';
 import {
     Shield, Package, Activity, Users, DollarSign,
-    Box, Settings, Plus, Trash2, CheckCircle, BrainCircuit
+    Box, Settings, Plus, Trash2, CheckCircle, BrainCircuit, Megaphone
 } from 'lucide-react';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line, CartesianGrid } from 'recharts';
 
 const AdminPage = () => {
     const { t, lang } = useTranslation();
@@ -34,6 +35,17 @@ const AdminPage = () => {
 
     // Bank Card Setting from DB
     const [bankCard, setBankCard] = useState('');
+
+    // Meetup Spots
+    const [meetupSpots, setMeetupSpots] = useState([]);
+    const [newSpotName, setNewSpotName] = useState('');
+
+    // Broadcast state
+    const [broadcastMsg, setBroadcastMsg] = useState('');
+    const [broadcasting, setBroadcasting] = useState(false);
+
+    // Ad Banner state
+    const [adBannerText, setAdBannerText] = useState('');
 
     const fetchData = async () => {
         setLoading(true);
@@ -67,6 +79,12 @@ const AdminPage = () => {
                 }
                 setBankCard(val);
             }
+
+            const spotSettings = await api.get('/admin/settings/meetupSpots');
+            if (spotSettings.data?.value) {
+                setMeetupSpots(JSON.parse(spotSettings.data.value));
+            }
+
         } catch (err) {
             console.error('Admin fetch error:', err);
         } finally {
@@ -167,6 +185,21 @@ const AdminPage = () => {
         }
     };
 
+    const handleAddSpot = async (e) => {
+        e.preventDefault();
+        if (!newSpotName.trim()) return;
+        const updatedSpots = [...meetupSpots, newSpotName.trim()];
+        setMeetupSpots(updatedSpots);
+        setNewSpotName('');
+        await api.post('/admin/settings', { key: 'meetupSpots', value: JSON.stringify(updatedSpots) });
+    };
+
+    const handleRemoveSpot = async (spotToRemove) => {
+        const updatedSpots = meetupSpots.filter(s => s !== spotToRemove);
+        setMeetupSpots(updatedSpots);
+        await api.post('/admin/settings', { key: 'meetupSpots', value: JSON.stringify(updatedSpots) });
+    };
+
     const getName = (product) => {
         if (typeof product.name === 'object') return product.name[lang] || product.name.en || Object.values(product.name)[0];
         return product.name;
@@ -178,8 +211,23 @@ const AdminPage = () => {
         { id: 'users', icon: <Users size={16} />, label: t('users') },
         { id: 'finance', icon: <DollarSign size={16} />, label: 'Moliya' },
         { id: 'inventory', icon: <Box size={16} />, label: 'Zaxira (AI)' },
+        { id: 'broadcast', icon: <Megaphone size={16} />, label: "E'lon" },
         { id: 'settings', icon: <Settings size={16} />, label: 'Sozlamalar' },
     ];
+
+    const handleBroadcast = async () => {
+        if (!broadcastMsg.trim()) return;
+        setBroadcasting(true);
+        try {
+            const res = await api.post('/admin/broadcast', { message: broadcastMsg });
+            alert(res.data.message);
+            setBroadcastMsg('');
+        } catch (err) {
+            alert(err.response?.data?.error || "E'lon yuborishda xatolik");
+        } finally {
+            setBroadcasting(false);
+        }
+    };
 
     return (
         <div className="animate-slide-up" style={{ padding: '20px', paddingBottom: '90px' }}>
@@ -332,6 +380,21 @@ const AdminPage = () => {
                         </div>
                     )}
 
+                    {/* Peak Hours Chart */}
+                    {fullStats?.peakHours && (
+                        <div style={{ padding: 16, borderRadius: 16, background: 'var(--card-bg)', border: '1px solid var(--card-border)', marginBottom: 16 }}>
+                            <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--text-primary)', marginBottom: 12 }}>📊 Buyurtmalar vaqti (soatlik)</div>
+                            <ResponsiveContainer width="100%" height={180}>
+                                <BarChart data={fullStats.peakHours.filter(h => h.count > 0)}>
+                                    <XAxis dataKey="hour" tick={{ fill: 'var(--text-secondary)', fontSize: 10 }} />
+                                    <YAxis tick={{ fill: 'var(--text-secondary)', fontSize: 10 }} />
+                                    <Tooltip contentStyle={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)', borderRadius: 8 }} />
+                                    <Bar dataKey="count" fill="var(--brand-accent)" radius={[4, 4, 0, 0]} />
+                                </BarChart>
+                            </ResponsiveContainer>
+                        </div>
+                    )}
+
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                         {usersData.users?.map(u => (
                             <div key={u.id} style={{ padding: '14px', borderRadius: 14, background: 'var(--card-bg)', border: '1px solid var(--card-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -384,6 +447,22 @@ const AdminPage = () => {
                         <div style={{ fontSize: 24, fontWeight: 900, fontFamily: "'Fraunces', serif", color: 'var(--brand-accent2)' }}>₩{fullStats.totalWalletPool?.toLocaleString()}</div>
                     </div>
 
+                    {/* Daily Revenue Chart */}
+                    {fullStats?.dailyRevenue && (
+                        <div style={{ padding: 16, borderRadius: 16, background: 'var(--card-bg)', border: '1px solid var(--card-border)' }}>
+                            <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--text-primary)', marginBottom: 12 }}>📈 Oxirgi 7 kunlik daromad</div>
+                            <ResponsiveContainer width="100%" height={180}>
+                                <LineChart data={fullStats.dailyRevenue}>
+                                    <CartesianGrid strokeDasharray="3 3" stroke="var(--card-border)" />
+                                    <XAxis dataKey="date" tick={{ fill: 'var(--text-secondary)', fontSize: 10 }} />
+                                    <YAxis tick={{ fill: 'var(--text-secondary)', fontSize: 10 }} />
+                                    <Tooltip contentStyle={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)', borderRadius: 8 }} />
+                                    <Line type="monotone" dataKey="revenue" stroke="#27AE60" strokeWidth={2} dot={{ fill: '#27AE60' }} />
+                                </LineChart>
+                            </ResponsiveContainer>
+                        </div>
+                    )}
+
                     <h3 style={{ fontSize: '16px', color: 'var(--text-primary)', marginTop: 8 }}>📝 Qoshimcha Xarajat Kiriting</h3>
                     <form onSubmit={handleAddExpense} style={{ display: 'flex', gap: 8 }}>
                         <input value={newExpense.description} onChange={e => setNewExpense({ ...newExpense, description: e.target.value })} placeholder="Nima uchun?" style={{ flex: 1.5, padding: 12, borderRadius: 12, border: '1px solid var(--card-border)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', outline: 'none' }} required />
@@ -402,6 +481,27 @@ const AdminPage = () => {
                                 <div style={{ color: '#E74C3C', fontWeight: 800 }}>-₩{exp.amount.toLocaleString()}</div>
                             </div>
                         ))}
+                    </div>
+                </div>
+            )}
+
+            {/* TAB: BROADCAST */}
+            {activeTab === 'broadcast' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                    <div style={{ padding: 20, borderRadius: 16, background: 'var(--card-bg)', border: '1px solid var(--card-border)' }}>
+                        <h3 style={{ fontSize: 16, color: 'var(--text-primary)', margin: '0 0 8px', display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <Megaphone size={20} color="var(--brand-accent)" /> E'lon (Broadcast)
+                        </h3>
+                        <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 16 }}>Barcha foydalanuvchilarga Telegram orqali xabar yuborish.</p>
+                        <textarea
+                            value={broadcastMsg}
+                            onChange={e => setBroadcastMsg(e.target.value)}
+                            placeholder="E'lon matnini yozing..."
+                            style={{ width: '100%', minHeight: 100, padding: 14, borderRadius: 12, border: '1px solid var(--card-border)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', fontSize: 14, outline: 'none', resize: 'vertical', boxSizing: 'border-box' }}
+                        />
+                        <button onClick={handleBroadcast} disabled={broadcasting || !broadcastMsg.trim()} style={{ marginTop: 12, width: '100%', padding: 14, borderRadius: 14, border: 'none', background: broadcasting ? 'var(--text-secondary)' : 'var(--brand-accent)', color: '#fff', fontWeight: 800, fontSize: 14, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                            <Megaphone size={16} /> {broadcasting ? 'Yuborilmoqda...' : "Barchaga yuborish"}
+                        </button>
                     </div>
                 </div>
             )}
@@ -465,6 +565,55 @@ const AdminPage = () => {
                             </button>
                         </div>
                     </div>
+
+                    {/* Meetup Spots settings */}
+                    <div style={{ padding: '20px', borderRadius: '16px', background: 'var(--card-bg)', border: '1px solid var(--card-border)' }}>
+                        <h3 style={{ fontSize: '16px', color: 'var(--text-primary)', margin: '0 0 8px' }}>📍 Meet up (Uchrashuv) Joylari</h3>
+                        <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 16 }}>Agar foydalanuvchi "Meet up" orqali buyurtma qilsa, ushbu ro'yxatdan birini tanlashi kerak bo'ladi.</p>
+
+                        <form onSubmit={handleAddSpot} style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+                            <input
+                                value={newSpotName}
+                                onChange={e => setNewSpotName(e.target.value)}
+                                placeholder="Masalan: Sejong GS25 oldi"
+                                style={{ flex: 1, padding: 12, borderRadius: 12, border: '1px solid var(--card-border)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', outline: 'none' }}
+                            />
+                            <button type="submit" style={{ background: 'var(--brand-accent)', color: '#fff', border: 'none', borderRadius: 12, padding: '0 16px', fontWeight: 700, cursor: 'pointer' }}><Plus size={20} /></button>
+                        </form>
+
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                            {meetupSpots.map((spot, i) => (
+                                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: 12, background: 'var(--bg-secondary)', borderRadius: 12, border: '1px solid var(--card-border)', alignItems: 'center' }}>
+                                    <span style={{ color: 'var(--text-primary)', fontSize: 14, fontWeight: 600 }}>{spot}</span>
+                                    <button onClick={() => handleRemoveSpot(spot)} style={{ background: 'rgba(231,76,60,0.1)', color: '#E74C3C', border: 'none', borderRadius: 8, padding: '6px', cursor: 'pointer' }}>
+                                        <Trash2 size={16} />
+                                    </button>
+                                </div>
+                            ))}
+                            {meetupSpots.length === 0 && <span style={{ color: 'var(--text-secondary)', fontSize: 12 }}>Hali joylar kiritilmagan.</span>}
+                        </div>
+                    </div>
+
+                    {/* Ad Banner settings */}
+                    <div style={{ padding: '20px', borderRadius: '16px', background: 'var(--card-bg)', border: '1px solid var(--card-border)' }}>
+                        <h3 style={{ fontSize: '16px', color: 'var(--text-primary)', margin: '0 0 8px' }}>📢 Bosh sahifa E'lon / Reklama</h3>
+                        <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 16 }}>Bu matn bosh sahifada barcha userlarga ko'rinadi.</p>
+                        <textarea
+                            value={adBannerText}
+                            onChange={e => setAdBannerText(e.target.value)}
+                            placeholder="E'lon matnini yozing... (bo'sh qolsa banner ko'rinmaydi)"
+                            style={{ width: '100%', minHeight: 80, padding: 14, borderRadius: 12, border: '1px solid var(--card-border)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', fontSize: 14, outline: 'none', resize: 'vertical', boxSizing: 'border-box' }}
+                        />
+                        <button onClick={async () => {
+                            try {
+                                await api.post('/admin/settings', { key: 'adBanner', value: JSON.stringify({ text: adBannerText }) });
+                                alert('E\'lon saqlandi!');
+                            } catch { alert('Xatolik'); }
+                        }} style={{ marginTop: 8, background: 'var(--brand-accent)', color: '#fff', border: 'none', padding: '12px', borderRadius: '12px', fontWeight: 700, cursor: 'pointer', width: '100%' }}>
+                            💾 Saqlash
+                        </button>
+                    </div>
+
                 </div>
             )}
 

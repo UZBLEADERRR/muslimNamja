@@ -40,6 +40,18 @@ const User = sequelize.define('User', {
     walletBalance: {
         type: DataTypes.INTEGER,
         defaultValue: 0
+    },
+    avatarUrl: {
+        type: DataTypes.TEXT,
+        allowNull: true
+    },
+    nickname: {
+        type: DataTypes.STRING,
+        allowNull: true
+    },
+    isPrivate: {
+        type: DataTypes.BOOLEAN,
+        defaultValue: false
     }
 }, {
     timestamps: true

@@ -4,6 +4,7 @@ const Order = require('../models/Order');
 const Expense = require('../models/Expense');
 const SystemSetting = require('../models/SystemSetting');
 const { Op } = require('sequelize');
+const { getBot } = require('../utils/globals');
 
 // Default seed data for initial menu
 const SEED_PRODUCTS = [
@@ -265,11 +266,39 @@ const adminController = {
                 limit: 20
             });
 
+            // Peak Hours: group orders by hour
+            const allOrders = await Order.findAll({ attributes: ['createdAt', 'totalAmount'] });
+            const hourCounts = Array(24).fill(0);
+            const dailyRevenueMap = {};
+
+            allOrders.forEach(o => {
+                const d = new Date(o.createdAt);
+                hourCounts[d.getHours()]++;
+
+                // Daily revenue for last 7 days
+                const dayKey = d.toISOString().split('T')[0];
+                dailyRevenueMap[dayKey] = (dailyRevenueMap[dayKey] || 0) + (o.totalAmount || 0);
+            });
+
+            const peakHours = hourCounts.map((count, hour) => ({ hour: `${hour}:00`, count }));
+
+            // Last 7 days revenue
+            const today = new Date();
+            const dailyRevenue = [];
+            for (let i = 6; i >= 0; i--) {
+                const d = new Date(today);
+                d.setDate(d.getDate() - i);
+                const key = d.toISOString().split('T')[0];
+                dailyRevenue.push({ date: key.substring(5), revenue: dailyRevenueMap[key] || 0 });
+            }
+
             res.json({
                 totalUsers: users.length,
                 totalWalletPool,
                 demographics: { male: maleCount, female: femaleCount, unknown: unknownCount },
-                recentExpenses
+                recentExpenses,
+                peakHours,
+                dailyRevenue
             });
         } catch (error) {
             console.error('Stats error:', error);
@@ -384,6 +413,31 @@ const adminController = {
             res.json(setting);
         } catch (err) {
             res.status(500).json({ error: 'Failed to save setting' });
+        }
+    },
+
+    // Broadcast message to all users via Telegram bot
+    async broadcast(req, res) {
+        try {
+            const { message } = req.body;
+            if (!message) return res.status(400).json({ error: 'Message is required' });
+
+            const bot = getBot();
+            if (!bot) return res.status(500).json({ error: 'Bot is not available' });
+
+            const users = await User.findAll({ attributes: ['telegramId'] });
+            let sent = 0;
+            for (const u of users) {
+                if (u.telegramId) {
+                    try {
+                        await bot.sendMessage(u.telegramId, `📢 <b>E'lon:</b>\n\n${message}`, { parse_mode: 'HTML' });
+                        sent++;
+                    } catch (e) { /* skip blocked users */ }
+                }
+            }
+            res.json({ message: `E'lon ${sent} ta foydalanuvchiga yuborildi` });
+        } catch (err) {
+            res.status(500).json({ error: 'Broadcast failed' });
         }
     }
 };

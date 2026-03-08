@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from '../i18n';
 import { useAppStore } from '../store/useAppStore';
@@ -14,13 +14,48 @@ const CartPage = () => {
     const [paymentMethod, setPaymentMethod] = useState('wallet');
     const [orderPlaced, setOrderPlaced] = useState(false);
 
+    // New Delivery Type States
+    const [deliveryType, setDeliveryType] = useState('home'); // 'pickup', 'meetup', 'home'
+    const [meetupLocation, setMeetupLocation] = useState('');
+    const [availableMeetupSpots, setAvailableMeetupSpots] = useState([]);
+
+    useEffect(() => {
+        // Fetch Admin defined meetup spots
+        const fetchSettings = async () => {
+            try {
+                const res = await api.get('/users/settings/meetupSpots');
+                if (res.data?.value) {
+                    const spots = JSON.parse(res.data.value);
+                    setAvailableMeetupSpots(spots);
+                }
+            } catch (err) {
+                console.error("Failed to load meetup spots", err);
+            }
+        };
+        fetchSettings();
+    }, []);
+
     const subtotal = cart.reduce((sum, item) => sum + (item.product?.price || item.priceAtTime || 0) * (item.quantity || 1), 0);
     const distance = user?.distanceFromRestaurant || 0;
-    const deliveryFee = distance > 1 ? 3000 : 0;
+
+    // Dynamic Delivery Fee Computation
+    let deliveryFee = 0;
+    if (deliveryType === 'home') {
+        deliveryFee = distance > 1 ? 3000 : 0; // First 1km free, else 3000
+    } else if (deliveryType === 'pickup') {
+        deliveryFee = -1000; // 1000 won discount
+    } else if (deliveryType === 'meetup') {
+        deliveryFee = 1500; // Flat fee for meetup
+    }
+
     const total = subtotal + deliveryFee;
 
     const handleCheckout = async () => {
         if (cart.length === 0) return;
+        if (deliveryType === 'meetup' && !meetupLocation) {
+            return alert("Iltimos uchrashuv joyini tanlang!");
+        }
+
         setIsProcessing(true);
         try {
             const items = cart.map(item => ({
@@ -35,7 +70,10 @@ const CartPage = () => {
                 paymentMethod,
                 totalAmount: total,
                 deliveryFee,
-                distance
+                distance,
+                deliveryType,
+                meetupLocation: deliveryType === 'meetup' ? meetupLocation : null,
+                giftInfo: null // Default null for now
             });
 
             clearCart();
@@ -122,6 +160,50 @@ const CartPage = () => {
                 })}
             </div>
 
+            {/* Delivery Method Selection */}
+            <div style={{ marginBottom: 20 }}>
+                <div style={{ color: 'var(--text-primary)', fontWeight: 700, fontSize: 14, marginBottom: 10 }}>Yetkazib berish usuli</div>
+                <div style={{ display: 'flex', gap: 8, marginBottom: deliveryType === 'meetup' ? 12 : 0 }}>
+                    {[
+                        { id: 'pickup', icon: '🚶‍♀️', label: 'Olib ketish', extra: '-₩1000' },
+                        { id: 'meetup', icon: '📍', label: 'Meet up', extra: '' },
+                        { id: 'home', icon: '🛵', label: 'Uyga', extra: distance > 1 ? '+₩3000' : 'Tekin' }
+                    ].map(m => (
+                        <button key={m.id} onClick={() => setDeliveryType(m.id)} style={{
+                            flex: 1, padding: '10px 4px', borderRadius: 14, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4,
+                            background: deliveryType === m.id ? 'var(--brand-accent)' : 'var(--card-bg)',
+                            color: deliveryType === m.id ? '#fff' : 'var(--text-secondary)',
+                            border: `1px solid ${deliveryType === m.id ? 'var(--brand-accent)' : 'var(--card-border)'}`,
+                            cursor: 'pointer', transition: 'all 0.2s'
+                        }}>
+                            <span style={{ fontSize: 18 }}>{m.icon}</span>
+                            <span style={{ fontWeight: 700, fontSize: 11 }}>{m.label}</span>
+                            <span style={{ fontSize: 9, opacity: 0.8 }}>{m.extra}</span>
+                        </button>
+                    ))}
+                </div>
+
+                {deliveryType === 'meetup' && (
+                    <div style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)', borderRadius: 16, padding: '14px', marginTop: 8 }}>
+                        <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 8 }}>Uchrashuv joyini tanlang:</div>
+                        {availableMeetupSpots.length > 0 ? (
+                            <select
+                                value={meetupLocation}
+                                onChange={e => setMeetupLocation(e.target.value)}
+                                style={{ width: '100%', padding: '12px', borderRadius: '10px', border: '1px solid var(--card-border)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', outline: 'none' }}
+                            >
+                                <option value="" disabled>-- Joy tanlang --</option>
+                                {availableMeetupSpots.map(spot => (
+                                    <option key={spot} value={spot}>{spot}</option>
+                                ))}
+                            </select>
+                        ) : (
+                            <div style={{ fontSize: 12, color: '#E74C3C' }}>Joylar hozircha kiritilmagan. Admin bilan bog'laning.</div>
+                        )}
+                    </div>
+                )}
+            </div>
+
             {/* Totals */}
             <div style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)', borderRadius: 20, padding: 20, marginBottom: 20, boxShadow: 'var(--shadow-main)' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 10, fontSize: 14 }}>
@@ -129,12 +211,14 @@ const CartPage = () => {
                     <span style={{ color: 'var(--text-primary)', fontWeight: 600 }}>₩{subtotal.toLocaleString()}</span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 10, fontSize: 14 }}>
-                    <span style={{ color: 'var(--text-secondary)' }}>{t('delivery_fee')}</span>
-                    <span style={{ color: deliveryFee === 0 ? '#27AE60' : 'var(--text-primary)', fontWeight: 600 }}>{deliveryFee === 0 ? t('free_delivery') : `₩${deliveryFee.toLocaleString()}`}</span>
+                    <span style={{ color: 'var(--text-secondary)' }}>{deliveryType === 'pickup' ? 'Chegirma (Pick up)' : t('delivery_fee')}</span>
+                    <span style={{ color: deliveryFee <= 0 ? '#27AE60' : 'var(--text-primary)', fontWeight: 600 }}>
+                        {deliveryFee === 0 ? t('free_delivery') : (deliveryFee < 0 ? `-₩${Math.abs(deliveryFee).toLocaleString()}` : `₩${deliveryFee.toLocaleString()}`)}
+                    </span>
                 </div>
                 <div style={{ borderTop: '1px solid var(--card-border)', paddingTop: 10, display: 'flex', justifyContent: 'space-between', fontSize: 16 }}>
                     <span style={{ color: 'var(--text-primary)', fontWeight: 700 }}>{t('grand_total')}</span>
-                    <span style={{ color: 'var(--brand-accent)', fontWeight: 900, fontFamily: "'Fraunces', serif", fontSize: 20 }}>₩{total.toLocaleString()}</span>
+                    <span style={{ color: 'var(--brand-accent)', fontWeight: 900, fontFamily: "'Fraunces', serif", fontSize: 20 }}>₩{Math.max(0, total).toLocaleString()}</span>
                 </div>
             </div>
 

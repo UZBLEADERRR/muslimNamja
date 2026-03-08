@@ -1,8 +1,10 @@
 const User = require('../models/User');
 const Transaction = require('../models/Transaction');
 const SystemSetting = require('../models/SystemSetting');
+const sequelize = require('../config/database');
 const { calculateDistance } = require('../utils/distance');
 const { verifyPaymentScreenshot } = require('../utils/aiVerifier');
+const { getBot } = require('../utils/globals');
 
 const RESTAURANT_LAT = 37.5503;
 const RESTAURANT_LNG = 127.0731;
@@ -71,12 +73,14 @@ const userController = {
     // Update profile
     async updateProfile(req, res) {
         try {
-            const { phone, address, location } = req.body;
+            const { phone, address, location, nickname, isPrivate } = req.body;
             const userId = req.user.userId;
 
             const updates = {};
             if (phone !== undefined) updates.phone = phone;
             if (address !== undefined) updates.address = address;
+            if (nickname !== undefined) updates.nickname = nickname;
+            if (isPrivate !== undefined) updates.isPrivate = isPrivate;
             if (location) {
                 updates.location = location;
                 updates.distanceFromRestaurant = calculateDistance(
@@ -98,6 +102,7 @@ const userController = {
                     username: u.username, role: u.role, walletBalance: u.walletBalance,
                     distanceFromRestaurant: u.distanceFromRestaurant,
                     phone: u.phone, address: u.address, location: u.location,
+                    nickname: u.nickname, isPrivate: u.isPrivate, avatarUrl: u.avatarUrl,
                 }
             });
         } catch (error) {
@@ -110,9 +115,101 @@ const userController = {
     async getSetting(req, res) {
         try {
             const setting = await SystemSetting.findOne({ where: { key: req.params.key } });
-            res.json(setting ? setting.value : null);
+            res.json(setting ? setting : null);
         } catch (error) {
             res.status(500).json({ error: 'Failed to fetch setting' });
+        }
+    },
+
+    // P2P Money Transfer
+    async transferMoney(req, res) {
+        const trans = await sequelize.transaction();
+        try {
+            const { toUserId, amount } = req.body;
+            const senderId = req.user.userId;
+            const transferAmount = parseInt(amount);
+
+            if (!toUserId || !transferAmount || transferAmount <= 0) {
+                await trans.rollback();
+                return res.status(400).json({ error: 'Invalid transfer data' });
+            }
+            if (senderId === toUserId) {
+                await trans.rollback();
+                return res.status(400).json({ error: 'O\'zingizga pul o\'tkaza olmaysiz' });
+            }
+
+            const sender = await User.findByPk(senderId, { transaction: trans });
+            const receiver = await User.findByPk(toUserId, { transaction: trans });
+
+            if (!receiver) {
+                await trans.rollback();
+                return res.status(404).json({ error: 'Qabul qiluvchi topilmadi' });
+            }
+            if (sender.walletBalance < transferAmount) {
+                await trans.rollback();
+                return res.status(400).json({ error: 'Hamyoningizda mablag\' yetarli emas' });
+            }
+
+            sender.walletBalance -= transferAmount;
+            receiver.walletBalance += transferAmount;
+            await sender.save({ transaction: trans });
+            await receiver.save({ transaction: trans });
+
+            await trans.commit();
+
+            // Notify receiver via bot
+            const bot = getBot();
+            if (bot && receiver.telegramId) {
+                bot.sendMessage(receiver.telegramId, `💸 <b>${sender.firstName}</b> sizga ₩${transferAmount.toLocaleString()} o'tkazdi!`, { parse_mode: 'HTML' }).catch(() => { });
+            }
+
+            res.json({ message: `₩${transferAmount.toLocaleString()} muvaffaqiyatli o'tkazildi!`, walletBalance: sender.walletBalance });
+        } catch (error) {
+            await trans.rollback();
+            console.error('Transfer Error:', error);
+            res.status(500).json({ error: 'Pul o\'tkazishda xatolik' });
+        }
+    },
+
+    // Upload Avatar (only if wallet >= 15000)
+    async uploadAvatar(req, res) {
+        try {
+            const userId = req.user.userId;
+            if (!req.file) return res.status(400).json({ error: 'Image is required' });
+
+            const user = await User.findByPk(userId);
+            if (!user) return res.status(404).json({ error: 'User not found' });
+            if (user.walletBalance < 15000) {
+                return res.status(403).json({ error: 'Profil rasm qo\'yish uchun hamyoningizda kamida ₩15,000 bo\'lishi kerak!' });
+            }
+
+            const avatarUrl = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
+            await User.update({ avatarUrl }, { where: { id: userId } });
+
+            res.json({ avatarUrl });
+        } catch (error) {
+            res.status(500).json({ error: 'Failed to upload avatar' });
+        }
+    },
+
+    // Get all users (for members list in community) — hide wallet for private users
+    async getAllUsers(req, res) {
+        try {
+            const users = await User.findAll({
+                attributes: ['id', 'firstName', 'lastName', 'username', 'role', 'avatarUrl', 'walletBalance', 'nickname', 'isPrivate'],
+                order: [['firstName', 'ASC']]
+            });
+            // Hide wallet for private accounts
+            const mapped = users.map(u => {
+                const json = u.toJSON();
+                if (json.isPrivate) {
+                    json.walletBalance = null; // Hidden
+                }
+                return json;
+            });
+            res.json(mapped);
+        } catch (error) {
+            res.status(500).json({ error: 'Failed to fetch users' });
         }
     }
 };

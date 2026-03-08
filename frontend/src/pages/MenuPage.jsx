@@ -31,12 +31,18 @@ const MenuPage = () => {
     const [addedFoodId, setAddedFoodId] = useState(null);
     const [searchQuery, setSearchQuery] = useState('');
     const [loading, setLoading] = useState(true);
+    const [winner, setWinner] = useState(null);
+    const [adBanner, setAdBanner] = useState(null);
 
     useEffect(() => {
         api.get('/products')
             .then(res => setProducts(res.data || []))
             .catch(err => console.error('Fetch products error:', err))
             .finally(() => setLoading(false));
+
+        // Fetch monthly winner & ad banner (public, no auth needed)
+        fetch((import.meta.env.VITE_API_URL || '/api') + '/public/monthly-winner').then(r => r.json()).then(d => setWinner(d)).catch(() => { });
+        fetch((import.meta.env.VITE_API_URL || '/api') + '/public/ad-banner').then(r => r.json()).then(d => setAdBanner(d)).catch(() => { });
     }, []);
 
     const handleAddToCart = (food) => {
@@ -83,6 +89,34 @@ const MenuPage = () => {
                 <h2 style={{ color: "var(--text-primary)", fontFamily: "'Fraunces', serif", fontSize: 24, margin: "2px 0 16px", fontWeight: 900 }}>
                     {t('sub')} 😋
                 </h2>
+
+                {/* Monthly Winner */}
+                {winner && winner.user && (
+                    <div style={{ background: 'linear-gradient(135deg, rgba(255,215,0,0.15), rgba(255,107,53,0.1))', border: '2px solid rgba(255,215,0,0.4)', borderRadius: 18, padding: '14px 16px', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 12 }}>
+                        <div style={{ position: 'relative', flexShrink: 0 }}>
+                            <div style={{ width: 48, height: 48, borderRadius: '50%', background: 'linear-gradient(135deg, #FFD700, #FF6B35)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', border: '2px solid #FFD700' }}>
+                                {winner.user.avatarUrl?.startsWith('data:image')
+                                    ? <img src={winner.user.avatarUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                    : <span style={{ fontSize: 22 }}>👤</span>}
+                            </div>
+                            <div style={{ position: 'absolute', top: -6, right: -6, fontSize: 16 }}>👑</div>
+                        </div>
+                        <div style={{ flex: 1 }}>
+                            <div style={{ fontSize: 10, fontWeight: 800, color: '#FFD700', textTransform: 'uppercase', letterSpacing: 1 }}>🏆 Oyning G'olibi</div>
+                            <div style={{ fontSize: 15, fontWeight: 900, color: 'var(--text-primary)', fontFamily: "'Fraunces', serif" }}>{winner.user.nickname || winner.user.firstName}</div>
+                            <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>₩{winner.totalSpent?.toLocaleString()} sarflandi</div>
+                        </div>
+                        <div style={{ background: '#FFD700', color: '#000', fontWeight: 900, padding: '4px 10px', borderRadius: 8, fontSize: 11 }}>WINNER</div>
+                    </div>
+                )}
+
+                {/* Admin Ad Banner */}
+                {adBanner && adBanner.text && (
+                    <div style={{ background: 'linear-gradient(135deg, rgba(78,205,196,0.1), rgba(255,107,53,0.08))', border: '1px solid var(--brand-accent2)', borderRadius: 16, padding: '12px 16px', marginBottom: 16 }}>
+                        <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--brand-accent)', letterSpacing: 1, marginBottom: 4 }}>📢 E'LON</div>
+                        <div style={{ fontSize: 13, color: 'var(--text-primary)', lineHeight: 1.5 }}>{adBanner.text}</div>
+                    </div>
+                )}
 
                 <div style={{ background: "var(--card-bg)", border: `1px solid var(--card-border)`, borderRadius: 14, padding: "12px 16px", display: "flex", alignItems: "center", gap: 10, marginBottom: 20, boxShadow: "var(--shadow-main)" }}>
                     <span style={{ fontSize: 16 }}>🔍</span>
