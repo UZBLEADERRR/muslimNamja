@@ -43,8 +43,17 @@ const ProfilePage = () => {
 
     if (!user) {
         return (
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '60vh' }}>
-                <p>Login with Telegram to view your profile</p>
+            <div className="glass animate-slide-up" style={{ padding: '40px 24px', borderRadius: '32px', textAlign: 'center', marginTop: '40px' }}>
+                <div style={{ width: '80px', height: '80px', borderRadius: '50%', background: 'rgba(59, 130, 246, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px', color: 'var(--brand-primary)' }}>
+                    <UserIcon size={40} />
+                </div>
+                <h3 style={{ marginBottom: '12px', fontSize: '20px' }}>Profilingiz tayyor emas</h3>
+                <p style={{ color: 'var(--text-secondary)', marginBottom: '24px', fontSize: '14px', lineHeight: 1.5 }}>
+                    Profil ma'lumotlarini yuklash uchun iltimos, Telegram orqali qaytadan kiring yoki botda ro'yxatdan o'ting.
+                </p>
+                <button onClick={() => window.location.reload()} className="btn-gold" style={{ width: '100%' }}>
+                    Qayta yuklash
+                </button>
             </div>
         );
     }

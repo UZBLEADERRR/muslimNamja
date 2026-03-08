@@ -26,12 +26,15 @@ function Authenticator() {
 
       const initData = tg.initData;
 
-      if (initData && !user && !tempTgUser) {
+      if (initData && !user) {
+        // Clear any stale local data if initData is fresh
         api.post('/auth/login', { initData })
           .then(res => {
             if (res.data.requiresRegistration) {
               setTempTgUser(res.data.tgUser);
-              navigate('/register');
+              if (window.location.pathname !== '/register') {
+                navigate('/register');
+              }
             } else {
               setUser(res.data.user, res.data.token);
             }
@@ -41,7 +44,7 @@ function Authenticator() {
           });
       }
     }
-  }, [setUser, user, setTempTgUser, tempTgUser, navigate]);
+  }, [setUser, user, setTempTgUser, navigate]);
 
   return null;
 }

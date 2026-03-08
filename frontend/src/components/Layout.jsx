@@ -22,9 +22,9 @@ const Layout = () => {
             }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                     <div style={{
-                        width: '38px', height: '38px', background: 'linear-gradient(135deg, var(--brand-primary), #065f46)',
+                        width: '38px', height: '38px', background: 'linear-gradient(135deg, var(--brand-primary), #1e40af)',
                         borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        boxShadow: '0 4px 12px rgba(16, 185, 129, 0.2)'
+                        boxShadow: '0 4px 12px rgba(59, 130, 246, 0.3)'
                     }}>
                         <Shield size={20} color="white" />
                     </div>
