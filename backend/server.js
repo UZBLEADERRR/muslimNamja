@@ -35,7 +35,7 @@ const sequelize = require('./config/database');
 sequelize.authenticate()
     .then(() => {
         console.log('PostgreSQL connected');
-        return sequelize.sync({ alter: true }); // Sync models to database
+        return sequelize.sync({ alter: true });
     })
     .then(() => console.log('Database synced'))
     .catch(err => console.error('PostgreSQL connection error:', err));
@@ -50,7 +50,6 @@ if (process.env.NODE_ENV === 'production' || process.env.RAILWAY_STATIC_URL) {
         res.sendFile(path.resolve(__dirname, '../frontend/dist', 'index.html'));
     });
 } else {
-    // Basic route for development
     app.get('/', (req, res) => {
         res.send('Muslim Namja API is running');
     });
@@ -62,6 +61,20 @@ const FRONTEND_URL = process.env.FRONTEND_URL
 const bot = setupBot(process.env.TELEGRAM_BOT_TOKEN, FRONTEND_URL);
 setBot(bot);
 
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
 });
+
+// Graceful shutdown — stop bot polling before exit
+const shutdown = () => {
+    console.log('Shutting down gracefully...');
+    if (bot) bot.stopPolling();
+    server.close(() => {
+        console.log('Server closed.');
+        process.exit(0);
+    });
+    setTimeout(() => process.exit(1), 5000);
+};
+
+process.on('SIGTERM', shutdown);
+process.on('SIGINT', shutdown);

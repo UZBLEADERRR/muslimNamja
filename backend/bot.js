@@ -7,12 +7,17 @@ function setupBot(botToken, appUrl) {
     }
 
     const token = botToken.trim();
-    // Polling bot setup
-    const bot = new TelegramBot(token, { polling: true });
-    // Use User model for registration checks
+    const bot = new TelegramBot(token, {
+        polling: {
+            interval: 1000,
+            autoStart: true,
+            params: { timeout: 10 }
+        }
+    });
+
     const User = require('./models/User');
     const { calculateDistance } = require('./utils/distance');
-    const RESTAURANT_LAT = 37.5503; // Sejong University coords
+    const RESTAURANT_LAT = 37.5503;
     const RESTAURANT_LNG = 127.0731;
 
     console.log('Telegram Bot Polling started!');
@@ -138,16 +143,26 @@ Buyurtma berish uchun iltimos, ro'yxatdan o'ting. Pastdagi tugmalardan foydalani
 
     bot.on('message', (msg) => {
         if (msg.text && !msg.text.startsWith('/start') && !msg.contact && !msg.location) {
-            const chatId = msg.chat.id;
-            // bot.sendMessage(chatId, "Iltimos, ilovaga kirish uchun /start ni bosing yoki menyuga kiring.");
+            // Silently ignore unrecognized messages
         }
     });
 
+    // Graceful 409 handling — restart polling after delay
     bot.on('polling_error', (error) => {
-        console.error('Bot Polling Error:', error.message);
-        if (error.message.includes('401')) {
+        const msg = error.message || '';
+        if (msg.includes('409')) {
+            console.warn('Bot 409 Conflict detected. Restarting polling in 3s...');
+            bot.stopPolling().then(() => {
+                setTimeout(() => {
+                    bot.startPolling();
+                    console.log('Bot polling restarted after 409.');
+                }, 3000);
+            });
+        } else if (msg.includes('401')) {
             console.error('CRITICAL: Telegram Bot Token is invalid. Stopping polling.');
             bot.stopPolling();
+        } else {
+            console.error('Bot Polling Error:', msg);
         }
     });
 

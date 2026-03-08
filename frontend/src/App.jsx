@@ -1,10 +1,9 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { useAppStore } from './store/useAppStore';
 import api from './utils/api';
 import Layout from './components/Layout';
 
-// Placeholder Pages
 import MenuPage from './pages/MenuPage';
 import CommunityPage from './pages/CommunityPage';
 import CartPage from './pages/CartPage';
@@ -15,44 +14,55 @@ import AdminPage from './pages/AdminPage';
 import RegisterPage from './pages/RegisterPage';
 
 function Authenticator() {
-  const { setUser, user, token, setTempTgUser } = useAppStore();
+  const { setUser, user, token, setTempTgUser, logout } = useAppStore();
   const navigate = useNavigate();
+  const [authAttempted, setAuthAttempted] = useState(false);
 
   useEffect(() => {
-    // 1. Restore session if token exists
-    if (token && !user) {
-      api.get('/auth/me')
-        .then(res => {
-          setUser(res.data, token);
-        })
-        .catch(err => console.error('Token auth error:', err));
-    }
+    if (authAttempted || user) return;
 
-    // 2. Telegram WebApp Init
-    const tg = window.Telegram?.WebApp;
-    if (tg && tg.initData) {
-      tg.ready();
-      tg.expand();
-
-      // Only attempt Telegram login if we don't have a user yet
-      if (!user && !token) {
-        api.post('/auth/login', { initData: tg.initData })
-          .then(res => {
-            if (res.data.requiresRegistration) {
-              setTempTgUser(res.data.tgUser);
-              if (window.location.pathname !== '/register') {
-                navigate('/register');
-              }
-            } else {
-              setUser(res.data.user, res.data.token);
-            }
-          })
-          .catch(err => {
-            console.error('TG Auth error:', err);
-          });
+    const authenticate = async () => {
+      // Step 1: If token exists, try to restore session
+      if (token) {
+        try {
+          const res = await api.get('/auth/me');
+          if (res.data && res.data.id) {
+            setUser(res.data, token);
+            setAuthAttempted(true);
+            return; // Success — session restored
+          }
+        } catch (err) {
+          console.warn('Token expired or invalid, clearing...');
+          logout(); // Clear stale token
+        }
       }
-    }
-  }, [setUser, user, token, setTempTgUser, navigate]);
+
+      // Step 2: Try Telegram WebApp login (only if no valid session)
+      const tg = window.Telegram?.WebApp;
+      if (tg && tg.initData) {
+        tg.ready();
+        tg.expand();
+
+        try {
+          const res = await api.post('/auth/login', { initData: tg.initData });
+          if (res.data.requiresRegistration) {
+            setTempTgUser(res.data.tgUser);
+            if (window.location.pathname !== '/register') {
+              navigate('/register');
+            }
+          } else if (res.data.token) {
+            setUser(res.data.user, res.data.token);
+          }
+        } catch (err) {
+          console.error('Telegram auth error:', err);
+        }
+      }
+
+      setAuthAttempted(true);
+    };
+
+    authenticate();
+  }, [authAttempted, user, token, setUser, setTempTgUser, logout, navigate]);
 
   return null;
 }
@@ -74,7 +84,7 @@ function App() {
 
           {/* Protected Routes */}
           <Route path="delivery" element={
-            user && user.role === 'delivery' ? <DeliveryPage /> : <Navigate to="/" />
+            user && (user.role === 'delivery' || user.role === 'admin') ? <DeliveryPage /> : <Navigate to="/" />
           } />
 
           <Route path="admin" element={
