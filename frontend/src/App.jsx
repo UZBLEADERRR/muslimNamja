@@ -15,21 +15,28 @@ import AdminPage from './pages/AdminPage';
 import RegisterPage from './pages/RegisterPage';
 
 function Authenticator() {
-  const { setUser, user, setTempTgUser, tempTgUser } = useAppStore();
+  const { setUser, user, token, setTempTgUser } = useAppStore();
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Check Telegram WebApp Init
+    // 1. Restore session if token exists
+    if (token && !user) {
+      api.get('/auth/me')
+        .then(res => {
+          setUser(res.data, token);
+        })
+        .catch(err => console.error('Token auth error:', err));
+    }
+
+    // 2. Telegram WebApp Init
     const tg = window.Telegram?.WebApp;
-    if (tg) {
+    if (tg && tg.initData) {
       tg.ready();
       tg.expand();
 
-      const initData = tg.initData;
-
-      if (initData && !user) {
-        // Clear any stale local data if initData is fresh
-        api.post('/auth/login', { initData })
+      // Only attempt Telegram login if we don't have a user yet
+      if (!user && !token) {
+        api.post('/auth/login', { initData: tg.initData })
           .then(res => {
             if (res.data.requiresRegistration) {
               setTempTgUser(res.data.tgUser);
@@ -41,11 +48,11 @@ function Authenticator() {
             }
           })
           .catch(err => {
-            console.error('Auth error:', err);
+            console.error('TG Auth error:', err);
           });
       }
     }
-  }, [setUser, user, setTempTgUser, navigate]);
+  }, [setUser, user, token, setTempTgUser, navigate]);
 
   return null;
 }
