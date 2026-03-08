@@ -45,12 +45,12 @@ const Layout = () => {
             </div>
 
             {/* Content Area */}
-            <div className="hide-scrollbar" style={{ padding: "0 0 90px", overflowY: "auto", height: "calc(100vh - 120px)" }}>
+            <div className="hide-scrollbar" style={{ paddingBottom: "100px", overflowY: "auto", minHeight: "calc(100vh - 60px)" }}>
                 <Outlet />
             </div>
 
             {/* Bottom Floating Nav */}
-            <div style={{ position: "fixed", bottom: 0, left: "50%", transform: "translateX(-50%)", width: "100%", maxWidth: 430, background: "var(--glass-nav)", backdropFilter: "blur(24px)", borderTop: "1px solid var(--card-border)", padding: "8px 0 12px", display: "flex", justifyContent: "space-around", zIndex: 100 }}>
+            <div style={{ position: "fixed", bottom: 0, left: "50%", transform: "translateX(-50%)", width: "100%", maxWidth: 430, background: "var(--glass-nav)", backdropFilter: "blur(24px)", borderTop: "1px solid var(--card-border)", padding: "8px 0 20px", display: "flex", justifyContent: "space-around", zIndex: 200 }}>
                 <NavItem to="/" icon="🏠" label={t('home') || 'Home'} />
                 <NavItem to="/community" icon="💬" label={t('community') || 'Community'} />
 

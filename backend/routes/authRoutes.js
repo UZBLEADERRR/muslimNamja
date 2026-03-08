@@ -13,7 +13,19 @@ router.get('/me', authMiddleware(), async (req, res) => {
         const user = await User.findByPk(req.user.userId);
         if (!user) return res.status(404).json({ error: 'User not found' });
 
-        res.json(user);
+        // Return same format as telegramLogin for consistency
+        res.json({
+            id: user.id,
+            firstName: user.firstName,
+            lastName: user.lastName,
+            username: user.username,
+            role: user.role,
+            walletBalance: user.walletBalance,
+            distanceFromRestaurant: user.distanceFromRestaurant,
+            phone: user.phone,
+            address: user.address,
+            location: user.location,
+        });
     } catch (error) {
         res.status(500).json({ error: 'Server error' });
     }

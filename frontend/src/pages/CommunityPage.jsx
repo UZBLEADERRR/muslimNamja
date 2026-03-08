@@ -144,7 +144,7 @@ const CommunityPage = () => {
             </div>
 
             {/* Fixed Bottom Input */}
-            <div style={{ position: 'fixed', bottom: '85px', left: 0, right: 0, padding: '10px 20px', background: 'var(--bg-primary)', borderTop: '1px solid var(--card-border)', zIndex: 100 }}>
+            <div style={{ position: 'fixed', bottom: '80px', left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: 430, padding: '10px 20px', background: 'var(--bg-primary)', borderTop: '1px solid var(--card-border)', zIndex: 150, boxSizing: 'border-box' }}>
                 <form onSubmit={handleSendMessage} style={{ background: "var(--card-bg)", border: `1px solid var(--card-border)`, borderRadius: 24, padding: "8px 12px", display: "flex", gap: 12, alignItems: "center", boxShadow: '0 -4px 12px rgba(0,0,0,0.05)' }}>
                     <div style={{ width: 32, height: 32, borderRadius: "50%", background: `var(--card-border)`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16 }}>😊</div>
                     <input
