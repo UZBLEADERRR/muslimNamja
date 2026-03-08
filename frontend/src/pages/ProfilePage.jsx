@@ -12,16 +12,88 @@ const LANG_LIST = [
 
 const ProfilePage = () => {
     const { t, lang } = useTranslation();
-    const { user, logout, setLang } = useAppStore();
+    const { user, logout, setLang, setUser, token } = useAppStore();
     const [orderCount, setOrderCount] = useState(0);
+
+    // Editable fields
+    const [phone, setPhone] = useState('');
+    const [address, setAddress] = useState('');
+    const [location, setLocation] = useState(null);
+    const [gettingLocation, setGettingLocation] = useState(false);
+    const [saving, setSaving] = useState(false);
+    const [saveMsg, setSaveMsg] = useState('');
+
+    // Wallet top-up
+    const [topUpAmount, setTopUpAmount] = useState('');
+    const [screenshot, setScreenshot] = useState(null);
+    const [uploading, setUploading] = useState(false);
+    const [topUpMsg, setTopUpMsg] = useState('');
 
     useEffect(() => {
         if (user) {
+            setPhone(user.phone || '');
+            setAddress(user.address || '');
+            setLocation(user.location || null);
             api.get('/orders/my')
                 .then(res => setOrderCount(res.data?.length || 0))
                 .catch(() => { });
         }
     }, [user]);
+
+    const handleGetLocation = () => {
+        setGettingLocation(true);
+        if (!navigator.geolocation) {
+            alert('Geolocation not supported');
+            setGettingLocation(false);
+            return;
+        }
+        navigator.geolocation.getCurrentPosition(
+            (pos) => {
+                setLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+                setGettingLocation(false);
+            },
+            () => {
+                alert('Location permission denied');
+                setGettingLocation(false);
+            }
+        );
+    };
+
+    const handleSaveProfile = async () => {
+        setSaving(true);
+        setSaveMsg('');
+        try {
+            const res = await api.put('/users/profile', { phone, address, location });
+            setUser(res.data.user || { ...user, phone, address, location }, token);
+            setSaveMsg('✅');
+            setTimeout(() => setSaveMsg(''), 2000);
+        } catch (err) {
+            setSaveMsg('❌ ' + (err.response?.data?.error || 'Error'));
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const handleTopUp = async () => {
+        if (!screenshot) return alert('Screenshot yuklang');
+        setUploading(true);
+        setTopUpMsg('');
+        try {
+            const formData = new FormData();
+            formData.append('screenshot', screenshot);
+            formData.append('amount', topUpAmount || '0');
+            const res = await api.post('/users/topup', formData, {
+                headers: { 'Content-Type': 'multipart/form-data' }
+            });
+            setTopUpMsg('✅ ' + (res.data.message || 'Yuborildi! AI tekshirmoqda...'));
+            setScreenshot(null);
+            setTopUpAmount('');
+        } catch (err) {
+            setTopUpMsg('❌ ' + (err.response?.data?.error || 'Xato'));
+        } finally {
+            setUploading(false);
+        }
+    };
 
     if (!user) {
         return (
@@ -35,25 +107,98 @@ const ProfilePage = () => {
     }
 
     return (
-        <div className="animate-slide-up" style={{ padding: 20 }}>
+        <div className="animate-slide-up" style={{ padding: 20, paddingBottom: 40 }}>
             {/* Profile Hero */}
             <div style={{ background: `linear-gradient(135deg, rgba(255,107,53,0.1), rgba(255,60,172,0.1))`, borderRadius: 24, padding: 24, marginBottom: 20, textAlign: "center", border: `1px solid rgba(255,107,53,0.2)` }}>
                 <div style={{ width: 72, height: 72, borderRadius: "50%", background: `linear-gradient(135deg, var(--brand-accent), #FF3CAC)`, margin: "0 auto 12px", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 36, boxShadow: "var(--shadow-main)" }}>👤</div>
                 <div style={{ color: "var(--text-primary)", fontFamily: "'Fraunces', serif", fontWeight: 900, fontSize: 20 }}>{user.firstName} {user.lastName || ''}</div>
                 <div style={{ color: "var(--text-secondary)", fontSize: 12, marginBottom: 12 }}>@{user.username || 'user'}</div>
                 <div style={{ display: "flex", gap: 16, justifyContent: "center" }}>
-                    <div style={{ textAlign: "center" }}><div style={{ color: "var(--brand-accent)", fontWeight: 900, fontSize: 18, fontFamily: "'Fraunces', serif" }}>{(user.walletBalance || 0).toLocaleString()}</div><div style={{ color: "var(--text-secondary)", fontSize: 11 }}>{t('wallet')} (₩)</div></div>
-                    <div style={{ textAlign: "center" }}><div style={{ color: "var(--brand-accent)", fontWeight: 900, fontSize: 18, fontFamily: "'Fraunces', serif" }}>{orderCount}</div><div style={{ color: "var(--text-secondary)", fontSize: 11 }}>{t('orders')}</div></div>
+                    <div style={{ textAlign: "center" }}>
+                        <div style={{ color: "var(--brand-accent)", fontWeight: 900, fontSize: 18, fontFamily: "'Fraunces', serif" }}>{(user.walletBalance || 0).toLocaleString()}</div>
+                        <div style={{ color: "var(--text-secondary)", fontSize: 11 }}>{t('wallet')} (₩)</div>
+                    </div>
+                    <div style={{ textAlign: "center" }}>
+                        <div style={{ color: "var(--brand-accent)", fontWeight: 900, fontSize: 18, fontFamily: "'Fraunces', serif" }}>{orderCount}</div>
+                        <div style={{ color: "var(--text-secondary)", fontSize: 11 }}>{t('orders')}</div>
+                    </div>
                 </div>
+            </div>
+
+            {/* Editable Profile Fields */}
+            <div style={{ background: "var(--card-bg)", borderRadius: 18, padding: 18, marginBottom: 16, border: `1px solid var(--card-border)`, boxShadow: "var(--shadow-main)" }}>
+                <div style={{ color: "var(--text-primary)", fontWeight: 700, fontSize: 14, marginBottom: 14 }}>✏️ Ma'lumotlarni tahrirlash</div>
+
+                {/* Phone */}
+                <label style={{ color: "var(--text-secondary)", fontSize: 11, fontWeight: 600, display: 'block', marginBottom: 4 }}>📱 Telefon raqam</label>
+                <input value={phone} onChange={e => setPhone(e.target.value)} placeholder="+8210..." style={inputStyle} />
+
+                {/* Address */}
+                <label style={{ color: "var(--text-secondary)", fontSize: 11, fontWeight: 600, display: 'block', marginBottom: 4, marginTop: 12 }}>🏠 Uy manzili</label>
+                <input value={address} onChange={e => setAddress(e.target.value)} placeholder="To'liq manzil..." style={inputStyle} />
+
+                {/* Location */}
+                <label style={{ color: "var(--text-secondary)", fontSize: 11, fontWeight: 600, display: 'block', marginBottom: 6, marginTop: 12 }}>📍 Jonli lokatsiya</label>
+                <button onClick={handleGetLocation} disabled={gettingLocation} style={{
+                    width: '100%', padding: '12px', borderRadius: 12, border: `1px solid ${location ? 'var(--brand-accent)' : 'var(--card-border)'}`,
+                    background: location ? 'rgba(255,107,53,0.1)' : 'var(--card-bg)', color: location ? 'var(--brand-accent)' : 'var(--text-primary)',
+                    cursor: 'pointer', fontWeight: 600, fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6
+                }}>
+                    {gettingLocation ? '⏳ Aniqlanmoqda...' : location ? `✅ Aniqlangan (${location.lat?.toFixed(4)}, ${location.lng?.toFixed(4)})` : '📍 Manzilni aniqlash'}
+                </button>
+
+                {/* Save button */}
+                <button onClick={handleSaveProfile} disabled={saving} style={{
+                    width: '100%', marginTop: 14, padding: '13px', borderRadius: 12, border: 'none',
+                    background: 'var(--brand-accent)', color: '#fff', fontWeight: 700, fontSize: 14, cursor: 'pointer',
+                    opacity: saving ? 0.7 : 1
+                }}>
+                    {saving ? '⏳ Saqlanmoqda...' : `💾 ${t('save')}`}
+                </button>
+                {saveMsg && <div style={{ textAlign: 'center', marginTop: 8, fontSize: 13, color: 'var(--text-primary)' }}>{saveMsg}</div>}
+            </div>
+
+            {/* Wallet Top-Up */}
+            <div style={{ background: `linear-gradient(135deg, rgba(78,205,196,0.08), rgba(78,205,196,0.03))`, borderRadius: 18, padding: 18, marginBottom: 16, border: `1px solid rgba(78,205,196,0.2)` }}>
+                <div style={{ color: "var(--text-primary)", fontWeight: 700, fontSize: 14, marginBottom: 14 }}>💰 {t('wallet_balance')} to'ldirish</div>
+
+                <label style={{ color: "var(--text-secondary)", fontSize: 11, fontWeight: 600, display: 'block', marginBottom: 4 }}>Summa (₩)</label>
+                <input type="number" value={topUpAmount} onChange={e => setTopUpAmount(e.target.value)} placeholder="10000" style={inputStyle} />
+
+                {/* Quick amounts */}
+                <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
+                    {[5000, 10000, 20000, 50000].map(amt => (
+                        <button key={amt} onClick={() => setTopUpAmount(amt.toString())} style={{
+                            padding: '6px 12px', borderRadius: 10, border: `1px solid var(--card-border)`,
+                            background: topUpAmount === amt.toString() ? 'var(--brand-accent2)' : 'var(--card-bg)',
+                            color: topUpAmount === amt.toString() ? '#fff' : 'var(--text-secondary)',
+                            fontSize: 12, fontWeight: 600, cursor: 'pointer'
+                        }}>₩{amt.toLocaleString()}</button>
+                    ))}
+                </div>
+
+                <label style={{ color: "var(--text-secondary)", fontSize: 11, fontWeight: 600, display: 'block', marginBottom: 4, marginTop: 12 }}>📸 To'lov screenshoti</label>
+                <input type="file" accept="image/*" onChange={e => setScreenshot(e.target.files?.[0])} style={{ color: 'var(--text-primary)', fontSize: 13, marginBottom: 10 }} />
+
+                <button onClick={handleTopUp} disabled={uploading || !screenshot} style={{
+                    width: '100%', padding: '13px', borderRadius: 12, border: 'none',
+                    background: (!screenshot) ? 'var(--card-border)' : 'var(--brand-accent2)', color: '#fff',
+                    fontWeight: 700, fontSize: 14, cursor: (!screenshot) ? 'not-allowed' : 'pointer'
+                }}>
+                    {uploading ? '⏳ AI tekshirmoqda...' : '💳 To\'lovni yuborish'}
+                </button>
+                {topUpMsg && <div style={{ textAlign: 'center', marginTop: 8, fontSize: 13, color: 'var(--text-primary)' }}>{topUpMsg}</div>}
             </div>
 
             {/* Delivery Zone */}
             <div style={{ background: "var(--card-bg)", borderRadius: 16, padding: 16, marginBottom: 14, border: `1px solid var(--card-border)`, boxShadow: "var(--shadow-main)" }}>
                 <div style={{ color: "var(--text-primary)", fontWeight: 700, fontSize: 14, marginBottom: 10 }}>📍 {t('delivery_zone')}</div>
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                    <div style={{ width: 10, height: 10, borderRadius: "50%", background: "#27AE60" }} />
-                    <span style={{ color: "var(--text-primary)", fontSize: 13 }}>{user.address || 'Sejong Campus'} · {(user.distanceFromRestaurant || 0).toFixed(1)}km</span>
-                    <span style={{ marginLeft: "auto", color: "#27AE60", fontSize: 12, fontWeight: 700 }}>{t('free_zone')}</span>
+                    <div style={{ width: 10, height: 10, borderRadius: "50%", background: (user.distanceFromRestaurant || 0) <= 1 ? "#27AE60" : "#F5A623" }} />
+                    <span style={{ color: "var(--text-primary)", fontSize: 13 }}>{user.address || 'Manzil kiritilmagan'} · {(user.distanceFromRestaurant || 0).toFixed(1)}km</span>
+                    <span style={{ marginLeft: "auto", color: (user.distanceFromRestaurant || 0) <= 1 ? "#27AE60" : "#F5A623", fontSize: 12, fontWeight: 700 }}>
+                        {(user.distanceFromRestaurant || 0) <= 1 ? t('free_zone') : `₩3,000`}
+                    </span>
                 </div>
             </div>
 
@@ -62,29 +207,14 @@ const ProfilePage = () => {
                 <div style={{ color: "var(--text-primary)", fontWeight: 700, fontSize: 14, marginBottom: 12 }}>🌐 {t('language')}</div>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
                     {LANG_LIST.map(l => (
-                        <button
-                            key={l.code}
-                            onClick={() => setLang(l.code)}
-                            style={{
-                                padding: "7px 12px", borderRadius: 20,
-                                border: `1.5px solid ${lang === l.code ? 'var(--brand-accent)' : 'var(--card-border)'}`,
-                                background: lang === l.code ? `rgba(255,107,53,0.1)` : "transparent",
-                                color: lang === l.code ? 'var(--brand-accent)' : 'var(--text-secondary)',
-                                fontSize: 12, fontWeight: 600, cursor: "pointer", transition: "all 0.2s"
-                            }}>
-                            {l.flag} {l.name}
-                        </button>
+                        <button key={l.code} onClick={() => setLang(l.code)} style={{
+                            padding: "7px 12px", borderRadius: 20,
+                            border: `1.5px solid ${lang === l.code ? 'var(--brand-accent)' : 'var(--card-border)'}`,
+                            background: lang === l.code ? `rgba(255,107,53,0.1)` : "transparent",
+                            color: lang === l.code ? 'var(--brand-accent)' : 'var(--text-secondary)',
+                            fontSize: 12, fontWeight: 600, cursor: "pointer", transition: "all 0.2s"
+                        }}>{l.flag} {l.name}</button>
                     ))}
-                </div>
-            </div>
-
-            {/* Referral */}
-            <div style={{ background: `linear-gradient(135deg, rgba(78,205,196,0.1), rgba(78,205,196,0.05))`, border: `1px solid rgba(78,205,196,0.2)`, borderRadius: 16, padding: 16, marginBottom: 14 }}>
-                <div style={{ color: "var(--text-primary)", fontWeight: 700, fontSize: 14, marginBottom: 4 }}>🎁 {t('referral')}</div>
-                <div style={{ color: "var(--text-secondary)", fontSize: 12, marginBottom: 12 }}>{t('referral_desc')}</div>
-                <div style={{ background: "rgba(0,0,0,0.1)", borderRadius: 10, padding: "10px 14px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <span style={{ color: "var(--text-primary)", fontWeight: 800, fontSize: 16, letterSpacing: 2 }}>{user.username ? user.username.toUpperCase() + '25' : 'SEJONG25'}</span>
-                    <button onClick={() => navigator.clipboard?.writeText(user.username ? user.username.toUpperCase() + '25' : 'SEJONG25')} style={{ background: "var(--brand-accent2)", color: "#fff", border: "none", borderRadius: 8, padding: "6px 14px", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>{t('copy')}</button>
                 </div>
             </div>
 
@@ -93,6 +223,12 @@ const ProfilePage = () => {
             </button>
         </div>
     );
+};
+
+const inputStyle = {
+    width: '100%', padding: '11px 14px', borderRadius: 12,
+    border: '1px solid var(--card-border)', background: 'var(--bg-secondary)',
+    color: 'var(--text-primary)', fontSize: 14, outline: 'none', boxSizing: 'border-box'
 };
 
 export default ProfilePage;
