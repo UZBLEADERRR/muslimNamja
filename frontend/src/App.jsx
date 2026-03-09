@@ -10,7 +10,7 @@ import CartPage from './pages/CartPage';
 import ProfilePage from './pages/ProfilePage';
 import TrackPage from './pages/TrackPage';
 import DeliveryPage from './pages/DeliveryPage';
-import AdminPage from './pages/AdminPage';
+import AdminPage from './pages/admin/AdminPage';
 import RegisterPage from './pages/RegisterPage';
 
 function Authenticator() {

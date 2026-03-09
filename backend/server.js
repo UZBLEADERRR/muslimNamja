@@ -33,7 +33,17 @@ app.use('/api/public', publicRoutes);
 
 // Database connection
 const sequelize = require('./config/database');
-require('./models/PaymentRequest');
+const User = require('./models/User');
+const PaymentRequest = require('./models/PaymentRequest');
+const Order = require('./models/Order');
+const AuditLog = require('./models/AuditLog');
+
+// Define associations
+PaymentRequest.belongsTo(User, { foreignKey: 'userId', as: 'User' });
+User.hasMany(PaymentRequest, { foreignKey: 'userId', as: 'PaymentRequests' });
+Order.belongsTo(User, { foreignKey: 'userId', as: 'User' });
+User.hasMany(Order, { foreignKey: 'userId', as: 'Orders' });
+AuditLog.belongsTo(User, { foreignKey: 'adminId', as: 'Admin' });
 
 sequelize.authenticate()
     .then(() => {

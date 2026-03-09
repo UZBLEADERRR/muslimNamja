@@ -54,4 +54,16 @@ router.delete('/ads/:id', adminController.deleteAdBanner);
 // Broadcast
 router.post('/broadcast', adminController.broadcast);
 
+// Dashboard KPI Stats
+router.get('/dashboard', adminController.getDashboardStats);
+
+// Audit Log
+router.get('/audit-log', adminController.getAuditLog);
+
+// User Detail, Balance, Freeze
+router.get('/users/:id', adminController.getUserDetail);
+router.post('/users/:id/balance', adminController.updateUserBalance);
+router.post('/users/:id/freeze', adminController.freezeUser);
+
 module.exports = router;
+

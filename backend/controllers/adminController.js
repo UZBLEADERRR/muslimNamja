@@ -547,7 +547,212 @@ const adminController = {
         } catch (err) {
             res.status(500).json({ error: 'Broadcast failed' });
         }
+    },
+
+    // --- Dashboard KPI Stats ---
+    async getDashboardStats(req, res) {
+        try {
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+
+            const todayOrders = await Order.findAll({
+                where: { createdAt: { [Op.gte]: today } }
+            });
+
+            const todayRevenue = todayOrders.reduce((sum, o) => sum + (o.totalAmount || 0), 0);
+            const activeOrders = todayOrders.filter(o => ['pending', 'preparing', 'delivering'].includes(o.status)).length;
+            const completedToday = todayOrders.filter(o => o.status === 'completed').length;
+            const cancelledToday = todayOrders.filter(o => o.status === 'cancelled').length;
+
+            // Yesterday stats for comparison
+            const yesterday = new Date(today);
+            yesterday.setDate(yesterday.getDate() - 1);
+            const yesterdayOrders = await Order.findAll({
+                where: { createdAt: { [Op.gte]: yesterday, [Op.lt]: today } }
+            });
+            const yesterdayRevenue = yesterdayOrders.reduce((sum, o) => sum + (o.totalAmount || 0), 0);
+
+            const totalUsers = await User.count();
+            const todayNewUsers = await User.count({ where: { createdAt: { [Op.gte]: today } } });
+
+            // Profit calculation
+            const completedOrders = await Order.findAll({ where: { status: 'completed', createdAt: { [Op.gte]: today } } });
+            let todayCost = 0;
+            const productIds = new Set();
+            completedOrders.forEach(o => {
+                if (o.items) o.items.forEach(i => { if (i.productId) productIds.add(i.productId); });
+            });
+            const products = productIds.size > 0 ? await Product.findAll({ where: { id: Array.from(productIds) } }) : [];
+            const productMap = products.reduce((acc, p) => { acc[p.id] = p; return acc; }, {});
+            completedOrders.forEach(o => {
+                todayCost += o.deliveryManEarning || 0;
+                if (o.items) {
+                    o.items.forEach(item => {
+                        const p = productMap[item.productId];
+                        if (p && p.ingredientCost) todayCost += p.ingredientCost * (item.quantity || 1);
+                    });
+                }
+            });
+            const todayProfit = todayRevenue - todayCost;
+            const profitMargin = todayRevenue > 0 ? ((todayProfit / todayRevenue) * 100).toFixed(1) : 0;
+
+            // Gender demographics
+            const males = await User.count({ where: { gender: 'male' } });
+            const females = await User.count({ where: { gender: 'female' } });
+
+            // Pending payment requests
+            const pendingPayments = await PaymentRequest.count({ where: { status: 'pending' } });
+
+            res.json({
+                todayRevenue,
+                yesterdayRevenue,
+                revenueChange: yesterdayRevenue > 0 ? (((todayRevenue - yesterdayRevenue) / yesterdayRevenue) * 100).toFixed(1) : 0,
+                totalOrders: todayOrders.length,
+                activeOrders,
+                completedToday,
+                cancelledToday,
+                totalUsers,
+                todayNewUsers,
+                malePercent: totalUsers > 0 ? Math.round((males / totalUsers) * 100) : 0,
+                femalePercent: totalUsers > 0 ? Math.round((females / totalUsers) * 100) : 0,
+                todayProfit,
+                profitMargin,
+                pendingPayments
+            });
+        } catch (error) {
+            console.error('Dashboard stats error:', error);
+            res.status(500).json({ error: 'Failed to fetch dashboard stats' });
+        }
+    },
+
+    // --- Audit Log ---
+    async getAuditLog(req, res) {
+        try {
+            const AuditLog = require('../models/AuditLog');
+            const logs = await AuditLog.findAll({
+                order: [['createdAt', 'DESC']],
+                limit: 100
+            });
+            res.json(logs);
+        } catch (error) {
+            console.error('Audit log error:', error);
+            res.status(500).json({ error: 'Failed to fetch audit log' });
+        }
+    },
+
+    async addAuditLog(adminId, adminName, action, details, targetType, targetId) {
+        try {
+            const AuditLog = require('../models/AuditLog');
+            await AuditLog.create({ adminId, adminName, action, details, targetType, targetId });
+        } catch (e) {
+            console.error('Audit log write error:', e);
+        }
+    },
+
+    // --- User Detail ---
+    async getUserDetail(req, res) {
+        try {
+            const user = await User.findByPk(req.params.id);
+            if (!user) return res.status(404).json({ error: 'User not found' });
+
+            const orders = await Order.findAll({
+                where: { userId: user.id },
+                order: [['createdAt', 'DESC']],
+                limit: 20
+            });
+
+            const transactions = await PaymentRequest.findAll({
+                where: { userId: user.id },
+                order: [['createdAt', 'DESC']],
+                limit: 20
+            });
+
+            const totalSpent = orders.filter(o => o.status === 'completed').reduce((sum, o) => sum + (o.totalAmount || 0), 0);
+            const totalDeposited = transactions.filter(t => t.status === 'approved').reduce((sum, t) => sum + (t.amount || 0), 0);
+
+            res.json({
+                user,
+                orders,
+                transactions,
+                stats: {
+                    totalOrders: orders.length,
+                    completedOrders: orders.filter(o => o.status === 'completed').length,
+                    totalSpent,
+                    totalDeposited
+                }
+            });
+        } catch (error) {
+            console.error('User detail error:', error);
+            res.status(500).json({ error: 'Failed to fetch user detail' });
+        }
+    },
+
+    // --- Manual Balance Update ---
+    async updateUserBalance(req, res) {
+        try {
+            const { amount, reason } = req.body;
+            const user = await User.findByPk(req.params.id);
+            if (!user) return res.status(404).json({ error: 'User not found' });
+
+            user.walletBalance = (user.walletBalance || 0) + parseInt(amount);
+            await user.save();
+
+            // Audit log
+            await adminController.addAuditLog(
+                req.user.userId, req.user.firstName || 'Admin',
+                'Balans o\'zgartirdi',
+                `${user.firstName}: ${amount > 0 ? '+' : ''}₩${parseInt(amount).toLocaleString()} (${reason || 'Manual'})`,
+                'User', user.id
+            );
+
+            // Notify user
+            const bot = getBot();
+            if (bot && user.telegramId) {
+                const msg = amount > 0
+                    ? `💰 Admin sizning hamyoningizga ₩${parseInt(amount).toLocaleString()} qo'shdi.\nHozirgi balans: ₩${user.walletBalance.toLocaleString()}`
+                    : `💸 Admin sizning hamyoningizdan ₩${Math.abs(parseInt(amount)).toLocaleString()} ayirdi.\nHozirgi balans: ₩${user.walletBalance.toLocaleString()}`;
+                bot.sendMessage(user.telegramId, msg, { parse_mode: 'HTML' }).catch(() => { });
+            }
+
+            res.json({ walletBalance: user.walletBalance });
+        } catch (error) {
+            console.error('Balance update error:', error);
+            res.status(500).json({ error: 'Failed to update balance' });
+        }
+    },
+
+    // --- Freeze/Unfreeze User ---
+    async freezeUser(req, res) {
+        try {
+            const { freeze } = req.body;
+            const user = await User.findByPk(req.params.id);
+            if (!user) return res.status(404).json({ error: 'User not found' });
+
+            // Use role to freeze — set to 'frozen' concept via a setting
+            // For simplicity, we toggle a frozen state in the user
+            // We store frozen status in a system setting per user
+            const settingKey = `frozen_${user.id}`;
+            const SystemSettingModel = require('../models/SystemSetting');
+            if (freeze) {
+                await SystemSettingModel.upsert({ key: settingKey, value: 'true' });
+            } else {
+                await SystemSettingModel.destroy({ where: { key: settingKey } });
+            }
+
+            await adminController.addAuditLog(
+                req.user.userId, req.user.firstName || 'Admin',
+                freeze ? 'User freeze qildi' : 'User unfreeze qildi',
+                `${user.firstName} ${user.lastName || ''}`,
+                'User', user.id
+            );
+
+            res.json({ frozen: !!freeze });
+        } catch (error) {
+            console.error('Freeze error:', error);
+            res.status(500).json({ error: 'Failed to freeze/unfreeze user' });
+        }
     }
 };
 
 module.exports = adminController;
+
