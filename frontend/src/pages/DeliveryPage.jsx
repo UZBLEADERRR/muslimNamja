@@ -8,10 +8,6 @@ import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import { io } from 'socket.io-client';
 import StaffChat from './admin/StaffChat';
-import 'leaflet/dist/leaflet.css';
-import L from 'leaflet';
-import { io } from 'socket.io-client';
-
 const SOCKET_URL = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace('/api', '') : 'http://localhost:5000';
 let socket = null;
 
