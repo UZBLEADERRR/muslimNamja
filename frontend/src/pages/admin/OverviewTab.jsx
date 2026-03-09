@@ -1,19 +1,21 @@
 import React from 'react';
 import { colors, cardStyle, kpiCard, bigNum, subText, mainText, badge, sectionTitle, btnPrimary } from './adminStyles';
 
-const OverviewTab = ({ dashStats, orders, onViewOrder, onQuickAction }) => {
+const OverviewTab = ({ dashStats, orders, onViewOrder, onQuickAction, onUpdateOrderStatus }) => {
     const ds = dashStats || {};
     const recentOrders = (orders?.orders || []).slice(0, 10);
     const changeColor = parseFloat(ds.revenueChange) >= 0 ? colors.profit : colors.danger;
     const changeIcon = parseFloat(ds.revenueChange) >= 0 ? '▲' : '▼';
 
     const statusColors = {
-        pending: colors.warning, preparing: colors.accent, delivering: colors.purple,
-        completed: colors.profit, cancelled: colors.danger
+        pending: colors.warning, accepted: colors.profit, preparing: colors.accent,
+        ready_for_pickup: '#F39C12', delivering: colors.purple, completed: colors.profit,
+        cancelled: colors.danger, delivered_awaiting_review: '#27AE60'
     };
     const statusLabels = {
-        pending: '⏳ Kutilmoqda', preparing: '🍳 Tayyorlanmoqda', delivering: '🛵 Yo\'lda',
-        completed: '✅ Yetkazildi', cancelled: '❌ Bekor'
+        pending: '⏳ Kutilmoqda', accepted: '✅ Qabul qilindi', preparing: '🍳 Tayyorlanmoqda',
+        ready_for_pickup: '🥡 Tayyor', delivering: '🛵 Yo\'lda', completed: '✅ Bajarildi',
+        cancelled: '❌ Bekor', delivered_awaiting_review: '📸 Tasdiqda'
     };
 
     return (
@@ -97,6 +99,18 @@ const OverviewTab = ({ dashStats, orders, onViewOrder, onQuickAction }) => {
                             </div>
                             <div style={{ ...mainText, color: colors.accent }}>₩{(order.totalAmount || 0).toLocaleString()}</div>
                         </div>
+
+                        {/* Inline Actions */}
+                        {(order.status === 'pending' || order.status === 'accepted' || order.status === 'preparing') && (
+                            <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+                                {order.status === 'pending' && <>
+                                    <button onClick={(e) => { e.stopPropagation(); onUpdateOrderStatus?.(order.id, 'accepted'); }} style={{ flex: 1, padding: '10px', fontSize: 12, background: colors.profit, color: '#000', border: 'none', borderRadius: 8, fontWeight: 700 }}>✅ Qabul qilish</button>
+                                    <button onClick={(e) => { e.stopPropagation(); onUpdateOrderStatus?.(order.id, 'cancelled'); }} style={{ flex: 1, padding: '10px', fontSize: 12, background: 'rgba(231,76,60,0.1)', color: colors.danger, border: 'none', borderRadius: 8, fontWeight: 700 }}>❌ Rad etish</button>
+                                </>}
+                                {order.status === 'accepted' && <button onClick={(e) => { e.stopPropagation(); onUpdateOrderStatus?.(order.id, 'preparing'); }} style={{ width: '100%', padding: '10px', fontSize: 12, background: colors.accent, color: '#fff', border: 'none', borderRadius: 8, fontWeight: 700 }}>🍳 Oshxonaga berish</button>}
+                                {order.status === 'preparing' && <button onClick={(e) => { e.stopPropagation(); onUpdateOrderStatus?.(order.id, 'ready_for_pickup'); }} style={{ width: '100%', padding: '10px', fontSize: 12, background: '#F39C12', color: '#fff', border: 'none', borderRadius: 8, fontWeight: 700 }}>🥡 Tayyor (Kuryerga)</button>}
+                            </div>
+                        )}
                     </div>
                 );
             })}

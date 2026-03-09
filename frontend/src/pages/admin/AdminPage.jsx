@@ -8,6 +8,8 @@ import AITab from './AITab';
 import UsersTab from './UsersTab';
 import SettingsTab from './SettingsTab';
 
+const tg = window.Telegram?.WebApp;
+
 const AdminPage = () => {
     const { t, lang } = useTranslation();
     const [activeTab, setActiveTab] = useState('overview');
@@ -94,6 +96,22 @@ const AdminPage = () => {
 
     useEffect(() => { fetchData(); }, [activeTab]);
 
+    // Handle Telegram Back Button
+    useEffect(() => {
+        if (tg) {
+            if (activeTab === 'overview') {
+                tg.BackButton?.hide();
+            } else {
+                tg.BackButton?.show();
+            }
+            const handleBack = () => setActiveTab('overview');
+            tg.onEvent('backButtonClicked', handleBack);
+            return () => {
+                tg.offEvent('backButtonClicked', handleBack);
+            };
+        }
+    }, [activeTab]);
+
     // Handlers
     const handleUpdateOrderStatus = async (id, status) => {
         try { await api.put(`/admin/orders/${id}`, { status }); fetchData(); } catch { alert("Xatolik"); }
@@ -174,6 +192,7 @@ const AdminPage = () => {
         if (action === 'broadcast') setActiveTab('settings');
         else if (action === 'payments') setActiveTab('users');
         else if (action === 'alerts') setActiveTab('ai');
+        else if (action === 'report') setActiveTab('operations');
     };
 
     const tabs = [
@@ -193,7 +212,17 @@ const AdminPage = () => {
                 borderBottom: `1px solid ${colors.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center'
             }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <div style={{ width: 36, height: 36, borderRadius: 10, background: `linear-gradient(135deg, ${colors.accent}, ${colors.purple})`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }}>🛡️</div>
+                    {activeTab !== 'overview' && (
+                        <button onClick={() => setActiveTab('overview')} style={{
+                            width: 36, height: 36, borderRadius: 10, background: 'rgba(255,255,255,0.1)', cursor: 'pointer',
+                            border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff'
+                        }}>
+                            ←
+                        </button>
+                    )}
+                    {activeTab === 'overview' && (
+                        <div style={{ width: 36, height: 36, borderRadius: 10, background: `linear-gradient(135deg, ${colors.accent}, ${colors.purple})`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }}>🛡️</div>
+                    )}
                     <div>
                         <div style={{ color: colors.text, fontWeight: 800, fontSize: 15 }}>Muslim Namja Admin</div>
                         <div style={{ color: colors.subtext, fontSize: 10, fontWeight: 600 }}>{new Date().toLocaleTimeString()} · 🟢 Online</div>
@@ -205,7 +234,7 @@ const AdminPage = () => {
             <div style={{ padding: '16px 14px' }}>
                 {loading && activeTab !== 'ai' && <div style={{ textAlign: 'center', padding: 30, color: colors.subtext }}>⏳ Yuklanmoqda...</div>}
 
-                {activeTab === 'overview' && !loading && <OverviewTab dashStats={dashStats} orders={orders} onQuickAction={handleQuickAction} />}
+                {activeTab === 'overview' && !loading && <OverviewTab dashStats={dashStats} orders={orders} onQuickAction={handleQuickAction} onUpdateOrderStatus={handleUpdateOrderStatus} />}
                 {activeTab === 'operations' && !loading && <OperationsTab orders={orders} products={products} onUpdateOrderStatus={handleUpdateOrderStatus} onDeleteProduct={handleDeleteProduct} onAddProduct={handleAddProduct} onSeed={handleSeed} onUpdateExpense={handleUpdateExpense} lang={lang} />}
                 {activeTab === 'ai' && <AITab products={products} aiInventory={aiInventory} onFetchAiInventory={fetchAiInventory} loading={loading} profitData={profitData} fullStats={fullStats} />}
                 {activeTab === 'users' && !loading && <UsersTab usersData={usersData} paymentRequests={paymentRequests} onRoleChange={handleRoleChange} onPaymentAction={handlePaymentAction} onBalanceChange={handleBalanceChange} fullStats={fullStats} />}

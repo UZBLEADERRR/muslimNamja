@@ -87,11 +87,57 @@ const ProfilePage = () => {
         }
     }, [user]);
 
+    // Approximate center for Sejong University (Seoul Campus area)
+    const STORE_LOCATION = { lat: 37.5503, lng: 127.0731 };
+
+    const calculateDistance = (lat1, lon1, lat2, lon2) => {
+        const R = 6371; // km
+        const dLat = (lat2 - lat1) * Math.PI / 180;
+        const dLon = (lon2 - lon1) * Math.PI / 180;
+        const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+            Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+            Math.sin(dLon / 2) * Math.sin(dLon / 2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        return R * c;
+    };
+
+    const handleGetLocation = () => {
+        if (!navigator.geolocation) {
+            alert("Sizning qurilmangiz joylashuvni qo'llab-quvvatlamaydi.");
+            return;
+        }
+        navigator.geolocation.getCurrentPosition((pos) => {
+            const lat = pos.coords.latitude;
+            const lng = pos.coords.longitude;
+            const dist = calculateDistance(STORE_LOCATION.lat, STORE_LOCATION.lng, lat, lng);
+            if (dist > 3) {
+                alert(`Sizning manzil do'kondon juda uzoqda (${dist.toFixed(1)} km). Yetkazib berish 3km doirasida mumkin!`);
+            } else {
+                setLocation({ lat, lng });
+                alert(`✅ Joylashuv aniqlandi! Masofa: ${dist.toFixed(1)} km`);
+            }
+        }, (err) => {
+            alert("Joylashuvni aniqlash uchun ruxsat bering!");
+        });
+    };
+
     const handleSaveProfile = async () => {
+        let finalDist = 0;
+        if (!location) {
+            alert("Iltimos, yetkazib berish uchun 'Lokatsiya oling' orqali joylashuvingizni aniqlang!");
+            return;
+        } else {
+            finalDist = calculateDistance(STORE_LOCATION.lat, STORE_LOCATION.lng, location.lat, location.lng);
+            if (finalDist > 3) {
+                alert(`Sizning manzil do'kondon ${finalDist.toFixed(1)} km uzoqlikda! 3km doirasida bo'lishi shart.`);
+                return;
+            }
+        }
+
         setSaving(true);
         try {
-            const res = await api.put('/users/profile', { phone, address, location, nickname, isPrivate });
-            setUser(res.data.user || { ...user, phone, address, location, nickname, isPrivate }, token);
+            const res = await api.put('/users/profile', { phone, address, location, nickname, isPrivate, distanceFromRestaurant: finalDist });
+            setUser(res.data.user || { ...user, phone, address, location, nickname, isPrivate, distanceFromRestaurant: finalDist }, token);
             setShowEdit(false);
             alert('✅ Saqlandi!');
         } catch (err) {
@@ -282,6 +328,15 @@ const ProfilePage = () => {
                         <div>
                             <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 4 }}>Doimiy Manzil</div>
                             <input value={address} onChange={e => setAddress(e.target.value)} placeholder="To'liq manzil..." style={inputStyle} />
+
+                            <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'var(--bg-secondary)', padding: '10px', borderRadius: 12, border: '1px solid var(--card-border)' }}>
+                                <div style={{ fontSize: 12, color: location ? '#00F5A0' : 'var(--text-secondary)' }}>
+                                    {location ? `📍 Aniqlandi (${calculateDistance(STORE_LOCATION.lat, STORE_LOCATION.lng, location.lat, location.lng).toFixed(1)} km)` : 'Gps kiritilmagan'}
+                                </div>
+                                <button type="button" onClick={handleGetLocation} style={{ background: 'var(--brand-accent2)', color: '#fff', border: 'none', padding: '6px 12px', borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
+                                    Lokatsiya oling
+                                </button>
+                            </div>
                         </div>
                         <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', background: 'var(--bg-secondary)', padding: "12px 14px", borderRadius: 12, border: '1px solid var(--card-border)' }}>
                             <input type="checkbox" checked={isPrivate} onChange={e => setIsPrivate(e.target.checked)} style={{ width: 18, height: 18, accentColor: 'var(--brand-accent)' }} />
