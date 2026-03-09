@@ -2,35 +2,28 @@ const Order = require('../models/Order');
 const User = require('../models/User');
 const Product = require('../models/Product');
 const { Op } = require('sequelize');
+const { getBot } = require('../utils/globals');
+const { calculateDistance } = require('../utils/distance');
+
+// In-memory store for driver locations. In production, use Redis.
+const driverLocations = {};
 
 const deliveryController = {
-    // --- Delivery Endpoints ---
+    // Get available orders
     async getAvailableOrders(req, res) {
         try {
-            // Find orders that are 'preparing' and not assigned
             const orders = await Order.findAll({
                 where: { status: 'preparing', deliveryManId: null }
             });
 
-            // Populate User and Items' Products (items is JSONB)
             const populatedOrders = await Promise.all(orders.map(async (order) => {
                 const user = await User.findByPk(order.userId, { attributes: ['location', 'address', 'distanceFromRestaurant'] });
-
-                // Fetch products for items in JSONB
                 const productIds = order.items.map(item => item.productId);
                 const products = await Product.findAll({ where: { id: productIds }, attributes: ['id', 'name', 'category'] });
                 const productMap = products.reduce((acc, p) => ({ ...acc, [p.id]: p }), {});
+                const itemsWithProduct = order.items.map(item => ({ ...item, product: productMap[item.productId] }));
 
-                const itemsWithProduct = order.items.map(item => ({
-                    ...item,
-                    product: productMap[item.productId]
-                }));
-
-                return {
-                    ...order.toJSON(),
-                    user,
-                    items: itemsWithProduct
-                };
+                return { ...order.toJSON(), user, items: itemsWithProduct };
             }));
 
             res.json(populatedOrders);
@@ -40,19 +33,28 @@ const deliveryController = {
         }
     },
 
+    // Get active orders (supports multiple for smart routing)
     async getActiveOrder(req, res) {
         try {
             const deliveryManId = req.user.userId;
-            const order = await Order.findOne({
-                where: { deliveryManId, status: 'delivering' }
+            const orders = await Order.findAll({
+                where: { deliveryManId, status: 'delivering' },
+                order: [['distance', 'ASC']] // Smart routing: Nearest first
             });
 
-            if (!order) return res.json(null);
+            if (!orders.length) return res.json(null);
 
-            const user = await User.findByPk(order.userId, { attributes: ['location', 'address', 'phone', 'firstName'] });
-            res.json({ ...order.toJSON(), user });
+            // Populate user details
+            const populated = await Promise.all(orders.map(async (o) => {
+                const user = await User.findByPk(o.userId, { attributes: ['id', 'location', 'address', 'phone', 'firstName'] });
+                return { ...o.toJSON(), user };
+            }));
+
+            // Return array of active orders or just the first one depending on frontend needs. 
+            // We'll return an array so frontend can see the queue.
+            res.json(populated);
         } catch (error) {
-            res.status(500).json({ error: 'Failed to fetch active order' });
+            res.status(500).json({ error: 'Failed to fetch active orders' });
         }
     },
 
@@ -81,15 +83,10 @@ const deliveryController = {
 
             const [count, orders] = await Order.update(
                 { status: 'delivering', deliveryManId: deliveryManId },
-                {
-                    where: { id: orderId, status: 'preparing', deliveryManId: null },
-                    returning: true
-                }
+                { where: { id: orderId, status: 'preparing', deliveryManId: null }, returning: true }
             );
 
-            if (count === 0) {
-                return res.status(400).json({ error: 'Order not available' });
-            }
+            if (count === 0) return res.status(400).json({ error: 'Order not available' });
 
             res.json({ message: 'Order accepted', order: orders[0] });
         } catch (error) {
@@ -103,10 +100,7 @@ const deliveryController = {
             const deliveryManId = req.user.userId;
 
             const order = await Order.findOne({ where: { id: orderId, deliveryManId: deliveryManId, status: 'delivering' } });
-
-            if (!order) {
-                return res.status(404).json({ error: 'Order not found or invalid status' });
-            }
+            if (!order) return res.status(404).json({ error: 'Order not found or invalid status' });
 
             const earning = 3000 + (order.distance * 500);
 
@@ -115,11 +109,74 @@ const deliveryController = {
             order.deliveryManEarning = earning;
             await order.save();
 
+            // Add earning to driver's wallet
+            const driver = await User.findByPk(deliveryManId);
+            if (driver) {
+                driver.walletBalance = (driver.walletBalance || 0) + earning;
+                await driver.save();
+            }
+
             res.json({ message: 'Order completed', order, earning });
         } catch (error) {
             res.status(500).json({ error: 'Failed to complete order' });
         }
+    },
+
+    // --- NEW: Live Location & Call Features ---
+
+    // Update driver's live location
+    async updateLocation(req, res) {
+        try {
+            const deliveryManId = req.user.userId;
+            const { lat, lng } = req.body;
+
+            if (lat !== undefined && lng !== undefined) {
+                driverLocations[deliveryManId] = { lat, lng, timestamp: Date.now() };
+            }
+            res.json({ success: true });
+        } catch (err) {
+            res.status(500).json({ error: 'Location update failed' });
+        }
+    },
+
+    // Driver presses "Call User" -> sends Telegram Bot notification to User
+    async callUser(req, res) {
+        try {
+            const { orderId } = req.params;
+            const deliveryManId = req.user.userId;
+
+            const order = await Order.findOne({ where: { id: orderId, deliveryManId, status: 'delivering' } });
+            if (!order) return res.status(404).json({ error: 'Order not found' });
+
+            const customer = await User.findByPk(order.userId);
+            if (!customer || !customer.telegramId) return res.status(400).json({ error: 'User does not have Telegram connected' });
+
+            const driver = await User.findByPk(deliveryManId);
+            const bot = getBot();
+
+            if (bot) {
+                const appUrl = process.env.APP_URL || 'https://t.me/MuslimNamjaBot/app';
+                // We pass query params or generic link to open the app. Inside app, user navigates to orders.
+                const inlineKeyboard = {
+                    inline_keyboard: [
+                        [{ text: "📞 Javob berish (Ilovada)", web_app: { url: `${appUrl}?orderId=${orderId}` } }]
+                    ]
+                };
+
+                await bot.sendMessage(customer.telegramId, `🔴 <b>Kuryer (${driver.firstName}) sizga qo'ng'iroq qilmoqda!</b>\n\nIltimos, ilovaga kirib xat yoki lokatsiyani tekshiring.`, {
+                    parse_mode: 'HTML',
+                    reply_markup: inlineKeyboard
+                });
+                return res.json({ message: 'Notification sent to user!' });
+            } else {
+                return res.status(500).json({ error: 'Bot is not configured' });
+            }
+        } catch (err) {
+            console.error(err);
+            res.status(500).json({ error: 'Failed to call user' });
+        }
     }
 };
 
-module.exports = deliveryController;
+// Export locations so order tracking can access it
+module.exports = { deliveryController, driverLocations };

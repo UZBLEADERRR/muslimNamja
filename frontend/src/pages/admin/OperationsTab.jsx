@@ -10,8 +10,8 @@ const OperationsTab = ({ orders, products, onUpdateOrderStatus, onDeleteProduct,
     const [editingId, setEditingId] = useState(null);
     const [editVal, setEditVal] = useState('');
 
-    const statusColors = { pending: colors.warning, preparing: colors.accent, delivering: colors.purple, completed: colors.profit, cancelled: colors.danger };
-    const statusLabels = { pending: '⏳ Kutilmoqda', preparing: '🍳 Tayyorlanmoqda', delivering: '🛵 Yo\'lda', completed: '✅ Yetkazildi', cancelled: '❌ Bekor' };
+    const statusColors = { pending: colors.warning, accepted: colors.profit, preparing: colors.accent, delivering: colors.purple, completed: colors.profit, cancelled: colors.danger };
+    const statusLabels = { pending: '⏳ Kutilmoqda', accepted: '✅ Qabul qilindi', preparing: '🍳 Tayyorlanmoqda', delivering: '🛵 Yo\'lda', completed: '🏁 Yetkazildi', cancelled: '❌ Bekor' };
 
     const filteredOrders = (orders?.orders || []).filter(o => orderFilter === 'all' || o.status === orderFilter);
 
@@ -41,7 +41,7 @@ const OperationsTab = ({ orders, products, onUpdateOrderStatus, onDeleteProduct,
             {segment === 'orders' && (
                 <>
                     <div style={{ display: 'flex', gap: 6, overflowX: 'auto', paddingBottom: 4 }} className="hide-scrollbar">
-                        {[['all', 'Hammasi'], ['pending', '⏳ Aktiv'], ['completed', '✅ Bajarildi'], ['cancelled', '❌ Bekor']].map(([v, l]) => (
+                        {[['all', 'Hammasi'], ['pending', '⏳ Yangi'], ['accepted', '✅ Qabul Qilingan'], ['preparing', '🍳 Oshxonada'], ['delivering', '🛵 Yo\'lda'], ['completed', '🏁 Bajarildi'], ['cancelled', '❌ Bekor']].map(([v, l]) => (
                             <button key={v} onClick={() => setOrderFilter(v)} style={chipStyle(orderFilter === v)}>{l}</button>
                         ))}
                     </div>
@@ -52,20 +52,34 @@ const OperationsTab = ({ orders, products, onUpdateOrderStatus, onDeleteProduct,
                                 <span style={{ ...mainText, fontSize: 13 }}>#{(order.id || '').slice(0, 8)}</span>
                                 <span style={badge(statusColors[order.status] || colors.accent)}>{statusLabels[order.status] || order.status}</span>
                             </div>
+
+                            {/* Customer Info */}
+                            {order.user && (
+                                <div style={{ backgroundColor: 'rgba(255,255,255,0.03)', padding: 10, borderRadius: 8, marginBottom: 12 }}>
+                                    <div style={{ ...mainText, fontSize: 13, marginBottom: 4 }}>👤 {order.user.firstName}</div>
+                                    <div style={{ ...subText, fontSize: 12 }}>📞 {order.user.phone}</div>
+                                    <div style={{ ...subText, fontSize: 12 }}>📍 {order.user.address}</div>
+                                    <div style={{ ...subText, fontSize: 12, marginTop: 4, color: order.paymentMethod === 'wallet' ? colors.profit : colors.warning }}>
+                                        💳 {order.paymentMethod === 'wallet' ? 'Hamyon (Deposit)' : 'Naqd (Cash)'}
+                                    </div>
+                                </div>
+                            )}
+
                             <div style={subText}>
                                 {order.items?.map(it => `${it.productName || 'Item'} ×${it.quantity}`).join(' · ') || 'Buyurtma'}
                             </div>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6, alignItems: 'center' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 10, alignItems: 'center' }}>
                                 <span style={{ ...mainText, color: colors.accent, fontSize: 15 }}>₩{(order.totalAmount || 0).toLocaleString()}</span>
                                 <span style={subText}>{new Date(order.createdAt).toLocaleString()}</span>
                             </div>
-                            <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+                            <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
                                 {order.status === 'pending' && <>
-                                    <button onClick={() => onUpdateOrderStatus?.(order.id, 'preparing')} style={{ ...btnPrimary, flex: 1, padding: '10px', fontSize: 12 }}>🍳 Tayyorlash</button>
-                                    <button onClick={() => onUpdateOrderStatus?.(order.id, 'cancelled')} style={{ ...btnDanger, flex: 1, padding: '10px', fontSize: 12 }}>❌ Bekor</button>
+                                    <button onClick={() => onUpdateOrderStatus?.(order.id, 'accepted')} style={{ ...btnPrimary, flex: 1, padding: '10px', fontSize: 12, background: colors.profit, color: '#000' }}>✅ Qabul qilish</button>
+                                    <button onClick={() => onUpdateOrderStatus?.(order.id, 'cancelled')} style={{ ...btnDanger, flex: 1, padding: '10px', fontSize: 12 }}>❌ Rad etish</button>
                                 </>}
+                                {order.status === 'accepted' && <button onClick={() => onUpdateOrderStatus?.(order.id, 'preparing')} style={{ ...btnPrimary, width: '100%', padding: '10px', fontSize: 12, background: colors.accent }}>🍳 Oshxonaga berish</button>}
                                 {order.status === 'preparing' && <button onClick={() => onUpdateOrderStatus?.(order.id, 'delivering')} style={{ ...btnPrimary, width: '100%', padding: '10px', fontSize: 12, background: colors.purple }}>🛵 Yetkazishga</button>}
-                                {order.status === 'delivering' && <button onClick={() => onUpdateOrderStatus?.(order.id, 'completed')} style={{ ...btnPrimary, width: '100%', padding: '10px', fontSize: 12, background: colors.profit, color: '#000' }}>✅ Yetkazildi</button>}
+                                {order.status === 'delivering' && <button onClick={() => onUpdateOrderStatus?.(order.id, 'completed')} style={{ ...btnPrimary, width: '100%', padding: '10px', fontSize: 12, background: colors.profit, color: '#000' }}>🏁 Yetkazildi</button>}
                             </div>
                         </div>
                     ))}

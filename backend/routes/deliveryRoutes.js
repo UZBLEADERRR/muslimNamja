@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const deliveryController = require('../controllers/deliveryController');
+const { deliveryController } = require('../controllers/deliveryController');
 const authMiddleware = require('../middlewares/authMiddleware');
 
 // Only allow delivery men
@@ -20,5 +20,11 @@ router.post('/orders/:orderId/accept', deliveryController.acceptOrder);
 
 // Complete an order (fallback if manual completion needed)
 router.post('/orders/:orderId/complete', deliveryController.completeOrder);
+
+// Update delivery location
+router.post('/location', deliveryController.updateLocation);
+
+// Call user (Push notification to open chat)
+router.post('/orders/:orderId/call-user', deliveryController.callUser);
 
 module.exports = router;

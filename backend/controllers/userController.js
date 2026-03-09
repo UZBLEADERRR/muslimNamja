@@ -148,6 +148,23 @@ const userController = {
             await sender.save({ transaction: trans });
             await receiver.save({ transaction: trans });
 
+            // Create Transaction records for history
+            await Transaction.create({
+                userId: senderId,
+                amount: transferAmount,
+                type: 'spend',
+                description: `O'tkazma: ${receiver.firstName} ga`,
+                status: 'completed'
+            }, { transaction: trans });
+
+            await Transaction.create({
+                userId: toUserId,
+                amount: transferAmount,
+                type: 'topup',
+                description: `Qabul qilindi: ${sender.firstName} dan`,
+                status: 'completed'
+            }, { transaction: trans });
+
             await trans.commit();
 
             // Notify receiver via bot
@@ -185,20 +202,21 @@ const userController = {
         }
     },
 
-    // Get user history (orders and payment requests)
+    // Get user history (orders, payment requests, and P2P transfers)
     async getHistory(req, res) {
         try {
             const userId = req.user.userId;
             const Order = require('../models/Order'); // Local import since it isn't at the top
 
-            const [orders, paymentRequests] = await Promise.all([
+            const [orders, paymentRequests, transfers] = await Promise.all([
                 Order.findAll({ where: { userId }, order: [['createdAt', 'DESC']] }),
-                PaymentRequest.findAll({ where: { userId }, order: [['createdAt', 'DESC']] })
+                PaymentRequest.findAll({ where: { userId }, order: [['createdAt', 'DESC']] }),
+                Transaction.findAll({ where: { userId }, order: [['createdAt', 'DESC']] })
             ]);
 
             res.json({
                 orders: orders || [],
-                paymentRequests: paymentRequests || []
+                paymentRequests: [...(paymentRequests || []), ...(transfers || [])].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
             });
         } catch (error) {
             console.error('History fetch error:', error);

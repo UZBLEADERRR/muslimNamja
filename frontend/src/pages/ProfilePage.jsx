@@ -217,9 +217,11 @@ const ProfilePage = () => {
             {loading ? <div style={{ textAlign: 'center', padding: 30, color: 'var(--text-secondary)' }}>⏳ Yuklanmoqda...</div> : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                     {activeTab === 'orders' && history.orders.map((o, i) => (
-                        <div key={o.id} style={{ ...historyCardStyle, animation: `fadeIn 0.3s ease ${i * 40}ms both` }}>
+                        <div key={o.id} style={{ ...historyCardStyle, animation: `fadeIn 0.3s ease ${i * 40}ms both`, borderLeft: o.giftInfo?.isGift ? '3px solid #FF3CAC' : 'none' }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-                                <span style={{ fontWeight: 800, color: 'var(--text-primary)', fontSize: 14 }}>#{(o.id || '').slice(0, 8)}</span>
+                                <span style={{ fontWeight: 800, color: 'var(--text-primary)', fontSize: 14 }}>
+                                    #{(o.id || '').slice(0, 8)} {o.giftInfo?.isGift && <span style={{ fontSize: 12, background: 'rgba(255,60,172,0.1)', color: '#FF3CAC', padding: '2px 6px', borderRadius: 6, marginLeft: 6 }}>🎁 SOVG'A</span>}
+                                </span>
                                 <span style={{ fontSize: 12, fontWeight: 700, color: o.status === 'completed' ? '#00F5A0' : o.status === 'cancelled' ? '#FF4560' : 'var(--brand-accent)' }}>
                                     {o.status.toUpperCase()}
                                 </span>
@@ -238,14 +240,25 @@ const ProfilePage = () => {
                     )}
 
                     {activeTab === 'payments' && history.paymentRequests.map((p, i) => (
-                        <div key={p.id} style={{ ...historyCardStyle, animation: `fadeIn 0.3s ease ${i * 40}ms both` }}>
+                        <div key={p.id} style={{ ...historyCardStyle, animation: `fadeIn 0.3s ease ${i * 40}ms both`, borderLeft: p.type ? (p.type === 'spend' ? '3px solid #FF4560' : '3px solid #00F5A0') : 'none' }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                                <span style={{ fontWeight: 800, color: p.status === 'approved' ? '#00F5A0' : p.status === 'rejected' ? '#FF4560' : 'var(--brand-accent2)' }}>
-                                    {p.status === 'approved' ? '✅ Qabul qilindi' : p.status === 'rejected' ? '❌ Rad etildi' : '⏳ Kutilmoqda'}
+                                {p.type ? (
+                                    <span style={{ fontWeight: 800, color: p.type === 'spend' ? '#FF4560' : '#00F5A0', fontSize: 13 }}>
+                                        {p.type === 'spend' ? '💸 O\'tkazildi' : '💳 Qabul qilindi'}
+                                    </span>
+                                ) : (
+                                    <span style={{ fontWeight: 800, color: p.status === 'approved' ? '#00F5A0' : p.status === 'rejected' ? '#FF4560' : 'var(--brand-accent2)' }}>
+                                        {p.status === 'approved' ? '✅ Qabul qilindi' : p.status === 'rejected' ? '❌ Rad etildi' : '⏳ Kutilmoqda'}
+                                    </span>
+                                )}
+                                <span style={{ fontWeight: 900, color: 'var(--text-primary)' }}>
+                                    {p.type === 'spend' ? '-' : '+'}₩{p.amount?.toLocaleString()}
                                 </span>
-                                <span style={{ fontWeight: 900, color: 'var(--text-primary)' }}>₩{p.amount?.toLocaleString()}</span>
                             </div>
-                            <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{new Date(p.createdAt).toLocaleString()}</div>
+                            <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 4 }}>
+                                {p.description || (p.type ? 'P2P O\'tkazma' : 'Hamyon to\'ldirish')}
+                            </div>
+                            <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)' }}>{new Date(p.createdAt).toLocaleString()}</div>
                         </div>
                     ))}
                     {activeTab === 'payments' && history.paymentRequests.length === 0 && (

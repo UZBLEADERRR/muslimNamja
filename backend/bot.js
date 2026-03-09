@@ -86,6 +86,69 @@ Iltimos, ilovaga kiring va ro'yxatdan o'ting.
         }
     });
 
+    const Order = require('./models/Order');
+
+    bot.on('callback_query', async (query) => {
+        try {
+            const data = query.data;
+            const chatId = query.message.chat.id;
+            const messageId = query.message.message_id;
+
+            if (data.startsWith('accept_order_')) {
+                const orderId = data.replace('accept_order_', '');
+                const order = await Order.findByPk(orderId);
+
+                if (!order) {
+                    return bot.answerCallbackQuery(query.id, { text: 'Buyurtma topilmadi!', show_alert: true });
+                }
+
+                if (order.status !== 'pending') {
+                    return bot.answerCallbackQuery(query.id, { text: `Buyurtma allaqachon ${order.status} holatida!`, show_alert: true });
+                }
+
+                await order.update({ status: 'accepted' });
+
+                bot.answerCallbackQuery(query.id, { text: '✅ Buyurtma tasdiqlandi!' });
+                bot.editMessageReplyMarkup({ inline_keyboard: [] }, { chat_id: chatId, message_id: messageId });
+                // Append text to original message to indicate who accepted it
+                const newText = query.message.text + `\n\n✅ <i>Tasdiqlandi by: ${query.from.first_name}</i>`;
+                bot.editMessageText(newText, { chat_id: chatId, message_id: messageId, parse_mode: 'HTML' }).catch(() => { });
+
+            } else if (data.startsWith('reject_order_')) {
+                const orderId = data.replace('reject_order_', '');
+                const order = await Order.findByPk(orderId);
+
+                if (!order) {
+                    return bot.answerCallbackQuery(query.id, { text: 'Buyurtma topilmadi!', show_alert: true });
+                }
+
+                if (order.status !== 'pending') {
+                    return bot.answerCallbackQuery(query.id, { text: `Buyurtma allaqachon ${order.status} holatida!`, show_alert: true });
+                }
+
+                await order.update({ status: 'cancelled' });
+
+                // Refund to wallet if method was wallet
+                if (order.paymentMethod === 'wallet') {
+                    const user = await User.findByPk(order.userId);
+                    if (user) {
+                        user.walletBalance += order.totalAmount;
+                        await user.save();
+                    }
+                }
+
+                bot.answerCallbackQuery(query.id, { text: '❌ Buyurtma rad etildi!' });
+                bot.editMessageReplyMarkup({ inline_keyboard: [] }, { chat_id: chatId, message_id: messageId });
+
+                const newText = query.message.text + `\n\n❌ <i>Rad etildi by: ${query.from.first_name}</i>`;
+                bot.editMessageText(newText, { chat_id: chatId, message_id: messageId, parse_mode: 'HTML' }).catch(() => { });
+            }
+        } catch (error) {
+            console.error('Callback error:', error);
+            bot.answerCallbackQuery(query.id, { text: 'Xatolik yuz berdi' });
+        }
+    });
+
     return bot;
 }
 

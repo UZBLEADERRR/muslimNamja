@@ -13,6 +13,9 @@ router.post('/create', authMiddleware(), orderController.createOrder);
 router.get('/my', authMiddleware(), orderController.getMyOrders);
 router.get('/my-orders', authMiddleware(), orderController.getMyOrders);
 
+// Track an order (Live location & Queue position)
+router.get('/:id/tracking', authMiddleware(), orderController.getTracking);
+
 // Order-specific Chat & Delivery Flow
 router.get('/:id/chat', authMiddleware(), orderController.getOrderChat);
 router.post('/:id/chat', authMiddleware(), upload.single('image'), orderController.postOrderChat);

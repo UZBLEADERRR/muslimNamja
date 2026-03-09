@@ -43,6 +43,9 @@ const orderController = {
 
             await trans.commit();
 
+            // Ensure we have user details for the message
+            let user = await User.findByPk(userId);
+
             // 3. Send Telegram Notifications (Post-transaction)
             const bot = getBot();
             const adminId = process.env.ADMIN_CHAT_ID;
@@ -58,24 +61,38 @@ const orderController = {
                 giftText = `\n🎁 <b>SOVG'A:</b> Kimga: ${giftInfo.toUserId} | Anonim: ${giftInfo.isAnonymous ? 'Ha' : 'Yoq'}`;
             }
 
+            const paymentText = paymentMethod === 'wallet'
+                ? '💳 Hamyondan yechildi (Deposit)'
+                : '💵 Naqd pul (Cash)';
+
             const message = `
 🛍 <b>Yangi Buyurtma!</b> (#${order.id.toString().slice(0, 8)})
 
-👤 <b>Mijoz ID:</b> ${userId.toString().slice(0, 8)}
-💰 <b>Jami to'lov:</b> ${totalAmount} ₩ (Maxsulotlar + yo'lkira yig'indisi)
-${deliveryText}
+👤 <b>Mijoz:</b> ${user ? user.firstName : 'Noma\'lum'}
+📞 <b>Tel:</b> ${user ? user.phone : 'Noma\'lum'}
+📍 <b>Manzil:</b> ${user ? user.address : 'Noma\'lum'}
 📍 <b>Mijoz/Uchrashuv masofasi:</b> ${distance} km
-${giftText}
+
+💰 <b>Jami to'lov:</b> ${totalAmount} ₩ (Maxsulotlar + yo'lkira yig'indisi)
+${deliveryText}${giftText}
+To'lov turi: <b>${paymentText}</b>
 
 <b>Savat:</b>
 ${orderDetails}
-
-💳 <b>To'lov:</b> ${paymentMethod === 'wallet' ? 'Hamyon' : 'Naqd'}
 `;
 
+            const inlineKeyboard = {
+                inline_keyboard: [
+                    [
+                        { text: "✅ Tasdiqlash", callback_data: `accept_order_${order.id}` },
+                        { text: "❌ Rad etish", callback_data: `reject_order_${order.id}` }
+                    ]
+                ]
+            };
+
             if (bot) {
-                if (adminId) bot.sendMessage(adminId, message, { parse_mode: 'HTML' });
-                if (channelId) bot.sendMessage(channelId, message, { parse_mode: 'HTML' });
+                if (adminId) bot.sendMessage(adminId, message, { parse_mode: 'HTML', reply_markup: inlineKeyboard });
+                if (channelId) bot.sendMessage(channelId, message, { parse_mode: 'HTML', reply_markup: inlineKeyboard });
             }
 
             res.status(201).json({ message: 'Order placed successfully', order });
@@ -95,6 +112,51 @@ ${orderDetails}
             res.json(orders);
         } catch (error) {
             res.status(500).json({ error: 'Failed to fetch orders' });
+        }
+    },
+
+    // Live Tracking & Smart Queue logic
+    async getTracking(req, res) {
+        try {
+            const { id } = req.params;
+            const order = await Order.findByPk(id);
+            if (!order) return res.status(404).json({ error: 'Order not found' });
+
+            let queuePosition = 0;
+            let driverLocation = null;
+            let driverPhone = null;
+
+            if (order.deliveryManId && order.status === 'delivering') {
+                // Get driver location from memory
+                const { driverLocations } = require('./deliveryController');
+                driverLocation = driverLocations[order.deliveryManId] || null;
+
+                // Get driver details
+                const driver = await User.findByPk(order.deliveryManId, { attributes: ['phone', 'firstName'] });
+                if (driver) driverPhone = driver.phone;
+
+                // Determine Queue Position:
+                // Find all active orders for this driver sorted by distance
+                const activeOrders = await Order.findAll({
+                    where: { deliveryManId: order.deliveryManId, status: 'delivering' },
+                    order: [['distance', 'ASC']],
+                    attributes: ['id']
+                });
+
+                const index = activeOrders.findIndex(o => o.id === order.id);
+                // If it's the first one, position is 0 (Next). If second, position is 1.
+                queuePosition = index !== -1 ? index : 0;
+            }
+
+            res.json({
+                order,
+                queuePosition,
+                driverLocation,
+                driverPhone
+            });
+        } catch (error) {
+            console.error('Tracking Error:', error);
+            res.status(500).json({ error: 'Failed to fetch tracking data' });
         }
     },
 

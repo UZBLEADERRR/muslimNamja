@@ -8,6 +8,7 @@ const TrackPage = () => {
     const { t } = useTranslation();
     const { user } = useAppStore();
     const [activeOrder, setActiveOrder] = useState(null);
+    const [trackingData, setTrackingData] = useState(null);
     const [loading, setLoading] = useState(true);
 
     // Chat state
@@ -20,12 +21,22 @@ const TrackPage = () => {
 
     const fetchOrder = () => {
         api.get('/orders/my')
-            .then(res => {
+            .then(async res => {
                 const orders = res.data || [];
                 const active = orders.find(o => o.status !== 'completed' && o.status !== 'cancelled');
                 setActiveOrder(active || null);
-                if (active && active.status === 'delivering') {
-                    fetchChat(active.id);
+
+                if (active) {
+                    try {
+                        const trackRes = await api.get(`/orders/${active.id}/tracking`);
+                        setTrackingData(trackRes.data);
+                    } catch (err) {
+                        console.error('Failed to fetch tracking stats');
+                    }
+
+                    if (active.status === 'delivering') {
+                        fetchChat(active.id);
+                    }
                 }
             })
             .catch(err => console.error(err))
@@ -145,6 +156,34 @@ const TrackPage = () => {
                 <p style={{ color: "var(--text-secondary)", fontSize: 13, marginBottom: 20 }}>
                     Order #{(activeOrder.id || '').toString().slice(0, 8)} · ₩{(activeOrder.totalAmount || 0).toLocaleString()}
                 </p>
+
+                {/* Tracking Data Info */}
+                {trackingData && trackingData.queuePosition > 0 && activeOrder.status === 'delivering' && (
+                    <div style={{ background: 'rgba(255,107,53,0.1)', border: '1px solid rgba(255,107,53,0.3)', padding: 12, borderRadius: 12, marginBottom: 16, animation: 'fadeIn 0.5s ease' }}>
+                        <div style={{ color: 'var(--brand-accent)', fontSize: 14, fontWeight: 700, marginBottom: 4 }}>
+                            🏃 Kuryer boshqa manzilda
+                        </div>
+                        <div style={{ color: 'var(--text-secondary)', fontSize: 12 }}>
+                            Sizdan avvalgi <b style={{ color: 'var(--text-primary)', fontSize: 14 }}>{trackingData.queuePosition}</b> ta mijoz bor. Biroz kuting...
+                        </div>
+                    </div>
+                )}
+                {trackingData && trackingData.driverLocation && activeOrder.status === 'delivering' && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'var(--card-bg)', border: '1px solid var(--card-border)', padding: '10px 14px', borderRadius: 12, marginBottom: 20, animation: 'fadeIn 0.5s ease' }}>
+                        <div style={{ width: 32, height: 32, borderRadius: 16, background: 'rgba(39,174,96,0.1)', color: '#27AE60', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }}>
+                            📍
+                        </div>
+                        <div style={{ flex: 1 }}>
+                            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>Kuryer Jonli Lokatsiyasi</div>
+                            <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>
+                                Lat: {trackingData.driverLocation.lat.toFixed(4)} • Lng: {trackingData.driverLocation.lng.toFixed(4)}
+                            </div>
+                        </div>
+                        {/* Optional pulsing dot */}
+                        <div style={{ width: 8, height: 8, borderRadius: 4, background: '#27AE60', boxShadow: '0 0 8px #27AE60', animation: 'pulse-dot 1.5s infinite' }} />
+                        <style>{`@keyframes pulse-dot { 0% { opacity: 0.4; } 50% { opacity: 1; transform: scale(1.2); } 100% { opacity: 0.4; } }`}</style>
+                    </div>
+                )}
 
                 {/* Progress Visual */}
                 <div style={{ background: "linear-gradient(135deg, rgba(39,174,96,0.1) 0%, rgba(39,174,96,0.02) 100%)", borderRadius: 20, height: 120, marginBottom: 20, display: "flex", alignItems: "center", justifyContent: "center", position: "relative", border: `1px solid rgba(39,174,96,0.2)` }}>
