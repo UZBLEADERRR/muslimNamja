@@ -10,31 +10,61 @@ const LANG_LIST = [
     { code: "ru", name: "Русский", flag: "🇷🇺" },
 ];
 
+const Modal = ({ title, onClose, children }) => (
+    <div style={{
+        position: 'fixed', inset: 0, zIndex: 999, display: 'flex', alignItems: 'flex-end',
+        background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', animation: 'fadeIn 0.2s ease'
+    }}>
+        <div style={{
+            background: 'var(--card-bg)', width: '100%', borderTopLeftRadius: 24, borderTopRightRadius: 24,
+            padding: 24, border: '1px solid var(--card-border)', borderBottom: 'none',
+            boxShadow: '0 -10px 40px rgba(0,0,0,0.3)', animation: 'slideUp 0.3s cubic-bezier(0.2, 0.8, 0.2, 1)'
+        }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+                <h3 style={{ margin: 0, color: 'var(--text-primary)', fontSize: 18 }}>{title}</h3>
+                <button onClick={onClose} style={{
+                    background: 'var(--bg-secondary)', color: 'var(--text-primary)', border: 'none',
+                    width: 32, height: 32, borderRadius: 16, fontSize: 16, cursor: 'pointer'
+                }}>✕</button>
+            </div>
+            {children}
+        </div>
+    </div>
+);
+
 const ProfilePage = () => {
     const { t, lang } = useTranslation();
     const { user, logout, setLang, setUser, token } = useAppStore();
-    const [orderCount, setOrderCount] = useState(0);
 
-    // Editable fields
+    // Data states
+    const [history, setHistory] = useState({ orders: [], paymentRequests: [] });
+    const [adminCard, setAdminCard] = useState('');
+    const [loading, setLoading] = useState(true);
+
+    // Edit Profile Modal
+    const [showEdit, setShowEdit] = useState(false);
     const [phone, setPhone] = useState('');
     const [address, setAddress] = useState('');
     const [nickname, setNickname] = useState('');
     const [isPrivate, setIsPrivate] = useState(false);
     const [location, setLocation] = useState(null);
-    const [gettingLocation, setGettingLocation] = useState(false);
     const [saving, setSaving] = useState(false);
-    const [saveMsg, setSaveMsg] = useState('');
+
+    // Top-up Modal
+    const [showTopUp, setShowTopUp] = useState(false);
+    const [topUpAmount, setTopUpAmount] = useState('');
+    const [screenshot, setScreenshot] = useState(null);
+    const [uploading, setUploading] = useState(false);
+
+    // Settings Modal
+    const [showSettings, setShowSettings] = useState(false);
 
     // Avatar
     const avatarRef = useRef(null);
     const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
-    // Wallet top-up
-    const [topUpAmount, setTopUpAmount] = useState('');
-    const [screenshot, setScreenshot] = useState(null);
-    const [uploading, setUploading] = useState(false);
-    const [topUpMsg, setTopUpMsg] = useState('');
-    const [adminCard, setAdminCard] = useState('');
+    // Tabs
+    const [activeTab, setActiveTab] = useState('orders');
 
     useEffect(() => {
         if (user) {
@@ -43,49 +73,29 @@ const ProfilePage = () => {
             setNickname(user.nickname || '');
             setIsPrivate(user.isPrivate || false);
             setLocation(user.location || null);
-            api.get('/orders/my')
-                .then(res => setOrderCount(res.data?.length || 0))
-                .catch(() => { });
 
-            api.get('/users/settings/adminBankCard')
-                .then(res => {
-                    let val = res.data?.value || res.data;
-                    if (typeof val === 'string' && val.startsWith('"')) val = JSON.parse(val);
-                    setAdminCard(val || '');
-                })
-                .catch(() => { });
+            Promise.all([
+                api.get('/users/history').catch(() => ({ data: { orders: [], paymentRequests: [] } })),
+                api.get('/users/settings/adminBankCard').catch(() => ({ data: '' }))
+            ]).then(([histRes, cardRes]) => {
+                setHistory(histRes.data || { orders: [], paymentRequests: [] });
+                let val = cardRes.data?.value || cardRes.data;
+                if (typeof val === 'string' && val.startsWith('"')) val = JSON.parse(val);
+                setAdminCard(val || '');
+                setLoading(false);
+            });
         }
     }, [user]);
 
-    const handleGetLocation = () => {
-        setGettingLocation(true);
-        if (!navigator.geolocation) {
-            alert('Geolocation not supported');
-            setGettingLocation(false);
-            return;
-        }
-        navigator.geolocation.getCurrentPosition(
-            (pos) => {
-                setLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude });
-                setGettingLocation(false);
-            },
-            () => {
-                alert('Location permission denied');
-                setGettingLocation(false);
-            }
-        );
-    };
-
     const handleSaveProfile = async () => {
         setSaving(true);
-        setSaveMsg('');
         try {
             const res = await api.put('/users/profile', { phone, address, location, nickname, isPrivate });
             setUser(res.data.user || { ...user, phone, address, location, nickname, isPrivate }, token);
-            setSaveMsg('✅ Saqlandi!');
-            setTimeout(() => setSaveMsg(''), 2000);
+            setShowEdit(false);
+            alert('✅ Saqlandi!');
         } catch (err) {
-            setSaveMsg('❌ ' + (err.response?.data?.error || 'Error'));
+            alert('❌ Xatolik yuz berdi');
         } finally {
             setSaving(false);
         }
@@ -98,9 +108,7 @@ const ProfilePage = () => {
         try {
             const formData = new FormData();
             formData.append('avatar', file);
-            const res = await api.post('/users/avatar', formData, {
-                headers: { 'Content-Type': 'multipart/form-data' }
-            });
+            const res = await api.post('/users/avatar', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
             setUser({ ...user, avatarUrl: res.data.avatarUrl }, token);
         } catch (err) {
             alert(err.response?.data?.error || "Rasm yuklashda xatolik");
@@ -112,222 +120,233 @@ const ProfilePage = () => {
     const handleTopUp = async () => {
         if (!screenshot) return alert('Screenshot yuklang');
         setUploading(true);
-        setTopUpMsg('');
         try {
             const formData = new FormData();
             formData.append('screenshot', screenshot);
             formData.append('amount', topUpAmount || '0');
-            const res = await api.post('/users/topup', formData, {
-                headers: { 'Content-Type': 'multipart/form-data' }
-            });
-            setTopUpMsg('✅ ' + (res.data.message || 'Yuborildi! AI tekshirmoqda...'));
+            const res = await api.post('/users/topup', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
+            alert('✅ ' + (res.data.message || 'Yuborildi! AI tekshirmoqda...'));
+            setShowTopUp(false);
             setScreenshot(null);
             setTopUpAmount('');
+            // Refresh history
+            const histRes = await api.get('/users/history');
+            setHistory(histRes.data);
+            setActiveTab('payments');
         } catch (err) {
-            setTopUpMsg('❌ ' + (err.response?.data?.error || 'Xato'));
+            alert('❌ ' + (err.response?.data?.error || 'Xato'));
         } finally {
             setUploading(false);
         }
     };
-
-    const canUploadAvatar = user && (user.walletBalance || 0) >= 15000;
 
     if (!user) {
         return (
             <div className="animate-slide-up" style={{ padding: 40, textAlign: "center" }}>
                 <div style={{ fontSize: 64, marginBottom: 16 }}>👤</div>
                 <h3 style={{ color: "var(--text-primary)", marginBottom: 12 }}>{t('profile_not_ready')}</h3>
-                <p style={{ color: "var(--text-secondary)", marginBottom: 24, fontSize: 14 }}>{t('login_prompt')}</p>
                 <button onClick={() => window.location.reload()} style={{ background: "var(--brand-accent)", color: "#fff", padding: "12px 24px", borderRadius: 12, border: "none", fontWeight: 700, cursor: "pointer" }}>{t('reload')}</button>
             </div>
         );
     }
 
+    const canUploadAvatar = (user.walletBalance || 0) >= 15000;
+    const displayName = user.nickname || user.firstName + (user.lastName ? ' ' + user.lastName : '');
+
     return (
-        <div className="animate-slide-up" style={{ padding: 20, paddingBottom: 40 }}>
-            {/* Profile Hero */}
-            <div style={{ background: `linear-gradient(135deg, rgba(255,107,53,0.1), rgba(255,60,172,0.1))`, borderRadius: 24, padding: 24, marginBottom: 20, textAlign: "center", border: `1px solid rgba(255,107,53,0.2)` }}>
-                {/* Avatar */}
-                <div style={{ position: 'relative', display: 'inline-block', marginBottom: 12 }}>
+        <div className="animate-slide-up" style={{ padding: 16, paddingBottom: 100, maxWidth: 600, margin: '0 auto' }}>
+
+            {/* Premium Header Card */}
+            <div style={{
+                background: `linear-gradient(135deg, rgba(255,107,53,0.15), rgba(255,60,172,0.15))`,
+                borderRadius: 24, padding: 24, marginBottom: 16, border: `1px solid rgba(255,107,53,0.2)`,
+                display: 'flex', flexDirection: 'column', alignItems: 'center', position: 'relative', overflow: 'hidden'
+            }}>
+                {/* Decorative background blur */}
+                <div style={{ position: 'absolute', top: -50, right: -50, width: 150, height: 150, background: 'var(--brand-accent)', filter: 'blur(80px)', opacity: 0.2, zIndex: 0 }} />
+
+                <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                     <div
                         onClick={() => canUploadAvatar && avatarRef.current?.click()}
                         style={{
-                            width: 80, height: 80, borderRadius: "50%",
-                            background: `linear-gradient(135deg, var(--brand-accent), #FF3CAC)`,
-                            display: "flex", alignItems: "center", justifyContent: "center",
-                            fontSize: 36, boxShadow: "var(--shadow-main)", overflow: 'hidden',
-                            cursor: canUploadAvatar ? 'pointer' : 'default',
-                            border: canUploadAvatar ? '3px solid var(--brand-accent)' : '3px solid transparent'
+                            width: 84, height: 84, borderRadius: 42, background: `linear-gradient(135deg, var(--brand-accent), #FF3CAC)`,
+                            display: "flex", alignItems: "center", justifyContent: "center", fontSize: 36,
+                            boxShadow: "0 8px 24px rgba(255, 107, 53, 0.3)", overflow: 'hidden',
+                            cursor: canUploadAvatar ? 'pointer' : 'default', border: '3px solid var(--bg-primary)', marginBottom: 12
                         }}
                     >
-                        {user.avatarUrl?.startsWith('data:image')
-                            ? <img src={user.avatarUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                            : <span>👤</span>}
+                        {user.avatarUrl?.startsWith('data:image') ? <img src={user.avatarUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span>👤</span>}
                     </div>
-                    {canUploadAvatar && (
-                        <div style={{ position: 'absolute', bottom: 0, right: 0, width: 24, height: 24, borderRadius: '50%', background: 'var(--brand-accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, color: '#fff', border: '2px solid var(--bg-primary)' }}>
-                            📷
-                        </div>
-                    )}
-                    {uploadingAvatar && <div style={{ position: 'absolute', inset: 0, borderRadius: '50%', background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 12 }}>⏳</div>}
                     <input type="file" accept="image/*" ref={avatarRef} onChange={handleAvatarUpload} style={{ display: 'none' }} />
-                </div>
 
-                {!canUploadAvatar && (
-                    <div style={{ fontSize: 10, color: 'var(--text-secondary)', marginBottom: 6 }}>
-                        🔒 Profil rasm qo'yish: hamyonda kamida ₩15,000 bo'lishi kerak
+                    <div style={{ color: "var(--text-primary)", fontFamily: "'Fraunces', serif", fontWeight: 900, fontSize: 24, textAlign: 'center' }}>
+                        {displayName}
                     </div>
-                )}
+                    <div style={{ color: "var(--text-secondary)", fontSize: 13, marginBottom: 16 }}>@{user.username || 'user'}</div>
 
-                <div style={{ color: "var(--text-primary)", fontFamily: "'Fraunces', serif", fontWeight: 900, fontSize: 20 }}>
-                    {user.nickname || user.firstName} {user.lastName || ''}
-                </div>
-                <div style={{ color: "var(--text-secondary)", fontSize: 12, marginBottom: 12 }}>@{user.username || 'user'}</div>
-
-                <div style={{ display: "flex", gap: 16, justifyContent: "center" }}>
-                    <div style={{ textAlign: "center" }}>
-                        <div style={{ color: "var(--brand-accent)", fontWeight: 900, fontSize: 18, fontFamily: "'Fraunces', serif" }}>{(user.walletBalance || 0).toLocaleString()}</div>
-                        <div style={{ color: "var(--text-secondary)", fontSize: 11 }}>{t('wallet')} (₩)</div>
-                    </div>
-                    <div style={{ textAlign: "center" }}>
-                        <div style={{ color: "var(--brand-accent)", fontWeight: 900, fontSize: 18, fontFamily: "'Fraunces', serif" }}>{orderCount}</div>
-                        <div style={{ color: "var(--text-secondary)", fontSize: 11 }}>{t('orders')}</div>
+                    <div style={{ background: 'var(--card-bg)', padding: '12px 24px', borderRadius: 20, boxShadow: 'var(--shadow-main)', border: '1px solid var(--card-border)', display: 'flex', alignItems: 'center', gap: 12 }}>
+                        <div style={{ width: 32, height: 32, borderRadius: 16, background: 'rgba(78,205,196,0.1)', color: 'var(--brand-accent2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>💰</div>
+                        <div>
+                            <div style={{ color: "var(--text-secondary)", fontSize: 11, fontWeight: 700, textTransform: 'uppercase' }}>Hamyon ({t('wallet')})</div>
+                            <div style={{ color: "var(--text-primary)", fontWeight: 900, fontSize: 20, fontFamily: "'Fraunces', serif" }}>₩{(user.walletBalance || 0).toLocaleString()}</div>
+                        </div>
                     </div>
                 </div>
-
-                {/* Private/Public Toggle */}
-                <div style={{ marginTop: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
-                    <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{isPrivate ? '🔒 Shaxsiy' : '🌐 Hammaga ochiq'}</span>
-                    <button onClick={() => setIsPrivate(!isPrivate)} style={{
-                        width: 44, height: 24, borderRadius: 12, border: 'none',
-                        background: isPrivate ? 'var(--brand-accent)' : 'var(--card-border)',
-                        position: 'relative', cursor: 'pointer', transition: 'background 0.2s'
-                    }}>
-                        <div style={{
-                            width: 18, height: 18, borderRadius: '50%', background: '#fff',
-                            position: 'absolute', top: 3,
-                            left: isPrivate ? 23 : 3, transition: 'left 0.2s'
-                        }} />
-                    </button>
-                </div>
-                {isPrivate && <div style={{ fontSize: 10, color: 'var(--text-secondary)', marginTop: 4 }}>Hamyoningiz boshqalarga ko'rinmaydi</div>}
             </div>
 
-            {/* Editable Profile Fields */}
-            <div style={{ background: "var(--card-bg)", borderRadius: 18, padding: 18, marginBottom: 16, border: `1px solid var(--card-border)`, boxShadow: "var(--shadow-main)" }}>
-                <div style={{ color: "var(--text-primary)", fontWeight: 700, fontSize: 14, marginBottom: 14 }}>✏️ Ma'lumotlarni tahrirlash</div>
-
-                {/* Nickname */}
-                <label style={{ color: "var(--text-secondary)", fontSize: 11, fontWeight: 600, display: 'block', marginBottom: 4 }}>✨ Nickname (taxallus)</label>
-                <input value={nickname} onChange={e => setNickname(e.target.value)} placeholder="Taxallus kiriting..." style={inputStyle} />
-
-                {/* Phone */}
-                <label style={{ color: "var(--text-secondary)", fontSize: 11, fontWeight: 600, display: 'block', marginBottom: 4, marginTop: 12 }}>📱 Telefon raqam</label>
-                <input value={phone} onChange={e => setPhone(e.target.value)} placeholder="+8210..." style={inputStyle} />
-
-                {/* Address */}
-                <label style={{ color: "var(--text-secondary)", fontSize: 11, fontWeight: 600, display: 'block', marginBottom: 4, marginTop: 12 }}>🏠 Uy manzili</label>
-                <input value={address} onChange={e => setAddress(e.target.value)} placeholder="To'liq manzil..." style={inputStyle} />
-
-                {/* Location */}
-                <label style={{ color: "var(--text-secondary)", fontSize: 11, fontWeight: 600, display: 'block', marginBottom: 6, marginTop: 12 }}>📍 Jonli lokatsiya</label>
-                <button onClick={handleGetLocation} disabled={gettingLocation} style={{
-                    width: '100%', padding: '12px', borderRadius: 12, border: `1px solid ${location ? 'var(--brand-accent)' : 'var(--card-border)'}`,
-                    background: location ? 'rgba(255,107,53,0.1)' : 'var(--card-bg)', color: location ? 'var(--brand-accent)' : 'var(--text-primary)',
-                    cursor: 'pointer', fontWeight: 600, fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6
-                }}>
-                    {gettingLocation ? '⏳ Aniqlanmoqda...' : location ? `✅ Aniqlangan (${location.lat?.toFixed(4)}, ${location.lng?.toFixed(4)})` : '📍 Manzilni aniqlash'}
+            {/* Action Buttons Grid */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, marginBottom: 20 }}>
+                <button onClick={() => setShowEdit(true)} style={actionBtnStyle}>
+                    <span style={{ fontSize: 22, marginBottom: 4 }}>✏️</span> Tahrirlash
                 </button>
-
-                {/* Save button */}
-                <button onClick={handleSaveProfile} disabled={saving} style={{
-                    width: '100%', marginTop: 14, padding: '13px', borderRadius: 12, border: 'none',
-                    background: 'var(--brand-accent)', color: '#fff', fontWeight: 700, fontSize: 14, cursor: 'pointer',
-                    opacity: saving ? 0.7 : 1
-                }}>
-                    {saving ? '⏳ Saqlanmoqda...' : `💾 ${t('save')}`}
+                <button onClick={() => setShowTopUp(true)} style={{ ...actionBtnStyle, background: 'var(--brand-accent)', color: '#fff', border: 'none' }}>
+                    <span style={{ fontSize: 22, marginBottom: 4 }}>💳</span> {t('wallet_balance')}
                 </button>
-                {saveMsg && <div style={{ textAlign: 'center', marginTop: 8, fontSize: 13, color: 'var(--text-primary)' }}>{saveMsg}</div>}
+                <button onClick={() => setShowSettings(true)} style={actionBtnStyle}>
+                    <span style={{ fontSize: 22, marginBottom: 4 }}>⚙️</span> Sozlamalar
+                </button>
             </div>
 
-            {/* Wallet Top-Up */}
-            <div style={{ background: `linear-gradient(135deg, rgba(78,205,196,0.08), rgba(78,205,196,0.03))`, borderRadius: 18, padding: 18, marginBottom: 16, border: `1px solid rgba(78,205,196,0.2)` }}>
-                <div style={{ color: "var(--text-primary)", fontWeight: 700, fontSize: 14, marginBottom: 12 }}>💰 {t('wallet_balance')} to'ldirish</div>
+            {/* History Section Tabs */}
+            <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+                <button onClick={() => setActiveTab('orders')} style={tabBtnStyle(activeTab === 'orders')}>📦 Buyurtmalar</button>
+                <button onClick={() => setActiveTab('payments')} style={tabBtnStyle(activeTab === 'payments')}>🧾 To'lovlar</button>
+            </div>
 
-                {adminCard && (
-                    <div style={{ background: 'var(--card-bg)', padding: '12px', borderRadius: '12px', border: '1px solid var(--brand-accent2)', marginBottom: '14px' }}>
-                        <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 4 }}>💳 To'lov uchun karta (Admin):</div>
-                        <div style={{ fontSize: 15, fontWeight: 900, color: 'var(--text-primary)', letterSpacing: 0.5 }}>{adminCard}</div>
-                        <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 4 }}>Ushbu raqamga pul o'tkazib, skrinshotni yuklang.</div>
-                    </div>
-                )}
-
-                <label style={{ color: "var(--text-secondary)", fontSize: 11, fontWeight: 600, display: 'block', marginBottom: 4 }}>Summa (₩)</label>
-                <input type="number" value={topUpAmount} onChange={e => setTopUpAmount(e.target.value)} placeholder="10000" style={inputStyle} />
-
-                <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
-                    {[5000, 10000, 20000, 50000].map(amt => (
-                        <button key={amt} onClick={() => setTopUpAmount(amt.toString())} style={{
-                            padding: '6px 12px', borderRadius: 10, border: `1px solid var(--card-border)`,
-                            background: topUpAmount === amt.toString() ? 'var(--brand-accent2)' : 'var(--card-bg)',
-                            color: topUpAmount === amt.toString() ? '#fff' : 'var(--text-secondary)',
-                            fontSize: 12, fontWeight: 600, cursor: 'pointer'
-                        }}>₩{amt.toLocaleString()}</button>
+            {/* History Content */}
+            {loading ? <div style={{ textAlign: 'center', padding: 30, color: 'var(--text-secondary)' }}>⏳ Yuklanmoqda...</div> : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    {activeTab === 'orders' && history.orders.map((o, i) => (
+                        <div key={o.id} style={{ ...historyCardStyle, animation: `fadeIn 0.3s ease ${i * 40}ms both` }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+                                <span style={{ fontWeight: 800, color: 'var(--text-primary)', fontSize: 14 }}>#{(o.id || '').slice(0, 8)}</span>
+                                <span style={{ fontSize: 12, fontWeight: 700, color: o.status === 'completed' ? '#00F5A0' : o.status === 'cancelled' ? '#FF4560' : 'var(--brand-accent)' }}>
+                                    {o.status.toUpperCase()}
+                                </span>
+                            </div>
+                            <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 6 }}>
+                                {o.items?.map(it => `${it.productName || 'Item'} x${it.quantity}`).join(', ') || 'Buyurtma'}
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{new Date(o.createdAt).toLocaleString()}</span>
+                                <span style={{ fontWeight: 800, color: 'var(--text-primary)' }}>₩{o.totalAmount?.toLocaleString()}</span>
+                            </div>
+                        </div>
                     ))}
-                </div>
+                    {activeTab === 'orders' && history.orders.length === 0 && (
+                        <div style={{ textAlign: 'center', padding: 30, color: 'var(--text-secondary)', background: 'var(--card-bg)', borderRadius: 16 }}>Hali hech narsa xarid qilmadingiz</div>
+                    )}
 
-                <label style={{ color: "var(--text-secondary)", fontSize: 11, fontWeight: 600, display: 'block', marginBottom: 4, marginTop: 12 }}>📸 To'lov screenshoti</label>
-                <input type="file" accept="image/*" onChange={e => setScreenshot(e.target.files?.[0])} style={{ color: 'var(--text-primary)', fontSize: 13, marginBottom: 10 }} />
-
-                <button onClick={handleTopUp} disabled={uploading || !screenshot} style={{
-                    width: '100%', padding: '13px', borderRadius: 12, border: 'none',
-                    background: (!screenshot) ? 'var(--card-border)' : 'var(--brand-accent2)', color: '#fff',
-                    fontWeight: 700, fontSize: 14, cursor: (!screenshot) ? 'not-allowed' : 'pointer'
-                }}>
-                    {uploading ? '⏳ AI tekshirmoqda...' : '💳 To\'lovni yuborish'}
-                </button>
-                {topUpMsg && <div style={{ textAlign: 'center', marginTop: 8, fontSize: 13, color: 'var(--text-primary)' }}>{topUpMsg}</div>}
-            </div>
-
-            {/* Delivery Zone */}
-            <div style={{ background: "var(--card-bg)", borderRadius: 16, padding: 16, marginBottom: 14, border: `1px solid var(--card-border)`, boxShadow: "var(--shadow-main)" }}>
-                <div style={{ color: "var(--text-primary)", fontWeight: 700, fontSize: 14, marginBottom: 10 }}>📍 {t('delivery_zone')}</div>
-                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                    <div style={{ width: 10, height: 10, borderRadius: "50%", background: (user.distanceFromRestaurant || 0) <= 1 ? "#27AE60" : "#F5A623" }} />
-                    <span style={{ color: "var(--text-primary)", fontSize: 13 }}>{user.address || 'Manzil kiritilmagan'} · {(user.distanceFromRestaurant || 0).toFixed(1)}km</span>
-                    <span style={{ marginLeft: "auto", color: (user.distanceFromRestaurant || 0) <= 1 ? "#27AE60" : "#F5A623", fontSize: 12, fontWeight: 700 }}>
-                        {(user.distanceFromRestaurant || 0) <= 1 ? t('free_zone') : `₩3,000`}
-                    </span>
-                </div>
-            </div>
-
-            {/* Language Selector */}
-            <div style={{ background: "var(--card-bg)", borderRadius: 16, padding: 16, marginBottom: 14, border: `1px solid var(--card-border)`, boxShadow: "var(--shadow-main)" }}>
-                <div style={{ color: "var(--text-primary)", fontWeight: 700, fontSize: 14, marginBottom: 12 }}>🌐 {t('language')}</div>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                    {LANG_LIST.map(l => (
-                        <button key={l.code} onClick={() => setLang(l.code)} style={{
-                            padding: "7px 12px", borderRadius: 20,
-                            border: `1.5px solid ${lang === l.code ? 'var(--brand-accent)' : 'var(--card-border)'}`,
-                            background: lang === l.code ? `rgba(255,107,53,0.1)` : "transparent",
-                            color: lang === l.code ? 'var(--brand-accent)' : 'var(--text-secondary)',
-                            fontSize: 12, fontWeight: 600, cursor: "pointer", transition: "all 0.2s"
-                        }}>{l.flag} {l.name}</button>
+                    {activeTab === 'payments' && history.paymentRequests.map((p, i) => (
+                        <div key={p.id} style={{ ...historyCardStyle, animation: `fadeIn 0.3s ease ${i * 40}ms both` }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                                <span style={{ fontWeight: 800, color: p.status === 'approved' ? '#00F5A0' : p.status === 'rejected' ? '#FF4560' : 'var(--brand-accent2)' }}>
+                                    {p.status === 'approved' ? '✅ Qabul qilindi' : p.status === 'rejected' ? '❌ Rad etildi' : '⏳ Kutilmoqda'}
+                                </span>
+                                <span style={{ fontWeight: 900, color: 'var(--text-primary)' }}>₩{p.amount?.toLocaleString()}</span>
+                            </div>
+                            <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{new Date(p.createdAt).toLocaleString()}</div>
+                        </div>
                     ))}
+                    {activeTab === 'payments' && history.paymentRequests.length === 0 && (
+                        <div style={{ textAlign: 'center', padding: 30, color: 'var(--text-secondary)', background: 'var(--card-bg)', borderRadius: 16 }}>Hali hech qanday to'lov so'rovi yo'q</div>
+                    )}
                 </div>
-            </div>
+            )}
 
-            <button onClick={logout} style={{ width: "100%", background: "transparent", border: `1.5px solid var(--card-border)`, color: "#e74c3c", borderRadius: 14, padding: "14px 0", fontSize: 14, fontWeight: 700, cursor: "pointer", marginTop: 10 }}>
-                {t('logout')}
-            </button>
+            {/* Modals */}
+            {showEdit && (
+                <Modal title="✏️ Profilni tahrirlash" onClose={() => setShowEdit(false)}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                        <div>
+                            <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 4 }}>Taxallus (Nickname)</div>
+                            <input value={nickname} onChange={e => setNickname(e.target.value)} placeholder="Taxallusiz..." style={inputStyle} />
+                        </div>
+                        <div>
+                            <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 4 }}>Telefon</div>
+                            <input value={phone} onChange={e => setPhone(e.target.value)} placeholder="+8210..." style={inputStyle} />
+                        </div>
+                        <div>
+                            <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 4 }}>Doimiy Manzil</div>
+                            <input value={address} onChange={e => setAddress(e.target.value)} placeholder="To'liq manzil..." style={inputStyle} />
+                        </div>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', background: 'var(--bg-secondary)', padding: "12px 14px", borderRadius: 12, border: '1px solid var(--card-border)' }}>
+                            <input type="checkbox" checked={isPrivate} onChange={e => setIsPrivate(e.target.checked)} style={{ width: 18, height: 18, accentColor: 'var(--brand-accent)' }} />
+                            <div style={{ flex: 1 }}>
+                                <div style={{ fontSize: 14, color: 'var(--text-primary)', fontWeight: 600 }}>Shaxsiy profil</div>
+                                <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>Hamyon ko'rsatkichingiz boshqalardan yashiriladi</div>
+                            </div>
+                        </label>
+                        <button onClick={handleSaveProfile} disabled={saving} style={{ ...btnStyle, marginTop: 10 }}>{saving ? '⏳...' : 'Saqlash'}</button>
+                    </div>
+                </Modal>
+            )}
+
+            {showTopUp && (
+                <Modal title="💳 Hamyonni to'ldirish" onClose={() => setShowTopUp(false)}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                        {adminCard && (
+                            <div style={{ background: 'var(--bg-secondary)', padding: '16px', borderRadius: '16px', border: '1px solid var(--brand-accent2)', textAlign: 'center' }}>
+                                <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 6 }}>To'lov uchun karta:</div>
+                                <div style={{ fontSize: 18, fontWeight: 900, color: 'var(--brand-accent2)', letterSpacing: 1 }}>{adminCard}</div>
+                            </div>
+                        )}
+                        <div>
+                            <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 4 }}>O'tkazilgan Summa (₩)</div>
+                            <input type="number" value={topUpAmount} onChange={e => setTopUpAmount(e.target.value)} placeholder="10000" style={inputStyle} />
+                            <div style={{ display: 'flex', gap: 8, marginTop: 8, overflowX: 'auto', paddingBottom: 4 }} className="hide-scrollbar">
+                                {[5000, 10000, 20000, 50000].map(amt => (
+                                    <button key={amt} onClick={() => setTopUpAmount(amt.toString())} style={{
+                                        padding: '6px 14px', borderRadius: 12, border: `1px solid ${topUpAmount === amt.toString() ? 'var(--brand-accent2)' : 'var(--card-border)'}`,
+                                        background: topUpAmount === amt.toString() ? 'var(--brand-accent2)' : 'transparent', color: topUpAmount === amt.toString() ? '#fff' : 'var(--text-secondary)',
+                                        fontSize: 13, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap'
+                                    }}>₩{amt.toLocaleString()}</button>
+                                ))}
+                            </div>
+                        </div>
+                        <div>
+                            <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 4 }}>Skrinshot yuklash</div>
+                            <input type="file" accept="image/*" onChange={e => setScreenshot(e.target.files?.[0])} style={{ color: 'var(--text-primary)', fontSize: 13, padding: 8, width: '100%', background: 'var(--bg-secondary)', borderRadius: 12 }} />
+                        </div>
+                        <button onClick={handleTopUp} disabled={uploading || !screenshot} style={{ ...btnStyle, background: 'var(--brand-accent2)', marginTop: 10, opacity: (!screenshot || uploading) ? 0.5 : 1 }}>
+                            {uploading ? '⏳ Jo\'natilmoqda...' : 'Yuborish'}
+                        </button>
+                    </div>
+                </Modal>
+            )}
+
+            {showSettings && (
+                <Modal title="⚙️ Sozlamalar" onClose={() => setShowSettings(false)}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>Tilni o'zgartirish</div>
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 10 }}>
+                            {LANG_LIST.map(l => (
+                                <button key={l.code} onClick={() => setLang(l.code)} style={{
+                                    padding: "12px", borderRadius: 12, border: `1px solid ${lang === l.code ? 'var(--brand-accent)' : 'var(--card-border)'}`,
+                                    background: lang === l.code ? 'rgba(255,107,53,0.1)' : 'var(--bg-secondary)', color: lang === l.code ? 'var(--brand-accent)' : 'var(--text-primary)',
+                                    fontSize: 14, fontWeight: 600, cursor: "pointer", transition: "all 0.2s"
+                                }}>{l.flag} {l.name}</button>
+                            ))}
+                        </div>
+                        <button onClick={() => { setShowSettings(false); logout(); }} style={{ ...btnStyle, background: 'rgba(255,69,96,0.1)', color: '#FF4560' }}>
+                            {t('logout')}
+                        </button>
+                    </div>
+                </Modal>
+            )}
+
+            <style>{`
+                @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+                @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+            `}</style>
         </div>
     );
 };
 
-const inputStyle = {
-    width: '100%', padding: '11px 14px', borderRadius: 12,
-    border: '1px solid var(--card-border)', background: 'var(--bg-secondary)',
-    color: 'var(--text-primary)', fontSize: 14, outline: 'none', boxSizing: 'border-box'
-};
+const inputStyle = { width: '100%', padding: '14px 16px', borderRadius: 14, border: '1px solid var(--card-border)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', fontSize: 14, outline: 'none', boxSizing: 'border-box', fontFamily: "'DM Sans', sans-serif" };
+const btnStyle = { width: '100%', padding: '14px', borderRadius: 14, border: 'none', background: 'var(--brand-accent)', color: '#fff', fontWeight: 700, fontSize: 16, cursor: 'pointer', fontFamily: "'DM Sans', sans-serif" };
+const actionBtnStyle = { display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'var(--card-bg)', color: 'var(--text-primary)', border: '1px solid var(--card-border)', borderRadius: 16, padding: '16px 8px', fontSize: 12, fontWeight: 700, cursor: 'pointer', boxShadow: 'var(--shadow-main)', fontFamily: "'DM Sans', sans-serif" };
+const historyCardStyle = { background: 'var(--card-bg)', borderRadius: 16, padding: '16px', border: '1px solid var(--card-border)', boxShadow: '0 4px 12px rgba(0,0,0,0.05)' };
+const tabBtnStyle = (active) => ({ flex: 1, padding: '10px', borderRadius: 12, border: 'none', background: active ? 'var(--bg-secondary)' : 'transparent', color: active ? 'var(--text-primary)' : 'var(--text-secondary)', fontWeight: 700, fontSize: 14, cursor: 'pointer', transition: 'all 0.2s' });
 
 export default ProfilePage;

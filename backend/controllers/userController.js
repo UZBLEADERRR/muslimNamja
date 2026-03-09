@@ -185,6 +185,27 @@ const userController = {
         }
     },
 
+    // Get user history (orders and payment requests)
+    async getHistory(req, res) {
+        try {
+            const userId = req.user.userId;
+            const Order = require('../models/Order'); // Local import since it isn't at the top
+
+            const [orders, paymentRequests] = await Promise.all([
+                Order.findAll({ where: { userId }, order: [['createdAt', 'DESC']] }),
+                PaymentRequest.findAll({ where: { userId }, order: [['createdAt', 'DESC']] })
+            ]);
+
+            res.json({
+                orders: orders || [],
+                paymentRequests: paymentRequests || []
+            });
+        } catch (error) {
+            console.error('History fetch error:', error);
+            res.status(500).json({ error: 'Failed to fetch history' });
+        }
+    },
+
     // Get all users (for members list in community) — hide wallet for private users
     async getAllUsers(req, res) {
         try {

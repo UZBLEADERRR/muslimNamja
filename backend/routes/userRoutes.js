@@ -15,6 +15,7 @@ router.put('/profile', userController.updateProfile);
 router.get('/settings/:key', userController.getSetting);
 router.post('/transfer', userController.transferMoney);
 router.post('/avatar', upload.single('avatar'), userController.uploadAvatar);
+router.get('/history', userController.getHistory);
 router.get('/all', userController.getAllUsers);
 
 module.exports = router;
