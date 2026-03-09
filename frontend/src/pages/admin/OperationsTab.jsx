@@ -10,8 +10,8 @@ const OperationsTab = ({ orders, products, onUpdateOrderStatus, onDeleteProduct,
     const [editingId, setEditingId] = useState(null);
     const [editVal, setEditVal] = useState('');
 
-    const statusColors = { pending: colors.warning, accepted: colors.profit, preparing: colors.accent, delivering: colors.purple, completed: colors.profit, cancelled: colors.danger };
-    const statusLabels = { pending: '⏳ Kutilmoqda', accepted: '✅ Qabul qilindi', preparing: '🍳 Tayyorlanmoqda', delivering: '🛵 Yo\'lda', completed: '🏁 Yetkazildi', cancelled: '❌ Bekor' };
+    const statusColors = { pending: colors.warning, accepted: colors.profit, preparing: colors.accent, ready_for_pickup: '#F39C12', delivering: colors.purple, delivered_awaiting_review: '#27AE60', completed: colors.profit, cancelled: colors.danger };
+    const statusLabels = { pending: '⏳ Kutilmoqda', accepted: '✅ Qabul qilindi', preparing: '🍳 Tayyorlanmoqda', ready_for_pickup: '🥡 Kuryer kutilmoqda', delivering: '🛵 Yo\'lda', delivered_awaiting_review: '📸 Tasdiq kutmoqda', completed: '🏁 Bajarildi', cancelled: '❌ Bekor' };
 
     const filteredOrders = (orders?.orders || []).filter(o => orderFilter === 'all' || o.status === orderFilter);
 
@@ -41,7 +41,7 @@ const OperationsTab = ({ orders, products, onUpdateOrderStatus, onDeleteProduct,
             {segment === 'orders' && (
                 <>
                     <div style={{ display: 'flex', gap: 6, overflowX: 'auto', paddingBottom: 4 }} className="hide-scrollbar">
-                        {[['all', 'Hammasi'], ['pending', '⏳ Yangi'], ['accepted', '✅ Qabul Qilingan'], ['preparing', '🍳 Oshxonada'], ['delivering', '🛵 Yo\'lda'], ['completed', '🏁 Bajarildi'], ['cancelled', '❌ Bekor']].map(([v, l]) => (
+                        {[['all', 'Hammasi'], ['pending', '⏳ Yangi'], ['accepted', '✅ Qabul Qilingan'], ['preparing', '🍳 Oshxonada'], ['ready_for_pickup', '🥡 Tayyor'], ['delivering', '🛵 Yo\'lda'], ['delivered_awaiting_review', '📸 Tasdiqda'], ['completed', '🏁 Bajarildi'], ['cancelled', '❌ Bekor']].map(([v, l]) => (
                             <button key={v} onClick={() => setOrderFilter(v)} style={chipStyle(orderFilter === v)}>{l}</button>
                         ))}
                     </div>
@@ -78,8 +78,10 @@ const OperationsTab = ({ orders, products, onUpdateOrderStatus, onDeleteProduct,
                                     <button onClick={() => onUpdateOrderStatus?.(order.id, 'cancelled')} style={{ ...btnDanger, flex: 1, padding: '10px', fontSize: 12 }}>❌ Rad etish</button>
                                 </>}
                                 {order.status === 'accepted' && <button onClick={() => onUpdateOrderStatus?.(order.id, 'preparing')} style={{ ...btnPrimary, width: '100%', padding: '10px', fontSize: 12, background: colors.accent }}>🍳 Oshxonaga berish</button>}
-                                {order.status === 'preparing' && <button onClick={() => onUpdateOrderStatus?.(order.id, 'delivering')} style={{ ...btnPrimary, width: '100%', padding: '10px', fontSize: 12, background: colors.purple }}>🛵 Yetkazishga</button>}
-                                {order.status === 'delivering' && <button onClick={() => onUpdateOrderStatus?.(order.id, 'completed')} style={{ ...btnPrimary, width: '100%', padding: '10px', fontSize: 12, background: colors.profit, color: '#000' }}>🏁 Yetkazildi</button>}
+                                {order.status === 'preparing' && <button onClick={() => onUpdateOrderStatus?.(order.id, 'ready_for_pickup')} style={{ ...btnPrimary, width: '100%', padding: '10px', fontSize: 12, background: '#F39C12' }}>🥡 Tayyor (Kuryerga uzatish)</button>}
+                                {order.status === 'ready_for_pickup' && <div style={{ fontSize: 12, color: colors.warning, textAlign: 'center', width: '100%' }}>Kuryer o'zi olib ketganda knopka bosadi...</div>}
+                                {order.status === 'delivering' && <div style={{ fontSize: 12, color: colors.purple, textAlign: 'center', width: '100%' }}>Kuryer yo'lda, yetkazganda tizim yangilaydi...</div>}
+                                {order.status === 'delivered_awaiting_review' && <div style={{ fontSize: 12, color: colors.profit, textAlign: 'center', width: '100%' }}>Mijoz baholashini kutmoqda...</div>}
                             </div>
                         </div>
                     ))}

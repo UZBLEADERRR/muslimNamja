@@ -4,9 +4,10 @@ import { useAppStore } from '../store/useAppStore';
 import api from '../utils/api';
 import {
     Shield, Package, Activity, Users, DollarSign,
-    Box, Settings, Plus, Trash2, CheckCircle, BrainCircuit, Megaphone
+    Box, Settings, Plus, Trash2, CheckCircle, BrainCircuit, Megaphone, MessageSquare
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line, CartesianGrid } from 'recharts';
+import StaffChat from './admin/StaffChat';
 
 const AdminPage = () => {
     const { t, lang } = useTranslation();
@@ -297,6 +298,7 @@ const AdminPage = () => {
         { id: 'users', icon: <Users size={16} />, label: t('users') },
         { id: 'finance', icon: <DollarSign size={16} />, label: 'Moliya' },
         { id: 'payments', icon: <DollarSign size={16} />, label: "To'lovlar" },
+        { id: 'staff_chat', icon: <MessageSquare size={16} />, label: 'Xodimlar' },
         { id: 'inventory', icon: <Box size={16} />, label: 'Zaxira (AI)' },
         { id: 'broadcast', icon: <Megaphone size={16} />, label: "E'lon" },
         { id: 'settings', icon: <Settings size={16} />, label: 'Sozlamalar' },
@@ -342,6 +344,12 @@ const AdminPage = () => {
             </div>
 
             {loading && activeTab !== 'inventory' && <div style={{ textAlign: 'center', padding: 20, color: 'var(--text-secondary)' }}>{t('loading')}...</div>}
+
+            {activeTab === 'staff_chat' && (
+                <div style={{ height: '70vh' }}>
+                    <StaffChat />
+                </div>
+            )}
 
             {/* TAB: DASHBOARD */}
             {activeTab === 'dashboard' && !loading && (

@@ -2,7 +2,15 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useTranslation } from '../i18n';
 import { useAppStore } from '../store/useAppStore';
 import api from '../utils/api';
-import { Image, CheckCircle } from 'lucide-react';
+import { Image, CheckCircle, PhoneCall, Video } from 'lucide-react';
+import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
+import 'leaflet/dist/leaflet.css';
+import L from 'leaflet';
+import { io } from 'socket.io-client';
+import VideoCallModal from '../components/VideoCallModal';
+
+const SOCKET_URL = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace('/api', '') : 'http://localhost:5000';
+let socket = null;
 
 const TrackPage = () => {
     const { t } = useTranslation();
@@ -17,7 +25,8 @@ const TrackPage = () => {
     const [imageFile, setImageFile] = useState(null);
     const [sending, setSending] = useState(false);
     const messagesEndRef = useRef(null);
-    const fileInputRef = useRef(null);
+    // Video Call State
+    const [incomingCall, setIncomingCall] = useState(null);
 
     const fetchOrder = () => {
         api.get('/orders/my')
@@ -50,14 +59,39 @@ const TrackPage = () => {
     };
 
     useEffect(() => {
+        if (!socket) {
+            socket = io(SOCKET_URL);
+
+            socket.on('location-updated', (loc) => {
+                setTrackingData(prev => prev ? { ...prev, driverLocation: loc } : null);
+            });
+
+            socket.on('receive-message', (msg) => {
+                setChatMessages(prev => [...prev, msg]);
+            });
+
+            // WebRTC handlers
+            socket.on('call-made', data => {
+                setIncomingCall(data.senderName || 'Kuryer');
+            });
+        }
+
         if (user) {
             fetchOrder();
-            const interval = setInterval(fetchOrder, 5000);
+            // Polling is reduced since websockets handle real-time now
+            const interval = setInterval(fetchOrder, 15000);
             return () => clearInterval(interval);
         } else {
             setLoading(false);
         }
     }, [user]);
+
+    // Join room when activeOrder changes
+    useEffect(() => {
+        if (activeOrder && socket) {
+            socket.emit('join-room', `order_${activeOrder.id}`);
+        }
+    }, [activeOrder]);
 
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -169,19 +203,15 @@ const TrackPage = () => {
                     </div>
                 )}
                 {trackingData && trackingData.driverLocation && activeOrder.status === 'delivering' && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'var(--card-bg)', border: '1px solid var(--card-border)', padding: '10px 14px', borderRadius: 12, marginBottom: 20, animation: 'fadeIn 0.5s ease' }}>
-                        <div style={{ width: 32, height: 32, borderRadius: 16, background: 'rgba(39,174,96,0.1)', color: '#27AE60', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }}>
-                            📍
-                        </div>
-                        <div style={{ flex: 1 }}>
-                            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>Kuryer Jonli Lokatsiyasi</div>
-                            <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>
-                                Lat: {trackingData.driverLocation.lat.toFixed(4)} • Lng: {trackingData.driverLocation.lng.toFixed(4)}
-                            </div>
-                        </div>
-                        {/* Optional pulsing dot */}
-                        <div style={{ width: 8, height: 8, borderRadius: 4, background: '#27AE60', boxShadow: '0 0 8px #27AE60', animation: 'pulse-dot 1.5s infinite' }} />
-                        <style>{`@keyframes pulse-dot { 0% { opacity: 0.4; } 50% { opacity: 1; transform: scale(1.2); } 100% { opacity: 0.4; } }`}</style>
+                    <div style={{ height: 180, width: '100%', borderRadius: 16, overflow: 'hidden', marginBottom: 20, zIndex: 0, border: '1px solid var(--card-border)', background: 'var(--card-bg)' }}>
+                        <MapContainer center={[trackingData.driverLocation.lat, trackingData.driverLocation.lng]} zoom={15} style={{ height: '100%', width: '100%' }} zoomControl={false}>
+                            <TileLayer url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png" />
+                            <Marker position={[trackingData.driverLocation.lat, trackingData.driverLocation.lng]} icon={
+                                new L.DivIcon({ className: 'courier-icon', html: '<div style="font-size:28px; background:#fff; border-radius:50%; width:36px; height:36px; display:flex; align-items:center; justify-content:center; box-shadow:0 4px 12px rgba(0,0,0,0.2); border: 2px solid #27AE60;">🛵</div>', iconSize: [36, 36] })
+                            }>
+                                <Popup>Kuryer shu yerda</Popup>
+                            </Marker>
+                        </MapContainer>
                     </div>
                 )}
 
@@ -279,6 +309,14 @@ const TrackPage = () => {
                         })}
                     </div>
                 </div>
+            )}
+
+            {incomingCall && (
+                <VideoCallModal
+                    callerName={incomingCall}
+                    isReceiving={true}
+                    onEndCall={() => setIncomingCall(null)}
+                />
             )}
         </div>
     );

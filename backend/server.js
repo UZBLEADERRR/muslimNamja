@@ -74,10 +74,44 @@ const FRONTEND_URL = process.env.FRONTEND_URL
 const bot = setupBot(process.env.TELEGRAM_BOT_TOKEN, FRONTEND_URL);
 setBot(bot);
 
-const server = app.listen(PORT, () => {
-    console.log(`Server is running on port ${PORT}`);
+const http = require('http');
+const { Server } = require('socket.io');
+
+const server = http.createServer(app);
+const io = new Server(server, { cors: { origin: '*' } });
+
+// --- Socket.IO WebRTC & Real-time Flow ---
+io.on('connection', (socket) => {
+    console.log('Socket connected:', socket.id);
+
+    // Join arbitrary rooms (e.g. 'staff', 'order_123')
+    socket.on('join-room', (roomId) => {
+        socket.join(roomId);
+    });
+
+    // Chat Message Relay
+    socket.on('send-message', (data) => {
+        io.to(data.room).emit('receive-message', data);
+    });
+
+    // WebRTC Signaling
+    socket.on('webrtc-offer', data => socket.to(data.room).emit('webrtc-offer', data));
+    socket.on('webrtc-answer', data => socket.to(data.room).emit('webrtc-answer', data));
+    socket.on('webrtc-ice-candidate', data => socket.to(data.room).emit('webrtc-ice-candidate', data));
+
+    // Live Location Relay
+    socket.on('driver-location', data => {
+        io.to(data.room).emit('location-updated', data.location);
+    });
+
+    socket.on('disconnect', () => {
+        console.log('Socket disconnected:', socket.id);
+    });
 });
 
+server.listen(PORT, () => {
+    console.log(`Server is running with Socket.IO on port ${PORT}`);
+});
 // Graceful shutdown — stop bot polling before exit
 const shutdown = () => {
     console.log('Shutting down gracefully...');

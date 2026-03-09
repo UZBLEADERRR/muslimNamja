@@ -235,12 +235,17 @@ ${orderDetails}
             await ChatMessage.create({
                 orderId: id,
                 senderId, // Driver sends it, but it's a prompt
-                text: 'Buyurtma oldingizni tasdiqlaysizmi?',
+                text: 'Buyurtma oldingizni tasdiqlaysizmi? (Iltimos, baholang)',
                 isSystem: true,
                 offerAction: 'confirm_delivery_prompt'
             });
 
-            res.status(200).json({ message: 'Photo uploaded and prompt sent' });
+            // Transition state
+            order.status = 'delivered_awaiting_review';
+            order.deliveryPhotoUrl = imageUrl;
+            await order.save();
+
+            res.status(200).json({ message: 'Photo uploaded and prompt sent', order });
         } catch (err) {
             res.status(500).json({ error: 'Failed to upload photo' });
         }
@@ -251,19 +256,27 @@ ${orderDetails}
         const trans = await sequelize.transaction();
         try {
             const { id } = req.params;
+            const { rating, reviewText } = req.body;
             const order = await Order.findByPk(id, { transaction: trans });
 
-            if (!order || order.status !== 'delivering') {
+            if (!order || (order.status !== 'delivering' && order.status !== 'delivered_awaiting_review')) {
                 await trans.rollback();
                 return res.status(400).json({ error: 'Invalid order state' });
             }
 
-            // Pay the driver (Add early driver earnings into driver wallet if needed, but for now we'll just set order status)
+            // Pay the driver
             order.status = 'completed';
             order.completedAt = new Date();
 
-            // Driver earning logic (e.g. 80% of delivery fee)
-            order.deliveryManEarning = Math.floor(order.deliveryFee * 0.8);
+            // Apply rating
+            if (rating) order.rating = rating;
+            if (reviewText) order.reviewText = reviewText;
+
+            // Driver earning logic 
+            // If already set by deliveryController, keep it. Else calculate.
+            if (!order.deliveryManEarning) {
+                order.deliveryManEarning = Math.floor(order.deliveryFee * 0.8) || 3000;
+            }
             await order.save({ transaction: trans });
 
             // Pay Driver Wallet
@@ -287,10 +300,10 @@ ${orderDetails}
             const bot = getBot();
             const adminId = process.env.ADMIN_CHAT_ID;
             if (bot && adminId) {
-                bot.sendMessage(adminId, `✅ <b>Buyurtma yakunlandi!</b> (#${order.id.toString().slice(0, 8)})\n\nMijoz tasdiqladi. Haydovchiga to'landi: ${order.deliveryManEarning} ₩`, { parse_mode: 'HTML' });
+                bot.sendMessage(adminId, `✅ <b>Buyurtma yakunlandi!</b> (#${order.id.toString().slice(0, 8)})\n\nMijoz tasdiqladi. Baho: ${rating ? '⭐'.repeat(rating) : 'yoq'}\nHaydovchiga to'landi: ${order.deliveryManEarning} ₩`, { parse_mode: 'HTML' });
             }
 
-            res.json({ message: 'Delivery confirmed and chat closed' });
+            res.json({ message: 'Delivery confirmed and chat closed', order });
         } catch (err) {
             await trans.rollback();
             console.error(err);

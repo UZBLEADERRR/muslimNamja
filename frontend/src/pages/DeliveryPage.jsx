@@ -2,7 +2,18 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useTranslation } from '../i18n';
 import { useAppStore } from '../store/useAppStore';
 import api from '../utils/api';
-import { Truck, Package, CheckCircle, MapPin, Camera, Image as ImageIcon } from 'lucide-react';
+import { Truck, Package, CheckCircle, MapPin, Camera, Image as ImageIcon, MessageSquare, X } from 'lucide-react';
+import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
+import 'leaflet/dist/leaflet.css';
+import L from 'leaflet';
+import { io } from 'socket.io-client';
+import StaffChat from './admin/StaffChat';
+import 'leaflet/dist/leaflet.css';
+import L from 'leaflet';
+import { io } from 'socket.io-client';
+
+const SOCKET_URL = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace('/api', '') : 'http://localhost:5000';
+let socket = null;
 
 const DeliveryPage = () => {
     const { t } = useTranslation();
@@ -24,6 +35,12 @@ const DeliveryPage = () => {
     const [deliveryPhoto, setDeliveryPhoto] = useState(null);
     const [uploadingPhoto, setUploadingPhoto] = useState(false);
     const [photoSent, setPhotoSent] = useState(false);
+
+    // Geolocation state
+    const [myLocation, setMyLocation] = useState(null);
+
+    // Staff Chat UI
+    const [showStaffChat, setShowStaffChat] = useState(false);
 
     const messagesEndRef = useRef(null);
     const chatFileInputRef = useRef(null);
@@ -65,9 +82,40 @@ const DeliveryPage = () => {
 
     useEffect(() => {
         fetchData();
-        const interval = setInterval(fetchData, 5000);
+        const interval = setInterval(fetchData, 10000);
         return () => clearInterval(interval);
     }, []);
+
+    useEffect(() => {
+        if (!socket) {
+            socket = io(SOCKET_URL);
+            socket.on('receive-message', (msg) => {
+                setChatMessages(prev => [...prev, msg]);
+            });
+        }
+
+        // Start watching geolocation
+        const geoId = navigator.geolocation.watchPosition(
+            (pos) => {
+                const loc = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+                setMyLocation(loc);
+                if (activeOrder && socket) {
+                    socket.emit('driver-location', { orderId: activeOrder.id, location: loc });
+                }
+            },
+            (err) => console.error("Geolocation error:", err),
+            { enableHighAccuracy: true, maximumAge: 10000, timeout: 5000 }
+        );
+
+        return () => navigator.geolocation.clearWatch(geoId);
+    }, [activeOrder]);
+
+    // Join room 
+    useEffect(() => {
+        if (activeOrder && socket) {
+            socket.emit('join-room', `order_${activeOrder.id}`);
+        }
+    }, [activeOrder]);
 
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -180,6 +228,25 @@ const DeliveryPage = () => {
                         </div>
                     </div>
 
+                    {/* Map for Driver */}
+                    {activeOrder.user?.location && myLocation && (
+                        <div style={{ height: 180, width: '100%', borderRadius: 16, overflow: 'hidden', marginBottom: 16, zIndex: 0, border: '1px solid var(--card-border)', flexShrink: 0 }}>
+                            <MapContainer center={[myLocation.lat, myLocation.lng]} zoom={14} style={{ height: '100%', width: '100%' }} zoomControl={false}>
+                                <TileLayer url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png" />
+                                <Marker position={[myLocation.lat, myLocation.lng]} icon={
+                                    new L.DivIcon({ className: 'courier-icon', html: '<div style="font-size:24px; background:#fff; border-radius:50%; width:32px; height:32px; display:flex; align-items:center; justify-content:center; box-shadow:0 4px 12px rgba(0,0,0,0.2); border: 2px solid #27AE60;">🛵</div>', iconSize: [32, 32] })
+                                }>
+                                    <Popup>Siz shu yerdasiz</Popup>
+                                </Marker>
+                                <Marker position={[activeOrder.user.location.lat, activeOrder.user.location.lng]} icon={
+                                    new L.DivIcon({ className: 'home-icon', html: '<div style="font-size:24px; background:#fff; border-radius:50%; width:32px; height:32px; display:flex; align-items:center; justify-content:center; box-shadow:0 4px 12px rgba(0,0,0,0.2); border: 2px solid #FF3CAC;">🏠</div>', iconSize: [32, 32] })
+                                }>
+                                    <Popup>Mijoz manzili</Popup>
+                                </Marker>
+                            </MapContainer>
+                        </div>
+                    )}
+
                     {/* AI / Chat System (User Context) */}
                     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: 'var(--card-bg)', borderRadius: '20px', border: '1px solid var(--card-border)', overflow: 'hidden' }}>
                         <div style={{ padding: 10, borderBottom: '1px solid var(--card-border)', background: 'rgba(39,174,96,0.05)' }}>
@@ -271,6 +338,45 @@ const DeliveryPage = () => {
                                 </div>
                             ))
                         )}
+                    </div>
+                </div>
+            )}
+
+            {/* Staff Chat FAB */}
+            <button
+                onClick={() => setShowStaffChat(true)}
+                style={{
+                    position: 'fixed', bottom: 90, right: 20, zIndex: 99,
+                    width: 56, height: 56, borderRadius: 28,
+                    background: 'var(--brand-accent2)', color: '#fff',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    boxShadow: '0 4px 14px rgba(78,205,196,0.4)', border: 'none', cursor: 'pointer'
+                }}
+            >
+                <MessageSquare size={24} />
+            </button>
+
+            {/* Staff Chat Modal */}
+            {showStaffChat && (
+                <div style={{
+                    position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+                    background: 'rgba(0,0,0,0.5)', zIndex: 100,
+                    display: 'flex', alignItems: 'flex-end', justifyContent: 'center'
+                }}>
+                    <div style={{
+                        width: '100%', maxWidth: 500, height: '80vh',
+                        background: 'var(--bg-primary)', borderRadius: '20px 20px 0 0',
+                        display: 'flex', flexDirection: 'column', overflow: 'hidden',
+                        animation: 'slideUp 0.3s ease-out'
+                    }}>
+                        <div style={{ padding: 10, display: 'flex', justifyContent: 'flex-end', background: 'var(--card-bg)' }}>
+                            <button onClick={() => setShowStaffChat(false)} style={{ background: 'none', border: 'none', color: 'var(--text-primary)' }}>
+                                <X size={24} />
+                            </button>
+                        </div>
+                        <div style={{ flex: 1, overflow: 'hidden' }}>
+                            <StaffChat />
+                        </div>
                     </div>
                 </div>
             )}

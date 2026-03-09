@@ -18,8 +18,11 @@ router.get('/stats', deliveryController.getStats);
 // Accept an order
 router.post('/orders/:orderId/accept', deliveryController.acceptOrder);
 
-// Complete an order (fallback if manual completion needed)
-router.post('/orders/:orderId/complete', deliveryController.completeOrder);
+const multer = require('multer');
+const upload = multer({ dest: 'uploads/' });
+
+// Complete an order (takes a photo file upload)
+router.post('/orders/:orderId/complete', upload.single('photo'), deliveryController.completeOrder);
 
 // Update delivery location
 router.post('/location', deliveryController.updateLocation);

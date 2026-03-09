@@ -13,7 +13,7 @@ const deliveryController = {
     async getAvailableOrders(req, res) {
         try {
             const orders = await Order.findAll({
-                where: { status: 'preparing', deliveryManId: null }
+                where: { status: 'ready_for_pickup', deliveryManId: null }
             });
 
             const populatedOrders = await Promise.all(orders.map(async (order) => {
@@ -62,7 +62,7 @@ const deliveryController = {
         try {
             const deliveryManId = req.user.userId;
             const orders = await Order.findAll({
-                where: { deliveryManId, status: 'completed' },
+                where: { deliveryManId, status: ['completed', 'delivered_awaiting_review'] },
                 attributes: ['distance', 'deliveryManEarning']
             });
 
@@ -83,7 +83,7 @@ const deliveryController = {
 
             const [count, orders] = await Order.update(
                 { status: 'delivering', deliveryManId: deliveryManId },
-                { where: { id: orderId, status: 'preparing', deliveryManId: null }, returning: true }
+                { where: { id: orderId, status: 'ready_for_pickup', deliveryManId: null }, returning: true }
             );
 
             if (count === 0) return res.status(400).json({ error: 'Order not available' });
@@ -104,19 +104,25 @@ const deliveryController = {
 
             const earning = 3000 + (order.distance * 500);
 
-            order.status = 'completed';
+            order.status = 'delivered_awaiting_review';
             order.completedAt = new Date();
             order.deliveryManEarning = earning;
+
+            if (req.file) {
+                // If the app is using multer, the file is saved locally to /uploads or proxy.
+                order.deliveryPhotoUrl = `/uploads/${req.file.filename}`;
+            }
+
             await order.save();
 
-            // Add earning to driver's wallet
+            // Add earning to driver's wallet (assuming it happens immediately, but typically after review. We will do it now).
             const driver = await User.findByPk(deliveryManId);
             if (driver) {
                 driver.walletBalance = (driver.walletBalance || 0) + earning;
                 await driver.save();
             }
 
-            res.json({ message: 'Order completed', order, earning });
+            res.json({ message: 'Order delivered, awaiting user review', order, earning });
         } catch (error) {
             res.status(500).json({ error: 'Failed to complete order' });
         }

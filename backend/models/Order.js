@@ -23,7 +23,7 @@ const Order = sequelize.define('Order', {
         allowNull: false
     },
     status: {
-        type: DataTypes.ENUM('pending', 'accepted', 'preparing', 'delivering', 'completed', 'cancelled'),
+        type: DataTypes.ENUM('pending', 'accepted', 'preparing', 'ready_for_pickup', 'delivering', 'delivered_awaiting_review', 'completed', 'cancelled'),
         defaultValue: 'pending'
     },
     deliveryType: {
@@ -53,6 +53,18 @@ const Order = sequelize.define('Order', {
     paymentMethod: {
         type: DataTypes.ENUM('wallet', 'cash'),
         defaultValue: 'wallet'
+    },
+    deliveryPhotoUrl: {
+        type: DataTypes.TEXT,
+        allowNull: true
+    },
+    rating: {
+        type: DataTypes.INTEGER,
+        allowNull: true
+    },
+    reviewText: {
+        type: DataTypes.TEXT,
+        allowNull: true
     },
     completedAt: {
         type: DataTypes.DATE
