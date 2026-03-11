@@ -65,5 +65,8 @@ router.get('/users/:id', adminController.getUserDetail);
 router.post('/users/:id/balance', adminController.updateUserBalance);
 router.post('/users/:id/freeze', adminController.freezeUser);
 
+// Data Cleanup
+router.delete('/cleanup', adminController.cleanupData);
+
 module.exports = router;
 

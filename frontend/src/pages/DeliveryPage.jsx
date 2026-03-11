@@ -233,7 +233,7 @@ const DeliveryPage = () => {
                                         <TileLayer url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png" />
                                         
                                         {/* Polyline Route */}
-                                        <Polyline positions={getRoutingPositions()} color="#27AE60" weight={5} dashArray="10, 10" opacity={0.8} />
+                                        <Polyline positions={getRoutingPositions()} color="#e74c3c" weight={5} dashArray="10, 10" opacity={0.8} />
 
                                         <Marker position={[myLocation.lat, myLocation.lng]} icon={
                                             new L.DivIcon({ className: 'courier-icon', html: '<div style="font-size:24px; background:#fff; border-radius:50%; width:36px; height:36px; display:flex; align-items:center; justify-content:center; box-shadow:0 4px 12px rgba(0,0,0,0.2); border: 3px solid #27AE60;">🛵</div>', iconSize: [36, 36] })

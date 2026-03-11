@@ -59,7 +59,7 @@ const inboxController = {
                         id: `dm_${uid}`,
                         type: 'dm',
                         targetId: uid,
-                        name: `${u.role === 'driver' ? '🛵' : '👤'} ${u.firstName}`,
+                        name: `${u.role === 'delivery' ? '🛵' : '👤'} ${u.firstName}`,
                         lastMessage: lastMsg ? lastMsg.text || (lastMsg.imageUrl ? '📷 Rasm' : '') : '',
                         updatedAt: lastMsg ? lastMsg.createdAt : new Date()
                     });
@@ -68,7 +68,7 @@ const inboxController = {
                 // Normal User or Driver inbox: 
                 // 1) Active Orders (where they are buyer or driver)
                 const activeOrders = await Order.findAll({
-                    where: user.role === 'driver' ? { deliveryManId: userId, status: { [Op.notIn]: ['completed', 'cancelled'] } } 
+                    where: user.role === 'delivery' ? { deliveryManId: userId, status: { [Op.notIn]: ['completed', 'cancelled'] } } 
                                                   : { userId: userId, status: { [Op.notIn]: ['completed', 'cancelled'] } },
                     include: [
                         { model: User, as: 'User', attributes: ['firstName'] },
@@ -86,7 +86,7 @@ const inboxController = {
                         id: `order_${order.id}`,
                         type: 'order',
                         targetId: order.id,
-                        name: user.role === 'driver' 
+                        name: user.role === 'delivery' 
                             ? `Buyurtma: ${order.User?.firstName || 'Mijoz'}` 
                             : `🛵 Kuryer: ${order.DeliveryMan?.firstName || 'Kutilmoqda...'}`,
                         lastMessage: lastMsg ? lastMsg.text || (lastMsg.imageUrl ? '📷 Rasm' : '') : 'Chatni boshlash',
@@ -119,6 +119,51 @@ const inboxController = {
                         name: '🛡️ Yordam Markazi (Support)',
                         lastMessage: lastDmMsg ? lastDmMsg.text || (lastDmMsg.imageUrl ? '📷 Rasm' : '') : 'Admin bilan bog\'lanish',
                         updatedAt: lastDmMsg ? lastDmMsg.createdAt : new Date(0)
+                    });
+                }
+
+                // 3) Other User DMs (Community DMs)
+                const dmUsers = await ChatMessage.findAll({
+                    attributes: ['senderId', 'receiverId'],
+                    where: {
+                        orderId: null,
+                        [Op.or]: [
+                            { receiverId: userId },
+                            { senderId: userId }
+                        ]
+                    },
+                    group: ['senderId', 'receiverId']
+                });
+
+                const uniqueUserIds = new Set();
+                dmUsers.forEach(m => {
+                    if (m.senderId !== userId) uniqueUserIds.add(m.senderId);
+                    if (m.receiverId !== userId) uniqueUserIds.add(m.receiverId);
+                });
+
+                for (let uid of uniqueUserIds) {
+                    if (uid === mainAdminId) continue; // skip admin
+                    const u = await User.findByPk(uid, { attributes: ['id', 'firstName', 'role'] });
+                    if (!u) continue;
+                    
+                    const lastMsg = await ChatMessage.findOne({
+                        where: {
+                            orderId: null,
+                            [Op.or]: [
+                                { senderId: userId, receiverId: uid },
+                                { senderId: uid, receiverId: userId }
+                            ]
+                        },
+                        order: [['createdAt', 'DESC']]
+                    });
+
+                    conversations.push({
+                        id: `dm_${uid}`,
+                        type: 'dm',
+                        targetId: uid,
+                        name: `${u.role === 'delivery' ? '🛵' : '👤'} ${u.firstName}`,
+                        lastMessage: lastMsg ? lastMsg.text || (lastMsg.imageUrl ? '📷 Rasm' : '') : '',
+                        updatedAt: lastMsg ? lastMsg.createdAt : new Date()
                     });
                 }
             }

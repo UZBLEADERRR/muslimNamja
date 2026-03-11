@@ -447,16 +447,33 @@ const AdminPage = () => {
 
                         {/* Net Profit & Predictions */}
                         <div style={{ ...cardStyle, background: `linear-gradient(135deg, ${colors.profit}20, ${colors.card})`, border: `1px solid ${colors.profit}30` }}>
-                            <div style={sectionTitle}>💎 Hisobotlar va Bashorat</div>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 10 }}>
+                            <div style={sectionTitle}>💎 Hisobotlar va Sof Foyda</div>
+                            
+                            {/* Deductions breakdown */}
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 16 }}>
                                 <div>
-                                    <div style={subText}>Sof foyda (Daromad - Kuryer maoshi - Harajatlar)</div>
+                                    <div style={{ fontSize: 13, color: colors.subtext }}>Kuryerlarga ajratilgan</div>
+                                    <div style={{ fontSize: 16, fontWeight: 800, color: colors.warning }}>
+                                        - ₩{completedOrders.reduce((s, o) => s + ((o.distance || 0) * 2 * 1000), 0).toLocaleString()}
+                                    </div>
+                                </div>
+                                <div style={{ textAlign: 'right' }}>
+                                    <div style={{ fontSize: 13, color: colors.subtext }}>Boshqa harajatlar</div>
+                                    <div style={{ fontSize: 16, fontWeight: 800, color: colors.danger }}>
+                                        - ₩{totalExpenses.toLocaleString()}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: `1px solid ${colors.profit}30`, paddingTop: 10 }}>
+                                <div>
+                                    <div style={{ ...subText, color: colors.text, fontWeight: 700 }}>Umumiy Sof Foyda</div>
                                     <div style={{ ...bigNum, color: colors.profit, fontSize: 22 }}>
                                         ₩{(totalRevenue - completedOrders.reduce((s, o) => s + ((o.distance || 0) * 2 * 1000), 0) - totalExpenses).toLocaleString()}
                                     </div>
                                 </div>
                                 <div style={{ textAlign: 'right' }}>
-                                    <div style={subText}>Bu oy uchun kutilayotgan daromad (Bashorat) 🔮</div>
+                                    <div style={subText}>Bu oy uchun daromad (Bashorat) 🔮</div>
                                     <div style={{ ...bigNum, color: colors.accent, fontSize: 20 }}>
                                         ~ ₩{Math.round(predictedMonthlyRevenue).toLocaleString()}
                                     </div>
@@ -651,6 +668,23 @@ const AdminPage = () => {
                             <div style={sectionTitle}>🏠 Oshxona manzili</div>
                             <div style={{ ...mainText, fontSize: 13 }}>서울특별시 광진구 군자로2길 12, B04</div>
                             <div style={{ ...subText, marginTop: 4 }}>2km radius ichida delivery, undan uzoqqa faqat pickup</div>
+                        </div>
+
+                        {/* Cleanup Data */}
+                        <div style={{ ...cardStyle, background: `linear-gradient(135deg, ${colors.danger}15, ${colors.card})`, marginTop: 16 }}>
+                            <div style={sectionTitle}>🧹 Ma'lumotlarni tozalash</div>
+                            <div style={{ ...subText, marginBottom: 12 }}>Barcha tugallangan va bekor qilingan buyurtmalar, hamda tasdiqlangan to'lov tarixini o'chirish. (Foydalanuvchilar va faol buyurtmalar saqlanib qoladi)</div>
+                            <button onClick={async () => {
+                                if (confirm("Rostdan ham tarixni tozalaysizmi? Bu amalni ortga qaytarib bo'lmaydi!")) {
+                                    try {
+                                        await api.delete('/admin/cleanup');
+                                        alert("Tarix muvaffaqiyatli tozalandi!");
+                                        fetchData();
+                                    } catch (e) {
+                                        alert("Xatolik yuz berdi");
+                                    }
+                                }
+                            }} style={{ ...btnDanger, width: '100%' }}>🗑️ Tarixni tozalash</button>
                         </div>
                     </div>
                 )}

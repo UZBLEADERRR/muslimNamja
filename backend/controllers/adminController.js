@@ -795,6 +795,24 @@ const adminController = {
             console.error('Freeze error:', error);
             res.status(500).json({ error: 'Failed to freeze/unfreeze user' });
         }
+    },
+
+    // --- Data Cleanup ---
+    async cleanupData(req, res) {
+        try {
+            await Order.destroy({
+                where: { status: { [Op.in]: ['completed', 'cancelled'] } }
+            });
+
+            await PaymentRequest.destroy({
+                where: { status: { [Op.in]: ['approved', 'rejected'] } }
+            });
+
+            res.json({ message: 'Tarix muvaffaqiyatli tozalandi' });
+        } catch (error) {
+            console.error('Cleanup error:', error);
+            res.status(500).json({ error: 'Failed to cleanup data' });
+        }
     }
 };
 
