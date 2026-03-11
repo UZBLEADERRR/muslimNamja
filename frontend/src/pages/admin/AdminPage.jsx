@@ -36,6 +36,7 @@ const AdminPage = () => {
     // Revenue form
     const [expenseNote, setExpenseNote] = useState('');
     const [expenseAmount, setExpenseAmount] = useState('');
+    const [addingExpense, setAddingExpense] = useState(false);
 
     // Carousel form
     const [carouselText, setCarouselText] = useState('');
@@ -146,6 +147,23 @@ const AdminPage = () => {
             setAdBanners(r.data.banners); setCarouselText(''); setCarouselImage(null);
         } catch { alert("Xatolik"); }
     };
+    const handleAddExpense = async () => {
+        if (!expenseNote || !expenseAmount) return alert("Iltimos barcha maydonlarni to'ldiring");
+        setAddingExpense(true);
+        try {
+            await api.post('/admin/expenses', { description: expenseNote, amount: Number(expenseAmount) });
+            alert("Harajat qo'shildi!");
+            setExpenseNote('');
+            setExpenseAmount('');
+            fetchData();
+        } catch (error) {
+            console.error(error);
+            alert("Xatolik yuz berdi");
+        } finally {
+            setAddingExpense(false);
+        }
+    };
+
     const handleDeleteAd = async (id) => {
         if (!confirm("O'chirasizmi?")) return;
         try { const r = await api.delete(`/admin/ads/${id}`); setAdBanners(r.data.banners); } catch { alert("Xatolik"); }
@@ -174,6 +192,15 @@ const AdminPage = () => {
     const completedOrders = allOrders.filter(o => o.status === 'completed');
     const totalRevenue = completedOrders.reduce((s, o) => s + (o.totalAmount || 0), 0);
     const totalDeliveryFees = completedOrders.reduce((s, o) => s + (o.deliveryFee || 0), 0);
+    const totalExpenses = (dashStats?.recentExpenses || []).reduce((s, e) => s + (e.amount || 0), 0);
+
+    // Monthly Prediction Logic
+    const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+    const currentMonthOrders = completedOrders.filter(o => new Date(o.createdAt) >= startOfMonth);
+    const currentMonthRevenue = currentMonthOrders.reduce((s, o) => s + (o.totalAmount || 0), 0);
+    const daysPassedThisMonth = Math.max(1, new Date().getDate());
+    const daysInMonth = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate();
+    const predictedMonthlyRevenue = (currentMonthRevenue / daysPassedThisMonth) * daysInMonth;
 
     return (
         <div style={{ background: colors.bg, minHeight: '100vh', paddingBottom: 80 }}>
@@ -396,13 +423,45 @@ const AdminPage = () => {
                             <div style={{ ...subText, marginTop: 4 }}>({completedOrders.reduce((s, o) => s + ((o.distance || 0) * 2), 0).toFixed(1)} km umumiy)</div>
                         </div>
 
-                        {/* Net Profit */}
-                        <div style={{ ...cardStyle, background: `linear-gradient(135deg, ${colors.profit}20, ${colors.card})`, border: `1px solid ${colors.profit}30` }}>
-                            <div style={sectionTitle}>💎 Sof foyda</div>
-                            <div style={{ ...bigNum, color: colors.profit, fontSize: 26 }}>
-                                ₩{(totalRevenue - completedOrders.reduce((s, o) => s + ((o.distance || 0) * 2 * 1000), 0)).toLocaleString()}
+                        {/* Expense Input */}
+                        <div style={cardStyle}>
+                            <div style={sectionTitle}>💸 Yangi harajat qo'shish</div>
+                            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                                <input placeholder="Harajat sababi (masalan: Pomidor)" value={expenseNote} onChange={e => setExpenseNote(e.target.value)} style={{ ...inputStyle, flex: 2, minWidth: 150 }} />
+                                <input type="number" placeholder="Summa ₩" value={expenseAmount} onChange={e => setExpenseAmount(e.target.value)} style={{ ...inputStyle, flex: 1, minWidth: 100 }} />
+                                <button onClick={handleAddExpense} disabled={addingExpense} style={{ ...btnPrimary, flexShrink: 0 }}>{addingExpense ? 'Qo\'shilmoqda...' : 'Qo\'shish'}</button>
                             </div>
-                            <div style={subText}>Daromad − Kuryer maoshi</div>
+                            
+                            {dashStats?.recentExpenses?.length > 0 && (
+                                <div style={{ marginTop: 16 }}>
+                                    <div style={{ fontSize: 13, fontWeight: 700, color: colors.subtext, marginBottom: 8 }}>So'nggi harajatlar:</div>
+                                    {dashStats.recentExpenses.map((exp, i) => (
+                                        <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, padding: '4px 0', borderBottom: `1px solid ${colors.border}` }}>
+                                            <span style={{ color: colors.text }}>{exp.description}</span>
+                                            <span style={{ color: colors.danger, fontWeight: 700 }}>- ₩{exp.amount.toLocaleString()}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Net Profit & Predictions */}
+                        <div style={{ ...cardStyle, background: `linear-gradient(135deg, ${colors.profit}20, ${colors.card})`, border: `1px solid ${colors.profit}30` }}>
+                            <div style={sectionTitle}>💎 Hisobotlar va Bashorat</div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 10 }}>
+                                <div>
+                                    <div style={subText}>Sof foyda (Daromad - Kuryer maoshi - Harajatlar)</div>
+                                    <div style={{ ...bigNum, color: colors.profit, fontSize: 22 }}>
+                                        ₩{(totalRevenue - completedOrders.reduce((s, o) => s + ((o.distance || 0) * 2 * 1000), 0) - totalExpenses).toLocaleString()}
+                                    </div>
+                                </div>
+                                <div style={{ textAlign: 'right' }}>
+                                    <div style={subText}>Bu oy uchun kutilayotgan daromad (Bashorat) 🔮</div>
+                                    <div style={{ ...bigNum, color: colors.accent, fontSize: 20 }}>
+                                        ~ ₩{Math.round(predictedMonthlyRevenue).toLocaleString()}
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 )}

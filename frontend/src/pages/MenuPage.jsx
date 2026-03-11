@@ -46,11 +46,8 @@ const MenuPage = () => {
         // Fetch monthly winner & ad banners (public, no auth needed)
         fetch((import.meta.env.VITE_API_URL || '/api') + '/public/monthly-winner').then(r => r.json()).then(d => setWinner(d)).catch(() => { });
         fetch((import.meta.env.VITE_API_URL || '/api') + '/public/store-status').then(r => r.json()).then(d => setIsStoreOpen(d.isOpen)).catch(() => { });
-        fetch((import.meta.env.VITE_API_URL || '/api') + '/admin/settings/adBanners').then(r => r.json()).then(d => {
-            try {
-                const parsed = JSON.parse(d);
-                if (Array.isArray(parsed)) setAdBanners(parsed);
-            } catch (e) { }
+        fetch((import.meta.env.VITE_API_URL || '/api') + '/public/ad-banner').then(r => r.json()).then(d => {
+            if (Array.isArray(d)) setAdBanners(d);
         }).catch(() => { });
     }, []);
 

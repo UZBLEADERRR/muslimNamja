@@ -56,10 +56,10 @@ router.get('/monthly-winner', async (req, res) => {
 // Admin Ad/Banner (public)
 router.get('/ad-banner', async (req, res) => {
     try {
-        const setting = await SystemSetting.findOne({ where: { key: 'adBanner' } });
-        res.json(setting ? JSON.parse(setting.value) : null);
+        const setting = await SystemSetting.findOne({ where: { key: 'adBanners' } });
+        res.json(setting ? JSON.parse(setting.value) : []);
     } catch (err) {
-        res.json(null);
+        res.json([]);
     }
 });
 

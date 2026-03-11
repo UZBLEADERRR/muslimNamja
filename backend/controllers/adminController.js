@@ -88,9 +88,20 @@ const adminController = {
 
     async deleteProduct(req, res) {
         try {
+            const product = await Product.findByPk(req.params.id);
+            if (!product) return res.status(404).json({ error: 'Product not found' });
+
+            // Depending on foreign key constraints (like Cart items pointing to product), 
+            // you might need to soft-delete or cascade delete. 
+            // Assuming Sequelize handles cascade or we just destroy:
             await Product.destroy({ where: { id: req.params.id } });
-            res.json({ message: 'Product deleted' });
+            res.json({ message: 'Product deleted successfully' });
         } catch (error) {
+            console.error('Delete product error:', error);
+            // If it's a foreign key constraint error, we can catch it
+            if (error.name === 'SequelizeForeignKeyConstraintError') {
+                return res.status(400).json({ error: 'Bu mahsulot buyurtmalar yoki savatchalarda ishlatilgani uchun ochirib bolmaydi. Band qiling!' });
+            }
             res.status(500).json({ error: 'Failed to delete product' });
         }
     },
@@ -122,15 +133,39 @@ const adminController = {
     },
 
     async updateOrderStatus(req, res) {
+        const trans = await sequelize.transaction();
         try {
             const { status } = req.body;
-            const [count, updated] = await Order.update(
-                { status },
-                { where: { id: req.params.id }, returning: true }
-            );
-            if (count === 0) return res.status(404).json({ error: 'Order not found' });
-            res.json(updated[0]);
+            const order = await Order.findByPk(req.params.id, { transaction: trans });
+            if (!order) {
+                await trans.rollback();
+                return res.status(404).json({ error: 'Order not found' });
+            }
+
+            // Refund logic if transitioning to cancelled and paid via wallet
+            if (status === 'cancelled' && order.status !== 'cancelled' && order.paymentMethod === 'wallet') {
+                const customer = await User.findByPk(order.userId, { transaction: trans });
+                if (customer) {
+                    customer.walletBalance = (customer.walletBalance || 0) + order.totalAmount;
+                    await customer.save({ transaction: trans });
+
+                    // Log audit
+                    await AuditLog.create({
+                        adminId: req.user.userId,
+                        action: 'refund_wallet',
+                        details: { orderId: order.id, amount: order.totalAmount, userId: customer.id }
+                    }, { transaction: trans });
+                }
+            }
+
+            order.status = status;
+            await order.save({ transaction: trans });
+            await trans.commit();
+
+            res.json(order);
         } catch (error) {
+            await trans.rollback();
+            console.error('Update order status error:', error);
             res.status(500).json({ error: 'Failed to update order' });
         }
     },
@@ -604,6 +639,13 @@ const adminController = {
             // Pending payment requests
             const pendingPayments = await PaymentRequest.count({ where: { status: 'pending' } });
 
+            // Recent Expenses for the current month
+            const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+            const recentExpenses = await Expense.findAll({
+                where: { date: { [Op.gte]: startOfMonth } },
+                order: [['date', 'DESC']]
+            });
+
             res.json({
                 todayRevenue,
                 yesterdayRevenue,
@@ -618,7 +660,8 @@ const adminController = {
                 femalePercent: totalUsers > 0 ? Math.round((females / totalUsers) * 100) : 0,
                 todayProfit,
                 profitMargin,
-                pendingPayments
+                pendingPayments,
+                recentExpenses
             });
         } catch (error) {
             console.error('Dashboard stats error:', error);
