@@ -13,7 +13,7 @@ const deliveryController = {
     async getAvailableOrders(req, res) {
         try {
             const orders = await Order.findAll({
-                where: { status: 'ready_for_pickup', deliveryManId: null }
+                where: { status: { [Op.in]: ['preparing', 'ready_for_pickup'] }, deliveryManId: null }
             });
 
             const populatedOrders = await Promise.all(orders.map(async (order) => {

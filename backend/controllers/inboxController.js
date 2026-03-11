@@ -15,6 +15,10 @@ const inboxController = {
             const isAdmin = user.role === 'admin';
             const conversations = [];
 
+            // Get main admin id — needed for sorting and support chat
+            const admins = await User.findAll({ where: { role: 'admin' }, attributes: ['id'], limit: 5 });
+            const mainAdminId = admins.length > 0 ? admins[0].id : null;
+
             if (isAdmin) {
                 // Admin inbox: all users who ever DMed the admin OR admin DMed them
                 // Find all unique users in DMs with any admin (where receiverId is an admin or senderId is an admin)
@@ -96,9 +100,6 @@ const inboxController = {
                 }
 
                 // 2) Support (DM with Admin)
-                // Find an admin to chat with. For simplicity, any message sent to an admin.
-                const admins = await User.findAll({ where: { role: 'admin' } });
-                const mainAdminId = admins.length > 0 ? admins[0].id : null;
 
                 if (mainAdminId) {
                     const lastDmMsg = await ChatMessage.findOne({

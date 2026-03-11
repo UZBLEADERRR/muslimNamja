@@ -384,17 +384,30 @@ const DeliveryPage = () => {
                                             <span style={{ fontWeight: 900, fontSize: '18px', color: 'var(--brand-accent)', fontFamily: "'Fraunces', serif" }}>
                                                 ₩{(order.totalAmount || 0).toLocaleString()}
                                             </span>
-                                            <span style={{ color: 'var(--brand-accent2)', background: 'rgba(78,205,196,0.1)', padding: '5px 10px', borderRadius: '10px', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', fontWeight: 700 }}>
-                                                <MapPin size={12} /> {distFromRestaurant.toFixed(1)} km
-                                            </span>
+                                            <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                                                <span style={{ background: order.status === 'ready_for_pickup' ? 'rgba(39,174,96,0.15)' : 'rgba(255,165,0,0.15)', color: order.status === 'ready_for_pickup' ? '#27AE60' : '#FF8C00', padding: '4px 10px', borderRadius: 8, fontSize: 10, fontWeight: 800 }}>
+                                                    {order.status === 'ready_for_pickup' ? '✅ Tayyor' : '🍳 Tayyorlanmoqda'}
+                                                </span>
+                                                <span style={{ color: 'var(--brand-accent2)', background: 'rgba(78,205,196,0.1)', padding: '5px 10px', borderRadius: '10px', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', fontWeight: 700 }}>
+                                                    <MapPin size={12} /> {distFromRestaurant.toFixed(1)} km
+                                                </span>
+                                            </div>
                                         </div>
                                         <div style={{ fontSize: 13, color: 'var(--text-primary)', marginBottom: 6 }}>📍 {order.user?.address}</div>
+                                        {/* Show order items with extras */}
+                                        {order.items?.length > 0 && (
+                                            <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 8 }}>
+                                                {order.items.map((item, idx) => (
+                                                    <span key={idx}>{item.productName || item.product?.name || 'Item'} x{item.quantity}{item.extras?.length > 0 && ` (+${item.extras.map(e => e.name).join(', ')})`}{idx < order.items.length - 1 ? ', ' : ''}</span>
+                                                ))}
+                                            </div>
+                                        )}
                                         <div style={{ display: 'flex', gap: 12, marginBottom: 12 }}>
                                             <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>⏱ ~{estimatedMins} min</div>
                                             <div style={{ fontSize: 12, color: '#27AE60', fontWeight: 800 }}>💰 ~₩{estimatedEarning.toLocaleString()}</div>
                                         </div>
-                                        <button onClick={() => handleAccept(order)} style={{ width: '100%', padding: '14px', borderRadius: '14px', border: 'none', background: 'var(--text-primary)', color: 'var(--bg-primary)', fontWeight: 800, cursor: 'pointer', fontSize: 15, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-                                            Qabul Qilish 🛵
+                                        <button onClick={() => handleAccept(order)} disabled={order.status === 'preparing'} style={{ width: '100%', padding: '14px', borderRadius: '14px', border: 'none', background: order.status === 'preparing' ? 'var(--bg-secondary)' : 'var(--text-primary)', color: order.status === 'preparing' ? 'var(--text-secondary)' : 'var(--bg-primary)', fontWeight: 800, cursor: order.status === 'preparing' ? 'not-allowed' : 'pointer', fontSize: 15, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                                            {order.status === 'preparing' ? '🍳 Tayyorlanmoqda...' : 'Qabul Qilish 🛵'}
                                         </button>
                                     </div>
                                 );
