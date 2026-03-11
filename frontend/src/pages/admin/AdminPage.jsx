@@ -130,6 +130,7 @@ const AdminPage = () => {
             fd.append('minOrderQuantity', data.minOrderQuantity || 1);
             if (data.stock) fd.append('stock', data.stock);
             if (data.ingredientCost) fd.append('ingredientCost', data.ingredientCost);
+            if (data.addons && data.addons.length > 0) fd.append('addons', JSON.stringify(data.addons));
             if (data.image) fd.append('image', data.image);
             await api.post('/admin/products', fd, { headers: { 'Content-Type': 'multipart/form-data' } });
             fetchData();

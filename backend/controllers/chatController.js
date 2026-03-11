@@ -1,5 +1,6 @@
 const ChatMessage = require('../models/ChatMessage');
 const User = require('../models/User');
+const { getBot } = require('../utils/globals');
 
 // Helper to save image locally (for MVP/Railway without S3)
 // We will return base64 for simplicity in this system to avoid file system persistence issues,
@@ -19,7 +20,7 @@ const chatController = {
             });
 
             const populated = await Promise.all(messages.map(async (msg) => {
-                const sender = await User.findByPk(msg.senderId, { attributes: ['id', 'firstName', 'role', 'avatarUrl'] });
+                const sender = await User.findByPk(msg.senderId, { attributes: ['id', 'firstName', 'role', 'avatarUrl', 'nickname', 'walletBalance', 'telegramId'] });
                 let replyTo = null;
                 if (msg.replyToId) {
                     const replyMsg = await ChatMessage.findByPk(msg.replyToId);
@@ -51,9 +52,34 @@ const chatController = {
             if (!text || !text.trim()) return res.status(400).json({ error: 'Message text is required' });
 
             const msg = await ChatMessage.create({ senderId, text: text.trim(), replyToId: replyToId || null });
-            const sender = await User.findByPk(senderId, { attributes: ['id', 'firstName', 'role', 'avatarUrl'] });
+            const sender = await User.findByPk(senderId, { attributes: ['id', 'firstName', 'role', 'avatarUrl', 'nickname', 'walletBalance'] });
 
-            res.status(201).json({ ...msg.toJSON(), sender });
+            const fullMsg = { ...msg.toJSON(), sender };
+
+            // Emit via Socket.IO for real-time
+            try {
+                const io = require('../server').io;
+                if (io) io.to('community').emit('new-community-msg', fullMsg);
+            } catch (e) { /* io not available */ }
+
+            // Check if replying to someone - send Telegram notification
+            if (replyToId) {
+                try {
+                    const replyMsg = await ChatMessage.findByPk(replyToId);
+                    if (replyMsg && replyMsg.senderId !== senderId) {
+                        const replyUser = await User.findByPk(replyMsg.senderId);
+                        if (replyUser?.telegramId) {
+                            const bot = getBot();
+                            const senderName = sender?.nickname || sender?.firstName || 'Kimdir';
+                            await bot.sendMessage(replyUser.telegramId, `💬 ${senderName} sizga community chatda javob yozdi:\n"${text.trim().substring(0, 100)}"`, {
+                                reply_markup: { inline_keyboard: [[{ text: '💬 Javobni ko\'rish', web_app: { url: process.env.WEBAPP_URL + '?tab=community' } }]] }
+                            });
+                        }
+                    }
+                } catch (e) { console.error('Reply notification error:', e.message); }
+            }
+
+            res.status(201).json(fullMsg);
         } catch (error) {
             res.status(500).json({ error: 'Failed to post message' });
         }
@@ -77,9 +103,17 @@ const chatController = {
                 imageUrl: base64Image,
                 replyToId: req.body.replyToId || null
             });
-            const sender = await User.findByPk(senderId, { attributes: ['id', 'firstName', 'role', 'avatarUrl'] });
+            const sender = await User.findByPk(senderId, { attributes: ['id', 'firstName', 'role', 'avatarUrl', 'nickname', 'walletBalance'] });
 
-            res.status(201).json({ ...msg.toJSON(), sender });
+            const fullMsg = { ...msg.toJSON(), sender };
+
+            // Emit via Socket.IO
+            try {
+                const io = require('../server').io;
+                if (io) io.to('community').emit('new-community-msg', fullMsg);
+            } catch (e) { /* io not available */ }
+
+            res.status(201).json(fullMsg);
         } catch (error) {
             console.error(error);
             res.status(500).json({ error: 'Failed to post image message' });

@@ -5,10 +5,13 @@ const OperationsTab = ({ orders, products, onUpdateOrderStatus, onDeleteProduct,
     const [segment, setSegment] = useState('orders');
     const [orderFilter, setOrderFilter] = useState('all');
     const [showAddProduct, setShowAddProduct] = useState(false);
-    const [newProduct, setNewProduct] = useState({ nameUz: '', nameKo: '', descUz: '', descKo: '', price: '', category: 'uzbek', stock: '', minOrderQuantity: '1', ingredientCost: '' });
+    const [newProduct, setNewProduct] = useState({ nameUz: '', nameKo: '', descUz: '', descKo: '', price: '', category: 'ovqat', stock: '', minOrderQuantity: '1', ingredientCost: '' });
     const [productImage, setProductImage] = useState(null);
     const [editingId, setEditingId] = useState(null);
     const [editVal, setEditVal] = useState('');
+    const [addons, setAddons] = useState([]); // [{ name, price }]
+    const [addonName, setAddonName] = useState('');
+    const [addonPrice, setAddonPrice] = useState('');
 
     const statusColors = { pending: colors.warning, accepted: colors.profit, preparing: colors.accent, ready_for_pickup: '#F39C12', delivering: colors.purple, delivered_awaiting_review: '#27AE60', completed: colors.profit, cancelled: colors.danger };
     const statusLabels = { pending: '⏳ Kutilmoqda', accepted: '✅ Qabul qilindi', preparing: '🍳 Tayyorlanmoqda', ready_for_pickup: '🥡 Kuryer kutilmoqda', delivering: '🛵 Yo\'lda', delivered_awaiting_review: '📸 Tasdiq kutmoqda', completed: '🏁 Bajarildi', cancelled: '❌ Bekor' };
@@ -22,10 +25,18 @@ const OperationsTab = ({ orders, products, onUpdateOrderStatus, onDeleteProduct,
 
     const handleSubmitProduct = (e) => {
         e.preventDefault();
-        onAddProduct?.({ ...newProduct, image: productImage });
+        onAddProduct?.({ ...newProduct, image: productImage, addons });
         setShowAddProduct(false);
-        setNewProduct({ nameUz: '', nameKo: '', descUz: '', descKo: '', price: '', category: 'uzbek', stock: '', minOrderQuantity: '1', ingredientCost: '' });
+        setNewProduct({ nameUz: '', nameKo: '', descUz: '', descKo: '', price: '', category: 'ovqat', stock: '', minOrderQuantity: '1', ingredientCost: '' });
         setProductImage(null);
+        setAddons([]);
+    };
+
+    const handleAddAddon = () => {
+        if (!addonName.trim() || !addonPrice) return;
+        setAddons([...addons, { name: addonName.trim(), price: parseInt(addonPrice) }]);
+        setAddonName('');
+        setAddonPrice('');
     };
 
     return (
@@ -103,8 +114,9 @@ const OperationsTab = ({ orders, products, onUpdateOrderStatus, onDeleteProduct,
                             <div style={{ display: 'flex', gap: 8 }}>
                                 <input type="number" placeholder="Narxi (₩)" value={newProduct.price} onChange={e => setNewProduct({ ...newProduct, price: e.target.value })} style={{ ...inputStyle, flex: 1 }} required />
                                 <select value={newProduct.category} onChange={e => setNewProduct({ ...newProduct, category: e.target.value })} style={{ ...inputStyle, flex: 1 }}>
-                                    <option value="uzbek">Uzbek</option><option value="korean">Korean</option>
-                                    <option value="fastfood">Fastfood</option><option value="drinks">Drinks</option><option value="desserts">Desserts</option>
+                                    <option value="ovqat">🍽️ Ovqat</option>
+                                    <option value="ichimlik">🧋 Ichimlik</option>
+                                    <option value="shirinlik">🍮 Shirinlik</option>
                                 </select>
                             </div>
                             <div style={{ display: 'flex', gap: 8 }}>
@@ -113,6 +125,26 @@ const OperationsTab = ({ orders, products, onUpdateOrderStatus, onDeleteProduct,
                                 <input type="number" placeholder="Tannarx ₩" value={newProduct.ingredientCost} onChange={e => setNewProduct({ ...newProduct, ingredientCost: e.target.value })} style={{ ...inputStyle, flex: 1 }} />
                             </div>
                             <input type="file" accept="image/*" onChange={e => setProductImage(e.target.files?.[0])} style={{ color: colors.text, fontSize: 13 }} />
+
+                            {/* Addons Section */}
+                            <div style={{ borderTop: `1px dashed ${colors.border}`, paddingTop: 10 }}>
+                                <div style={{ ...mainText, fontSize: 12, marginBottom: 6 }}>➕ Qo'shimchalar (Extras)</div>
+                                <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
+                                    <input placeholder="Nomi" value={addonName} onChange={e => setAddonName(e.target.value)} style={{ ...inputStyle, flex: 2, padding: '8px 10px', fontSize: 12 }} />
+                                    <input type="number" placeholder="₩" value={addonPrice} onChange={e => setAddonPrice(e.target.value)} style={{ ...inputStyle, flex: 1, padding: '8px 10px', fontSize: 12 }} />
+                                    <button type="button" onClick={handleAddAddon} style={{ ...btnPrimary, padding: '8px 12px', fontSize: 12 }}>➕</button>
+                                </div>
+                                {addons.map((a, i) => (
+                                    <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 10px', background: `${colors.accent}10`, borderRadius: 8, marginBottom: 4, fontSize: 12 }}>
+                                        <span style={{ color: colors.text }}>{a.name}</span>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                            <span style={{ color: colors.accent }}>+₩{a.price.toLocaleString()}</span>
+                                            <button type="button" onClick={() => setAddons(addons.filter((_, j) => j !== i))} style={{ background: 'none', border: 'none', color: colors.danger, cursor: 'pointer', fontSize: 14 }}>✕</button>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+
                             <button type="submit" style={btnPrimary}>Saqlash</button>
                         </form>
                     )}
