@@ -71,7 +71,8 @@ const inboxController = {
                     where: user.role === 'driver' ? { deliveryManId: userId, status: { [Op.notIn]: ['completed', 'cancelled'] } } 
                                                   : { userId: userId, status: { [Op.notIn]: ['completed', 'cancelled'] } },
                     include: [
-                        { model: User, as: 'user', attributes: ['firstName'] }
+                        { model: User, as: 'User', attributes: ['firstName'] },
+                        { model: User, as: 'DeliveryMan', attributes: ['firstName'] }
                     ]
                 });
 
@@ -85,7 +86,9 @@ const inboxController = {
                         id: `order_${order.id}`,
                         type: 'order',
                         targetId: order.id,
-                        name: user.role === 'driver' ? `Buyurtma: ${order.user?.firstName}` : `Buyurtma #${order.id.slice(0, 8)} (Kuryer bilan)`,
+                        name: user.role === 'driver' 
+                            ? `Buyurtma: ${order.User?.firstName || 'Mijoz'}` 
+                            : `🛵 Kuryer: ${order.DeliveryMan?.firstName || 'Kutilmoqda...'}`,
                         lastMessage: lastMsg ? lastMsg.text || (lastMsg.imageUrl ? '📷 Rasm' : '') : 'Chatni boshlash',
                         updatedAt: lastMsg ? lastMsg.createdAt : order.createdAt,
                         orderData: order
@@ -120,8 +123,15 @@ const inboxController = {
                 }
             }
 
-            // Sort by latest message
-            conversations.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
+            // Sort by latest message, putting Support/Admin channel always on top
+            conversations.sort((a, b) => {
+                // If the user isn't an admin, pin the admin DM
+                if (!isAdmin && mainAdminId) {
+                    if (a.id === `dm_${mainAdminId}`) return -1;
+                    if (b.id === `dm_${mainAdminId}`) return 1;
+                }
+                return new Date(b.updatedAt) - new Date(a.updatedAt);
+            });
             res.json(conversations);
 
         } catch (error) {

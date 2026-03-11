@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import api from '../../utils/api';
 import DirectChat from '../../components/DirectChat';
 
-const AdminInbox = () => {
+const AdminInbox = ({ initialChatUser }) => {
     const [inbox, setInbox] = useState([]);
     const [selectedChat, setSelectedChat] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -25,6 +25,19 @@ const AdminInbox = () => {
         }, 15000);
         return () => clearInterval(interval);
     }, [selectedChat]);
+
+    useEffect(() => {
+        if (initialChatUser) {
+            setSelectedChat({
+                id: `dm_${initialChatUser.id}`,
+                type: 'dm',
+                targetId: initialChatUser.id,
+                name: `${initialChatUser.firstName} (${initialChatUser.role || 'user'})`,
+                lastMessage: '',
+                updatedAt: new Date()
+            });
+        }
+    }, [initialChatUser]);
 
     if (selectedChat) {
         return (

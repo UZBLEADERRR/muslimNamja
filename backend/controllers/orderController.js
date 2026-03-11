@@ -261,7 +261,7 @@ ${orderDetails}
         const trans = await sequelize.transaction();
         try {
             const { id } = req.params;
-            const { rating, reviewText } = req.body;
+            const { rating, reviewText } = req.body || {};
             const order = await Order.findByPk(id, { transaction: trans });
 
             if (!order || (order.status !== 'delivering' && order.status !== 'delivered_awaiting_review')) {

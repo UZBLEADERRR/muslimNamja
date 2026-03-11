@@ -45,6 +45,7 @@ PaymentRequest.belongsTo(User, { foreignKey: 'userId', as: 'User' });
 User.hasMany(PaymentRequest, { foreignKey: 'userId', as: 'PaymentRequests' });
 Order.belongsTo(User, { foreignKey: 'userId', as: 'User' });
 User.hasMany(Order, { foreignKey: 'userId', as: 'Orders' });
+Order.belongsTo(User, { foreignKey: 'deliveryManId', as: 'DeliveryMan' });
 AuditLog.belongsTo(User, { foreignKey: 'adminId', as: 'Admin' });
 
 sequelize.authenticate()

@@ -4,7 +4,18 @@ import { useAppStore } from '../store/useAppStore';
 import api from '../utils/api';
 import { CheckCircle, MapPin, Navigation } from 'lucide-react';
 import { io } from 'socket.io-client';
+import { MapContainer, TileLayer, Marker, Popup, Polyline } from 'react-leaflet';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
 import DirectChat from '../components/DirectChat';
+
+// Fix typical Leaflet icon issue
+delete L.Icon.Default.prototype._getIconUrl;
+L.Icon.Default.mergeOptions({
+    iconRetinaUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon-2x.png',
+    iconUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon.png',
+    shadowUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-shadow.png',
+});
 
 const SOCKET_URL = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace('/api', '') : 'http://localhost:5000';
 
@@ -56,8 +67,15 @@ const TrackPage = () => {
             if (activeTab === 'chat' && !selectedChat) fetchInbox();
         }, 12000);
 
-        // Global Socket for location updates
         const socket = io(SOCKET_URL, { transports: ['websocket', 'polling'] });
+        
+        if (activeOrder) {
+            socket.emit('join-room', `order_${activeOrder.id}`);
+            // Fetch initial driver location
+            api.get(`/delivery/orders/${activeOrder.id}/location`)
+                .then(res => { if (res.data) setDriverLocation(res.data); })
+                .catch(() => null);
+        }
         
         socket.on('location-updated', (loc) => {
             setDriverLocation(loc);
@@ -67,7 +85,7 @@ const TrackPage = () => {
             clearInterval(interval);
             socket.disconnect();
         };
-    }, [user, activeTab, selectedChat]);
+    }, [user, activeTab, selectedChat, activeOrder?.id]);
 
     const confirmDelivery = async () => {
         if (!window.confirm("Rostdan ham taomni qabul qildingizmi?")) return;
@@ -165,6 +183,32 @@ const TrackPage = () => {
                                         <div style={{ fontSize: 24, fontWeight: 900, fontFamily: "'Fraunces', serif" }}>{estimateTime()}</div>
                                     </div>
                                     <div style={{ fontSize: 40 }}>🛵</div>
+                                </div>
+                            )}
+
+                            {/* Live Map */}
+                            {user?.location && driverLocation && ['delivering', 'delivered_awaiting_review'].includes(activeOrder.status) && (
+                                <div style={{ margin: '0 20px 16px', height: 250, borderRadius: 20, overflow: 'hidden', border: '1px solid var(--card-border)', background: '#eee' }}>
+                                    <MapContainer center={[driverLocation.lat, driverLocation.lng]} zoom={15} style={{ height: '100%', width: '100%' }} zoomControl={false}>
+                                        <TileLayer url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png" />
+                                        
+                                        <Polyline positions={[
+                                            [driverLocation.lat, driverLocation.lng],
+                                            [user.location.lat, user.location.lng]
+                                        ]} color="#FF3CAC" weight={4} dashArray="8, 8" opacity={0.7} />
+
+                                        <Marker position={[driverLocation.lat, driverLocation.lng]} icon={
+                                            new L.DivIcon({ className: 'courier-icon', html: '<div style="font-size:20px; background:#fff; border-radius:50%; width:30px; height:30px; display:flex; align-items:center; justify-content:center; box-shadow:0 4px 12px rgba(0,0,0,0.2); border: 2px solid #27AE60;">🛵</div>', iconSize: [30, 30] })
+                                        }>
+                                            <Popup>Kuryer</Popup>
+                                        </Marker>
+
+                                        <Marker position={[user.location.lat, user.location.lng]} icon={
+                                            new L.DivIcon({ className: 'home-icon', html: '<div style="font-size:20px; background:#fff; border-radius:50%; width:30px; height:30px; display:flex; align-items:center; justify-content:center; box-shadow:0 4px 12px rgba(0,0,0,0.2); border: 2px solid #FF3CAC;">🏠</div>', iconSize: [30, 30] })
+                                        }>
+                                            <Popup>Sizning manzilingiz</Popup>
+                                        </Marker>
+                                    </MapContainer>
                                 </div>
                             )}
 

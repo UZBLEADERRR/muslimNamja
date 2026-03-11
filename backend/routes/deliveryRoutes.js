@@ -27,6 +27,9 @@ router.post('/orders/:orderId/complete', upload.single('photo'), deliveryControl
 // Update delivery location
 router.post('/location', deliveryController.updateLocation);
 
+// Get delivery location
+router.get('/orders/:orderId/location', deliveryController.getOrderLocation);
+
 // Call user (Push notification to open chat)
 router.post('/orders/:orderId/call-user', deliveryController.callUser);
 

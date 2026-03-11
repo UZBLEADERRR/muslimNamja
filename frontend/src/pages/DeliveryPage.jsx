@@ -7,6 +7,9 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { Truck, MapPin, CheckCircle, Navigation, Camera, MessageSquare, Phone, Map, Wallet } from 'lucide-react';
 import DirectChat from '../components/DirectChat';
+import { io } from 'socket.io-client';
+
+const SOCKET_URL = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace('/api', '') : 'http://localhost:5000';
 
 // Fix typical Leaflet icon issue
 delete L.Icon.Default.prototype._getIconUrl;
@@ -87,21 +90,22 @@ const DeliveryPage = () => {
 
     // Track Location
     useEffect(() => {
-        if (!navigator.geolocation) return;
+        if (!navigator.geolocation || !activeOrder) return;
+        
+        const socket = io(SOCKET_URL, { transports: ['websocket', 'polling'] });
         let watchId;
         
         const updateLoc = (pos) => {
             const newLoc = { lat: pos.coords.latitude, lng: pos.coords.longitude };
             setMyLocation(prev => {
-                if (prev && activeOrder) {
+                if (prev) {
                     const distMoved = haversineDistance(prev, newLoc);
-                    if (distMoved > 0.05) { // 50m movement
-                        setTotalTripKm(curr => curr + distMoved);
-                        api.post(`/delivery/orders/${activeOrder.id}/location`, { location: newLoc }).catch(console.error);
-                    }
-                } else if (activeOrder && !prev) {
-                    api.post(`/delivery/orders/${activeOrder.id}/location`, { location: newLoc }).catch(console.error);
+                    if (distMoved > 0.05) setTotalTripKm(curr => curr + distMoved);
                 }
+                
+                socket.emit('driver-location', { room: `order_${activeOrder.id}`, location: newLoc });
+                api.post('/delivery/location', { lat: newLoc.lat, lng: newLoc.lng, orderId: activeOrder.id }).catch(() => null);
+                
                 return newLoc;
             });
         };
@@ -109,7 +113,10 @@ const DeliveryPage = () => {
         navigator.geolocation.getCurrentPosition(updateLoc, console.error, { enableHighAccuracy: true });
         watchId = navigator.geolocation.watchPosition(updateLoc, console.error, { enableHighAccuracy: true, maximumAge: 10000, timeout: 5000 });
 
-        return () => navigator.geolocation.clearWatch(watchId);
+        return () => {
+            navigator.geolocation.clearWatch(watchId);
+            socket.disconnect();
+        };
     }, [activeOrder]);
 
     const handleAccept = async (order) => {

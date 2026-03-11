@@ -134,7 +134,7 @@ const deliveryController = {
     async updateLocation(req, res) {
         try {
             const deliveryManId = req.user.userId;
-            const { lat, lng } = req.body;
+            const { lat, lng, orderId } = req.body;
 
             if (lat !== undefined && lng !== undefined) {
                 driverLocations[deliveryManId] = { lat, lng, timestamp: Date.now() };
@@ -142,6 +142,23 @@ const deliveryController = {
             res.json({ success: true });
         } catch (err) {
             res.status(500).json({ error: 'Location update failed' });
+        }
+    },
+
+    // Get live location of driver for a specific order
+    async getOrderLocation(req, res) {
+        try {
+            const { orderId } = req.params;
+            const order = await Order.findByPk(orderId);
+            if (!order || !order.deliveryManId) return res.json(null);
+
+            const loc = driverLocations[order.deliveryManId];
+            if (loc) {
+                return res.json({ lat: loc.lat, lng: loc.lng });
+            }
+            res.json(null);
+        } catch (err) {
+            res.status(500).json({ error: 'Failed to get location' });
         }
     },
 

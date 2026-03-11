@@ -48,6 +48,9 @@ const AdminPage = () => {
     // Order filter
     const [orderFilter, setOrderFilter] = useState('all');
 
+    // Admin Inbox Start Chat
+    const [startChatUser, setStartChatUser] = useState(null);
+
     const fetchData = async () => {
         setLoading(true);
         try {
@@ -619,12 +622,22 @@ const AdminPage = () => {
                                     <button onClick={() => handleBalanceChange(selectedUser.id, topUpAmount)} style={{ ...btnSuccess, fontSize: 12 }}>💰 To'ldirish</button>
                                 </div>
                                 {/* Role change */}
-                                <div style={{ display: 'flex', gap: 6 }}>
+                                <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
                                     {['user', 'driver', 'admin'].map(r => (
                                         <button key={r} onClick={() => handleRoleChange(selectedUser.id, r)} style={{ ...chipStyle(selectedUser.role === r), flex: 1, textAlign: 'center' }}>
                                             {r === 'user' ? '👤' : r === 'driver' ? '🛵' : '🛡️'} {r}
                                         </button>
                                     ))}
+                                </div>
+                                {/* Actions */}
+                                <div>
+                                    <button onClick={() => { 
+                                        setStartChatUser(selectedUser); 
+                                        setSelectedUser(null);
+                                        setActiveTab('help'); 
+                                    }} style={{ ...btnPrimary, width: '100%', fontSize: 13, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 6 }}>
+                                        💬 Xabar yozish
+                                    </button>
                                 </div>
                             </div>
                         )}
@@ -676,7 +689,7 @@ const AdminPage = () => {
                     <div style={{ animation: 'fadeIn 0.3s ease', height: 'calc(100vh - 160px)', display: 'flex', flexDirection: 'column' }}>
                         <div style={{ ...sectionTitle, flexShrink: 0 }}>💬 Yordam markazi — Userlar va Kuryerlar bilan chat</div>
                         <div style={{ flex: 1, overflow: 'hidden', borderRadius: 16, border: `1px solid ${colors.border}` }}>
-                            <AdminInbox />
+                            <AdminInbox initialChatUser={startChatUser} />
                         </div>
                     </div>
                 )}
