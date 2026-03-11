@@ -23,7 +23,7 @@ const adminController = {
     // --- Product Management ---
     async addProduct(req, res) {
         try {
-            const { name, description, price, category, stock, minOrderQuantity, ingredientCost } = req.body;
+            const { name, description, price, category, stock, minOrderQuantity, ingredientCost, addons } = req.body;
 
             // Build product payload
             const payload = {
@@ -33,7 +33,8 @@ const adminController = {
                 category,
                 stock: stock !== undefined && stock !== '' && stock !== 'null' ? parseInt(stock) : null,
                 minOrderQuantity: parseInt(minOrderQuantity) || 1,
-                ingredientCost: parseInt(ingredientCost) || 0
+                ingredientCost: parseInt(ingredientCost) || 0,
+                addons: addons ? (typeof addons === 'string' ? JSON.parse(addons) : addons) : []
             };
 
             // Handle image upload

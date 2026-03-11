@@ -517,8 +517,8 @@ const AdminPage = () => {
                                                 <div style={{ flex: 1 }}>
                                                     <div style={mainText}>{name}</div>
                                                     <div style={subText}>₩{(p.price || 0).toLocaleString()} · {p.stock || '∞'} ta</div>
-                                                    {p.addons && JSON.parse(p.addons || '[]').length > 0 && (
-                                                        <div style={{ fontSize: 10, color: colors.accent, marginTop: 2 }}>+{JSON.parse(p.addons).length} ta extra</div>
+                                                    {p.addons && (Array.isArray(p.addons) ? p.addons : (() => { try { return JSON.parse(p.addons); } catch { return []; } })()).length > 0 && (
+                                                        <div style={{ fontSize: 10, color: colors.accent, marginTop: 2 }}>+{(Array.isArray(p.addons) ? p.addons : (() => { try { return JSON.parse(p.addons); } catch { return []; } })()).length} ta extra</div>
                                                     )}
                                                 </div>
                                                 <button onClick={() => handleDeleteProduct(p.id)} style={{ background: 'none', border: 'none', color: colors.danger, fontSize: 16, cursor: 'pointer' }}>🗑️</button>

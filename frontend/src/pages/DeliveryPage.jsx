@@ -65,9 +65,11 @@ const DeliveryPage = () => {
         api.get('/delivery/stats').then(res => setStats(res.data)).catch(console.error);
 
         api.get('/delivery/active').then(res => {
-            if (res.data) {
-                setActiveOrder(res.data);
-                fetchChat(res.data.id);
+            // Backend returns an array of active orders — take the first one
+            const data = Array.isArray(res.data) ? res.data[0] : res.data;
+            if (data && data.id) {
+                setActiveOrder(data);
+                fetchChat(data.id);
             } else {
                 setActiveOrder(null);
                 api.get('/delivery/orders/available')
@@ -82,14 +84,15 @@ const DeliveryPage = () => {
     };
 
     const fetchChat = (orderId) => {
+        if (!orderId) { setLoading(false); return; }
         api.get(`/orders/${orderId}/chat`)
             .then(res => {
                 setChatMessages(res.data || []);
-                const isPromptSent = res.data.some(m => m.offerAction === 'confirm_delivery_prompt');
+                const isPromptSent = (res.data || []).some(m => m.offerAction === 'confirm_delivery_prompt');
                 if (isPromptSent) setPhotoSent(true);
-                setLoading(false);
             })
-            .catch(console.error);
+            .catch(err => console.error('Chat fetch error:', err))
+            .finally(() => setLoading(false));
     };
 
     // Keep activeOrder in a ref so geolocation callback can access latest value
