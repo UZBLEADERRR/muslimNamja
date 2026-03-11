@@ -1,14 +1,25 @@
-import React, { useEffect, useState } from 'react';
-import { Outlet, NavLink, useLocation } from 'react-router-dom';
+import React, { useEffect, useState, useRef } from 'react';
+import { Outlet, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from '../i18n';
 import { useAppStore } from '../store/useAppStore';
+import { io } from 'socket.io-client';
+import VideoCallModal from './VideoCallModal';
+
+const SOCKET_URL = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace('/api', '') : 'http://localhost:5000';
 
 const Layout = () => {
     const { t, lang } = useTranslation();
     const { setLang, setTheme, theme, user, cart } = useAppStore();
     const location = useLocation();
+    const navigate = useNavigate();
     const showTopNav = location.pathname === '/';
     const [hasActiveOrder, setHasActiveOrder] = useState(false);
+
+    // Global Real-time States
+    const [incomingCall, setIncomingCall] = useState(null);
+    const [activeCall, setActiveCall] = useState(null);
+    const [toastMsg, setToastMsg] = useState(null);
+    const socketRef = useRef(null);
 
     // Check for active orders to show badge
     useEffect(() => {
@@ -24,7 +35,37 @@ const Layout = () => {
         };
         checkOrders();
         const interval = setInterval(checkOrders, 15000);
-        return () => clearInterval(interval);
+
+        // Global Socket Connection
+        const socket = io(SOCKET_URL, { transports: ['websocket', 'polling'] });
+        socketRef.current = socket;
+
+        socket.emit('join-room', `user_${user.id}`);
+
+        socket.on('webrtc-offer', (data) => {
+            if (!activeCall && (!incomingCall || incomingCall.roomName !== data.room)) {
+                setIncomingCall({
+                    callerName: data.callerName || 'Qo\'ng\'iroq',
+                    signalData: data.signalData,
+                    roomName: data.room,
+                    targetId: data.targetId
+                });
+            }
+        });
+
+        socket.on('new-message-alert', (data) => {
+            // Only show toast if we are not currently in that chat
+            // Simplified check: just show toast
+            if (data.senderId !== user.id) {
+                setToastMsg({ text: `Yangi xabar: ${data.text || 'Rasm'}`, sender: data.sender?.firstName || 'Mijoz' });
+                setTimeout(() => setToastMsg(null), 3000);
+            }
+        });
+
+        return () => {
+            clearInterval(interval);
+            socket.disconnect();
+        };
     }, [user]);
 
     // Map theme names for cycle
@@ -64,6 +105,46 @@ const Layout = () => {
                         </div>
                     </div>
                 </div>
+            )}
+
+            {/* Global Toast */}
+            {toastMsg && (
+                <div onClick={() => navigate('/community')} style={{ position: 'fixed', top: 60, left: '50%', transform: 'translateX(-50%)', zIndex: 1000, background: 'var(--brand-accent)', color: '#fff', padding: '10px 20px', borderRadius: 20, boxShadow: '0 4px 15px rgba(255,107,53,0.4)', fontSize: 13, fontWeight: 700, cursor: 'pointer', animation: 'fadeInDown 0.3s ease' }}>
+                    💬 {toastMsg.sender}: {toastMsg.text}
+                </div>
+            )}
+            <style>{`@keyframes fadeInDown { from { opacity: 0; transform: translate(-50%, -20px); } to { opacity: 1; transform: translate(-50%, 0); } }`}</style>
+
+            {/* Global Incoming Call */}
+            {incomingCall && !activeCall && (
+                <div style={{ position: 'fixed', inset: 0, zIndex: 10000, background: 'rgba(0,0,0,0.85)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', animation: 'fadeIn 0.3s ease' }}>
+                    <div style={{ width: 100, height: 100, borderRadius: '50%', background: 'linear-gradient(135deg, var(--brand-accent, #FF6B35), #FF3CAC)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 48, marginBottom: 24, boxShadow: '0 0 40px rgba(255,107,53,0.5)', animation: 'pulse-call 1.5s infinite' }}>
+                        📞
+                    </div>
+                    <style>{`@keyframes pulse-call { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.1); } }`}</style>
+                    <div style={{ color: '#fff', fontSize: 22, fontWeight: 800, marginBottom: 8 }}>{incomingCall.callerName}</div>
+                    <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: 14, marginBottom: 40 }}>Sizga qo'ng'iroq qilmoqda...</div>
+                    <div style={{ display: 'flex', gap: 32 }}>
+                        <button onClick={() => setIncomingCall(null)} style={{ width: 64, height: 64, borderRadius: 32, border: 'none', background: '#E74C3C', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: '0 4px 15px rgba(231,76,60,0.5)', fontSize: 28 }}>✕</button>
+                        <button onClick={() => { setActiveCall({ isReceiving: true, callerName: incomingCall.callerName, signalData: incomingCall.signalData, roomName: incomingCall.roomName }); setIncomingCall(null); }} style={{ width: 64, height: 64, borderRadius: 32, border: 'none', background: '#27AE60', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: '0 4px 15px rgba(39,174,96,0.5)', fontSize: 28 }}>📞</button>
+                    </div>
+                    <div style={{ display: 'flex', gap: 48, marginTop: 12 }}>
+                        <span style={{ color: 'rgba(255,255,255,0.6)', fontSize: 13, fontWeight: 600 }}>Rad etish</span>
+                        <span style={{ color: 'rgba(255,255,255,0.6)', fontSize: 13, fontWeight: 600 }}>Qabul qilish</span>
+                    </div>
+                </div>
+            )}
+
+            {/* Global Active Call */}
+            {activeCall && (
+                <VideoCallModal 
+                    socket={socketRef.current}
+                    roomName={activeCall.roomName}
+                    isReceiving={activeCall.isReceiving}
+                    callerName={activeCall.callerName}
+                    signalData={activeCall.signalData}
+                    onEndCall={() => setActiveCall(null)}
+                />
             )}
 
             {/* Content Area */}

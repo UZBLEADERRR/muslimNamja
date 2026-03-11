@@ -118,7 +118,7 @@ const DeliveryPage = () => {
             navigator.geolocation.clearWatch(watchId);
             socket.disconnect();
         };
-    }, [activeOrder]);
+    }, [activeOrder?.id]);
 
     const handleAccept = async (order) => {
         try {

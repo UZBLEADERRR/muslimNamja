@@ -102,8 +102,7 @@ const DirectChat = ({ conversation, onBack }) => {
         }
     };
 
-    const [activeCall, setActiveCall] = useState(null); // { isReceiving, callerName, signalData, roomName }
-    const [incomingCall, setIncomingCall] = useState(null); // { callerName, signalData, roomName }
+    const [activeCall, setActiveCall] = useState(null); // { isReceiving, callerName, signalData, roomName, targetId }
 
     const handleCall = () => {
         // We act as initiator
@@ -111,60 +110,26 @@ const DirectChat = ({ conversation, onBack }) => {
             ? `order_${conversation.targetId}` 
             : `dm_${[user.id, conversation.targetId].sort().join('_')}`;
         
+        let actualTargetUserId;
+        if (conversation.type === 'dm') {
+            actualTargetUserId = conversation.targetId;
+        } else {
+            actualTargetUserId = user.id === conversation.orderData?.userId 
+                ? conversation.orderData?.deliveryManId 
+                : conversation.orderData?.userId;
+        }
+        
         setActiveCall({
             isReceiving: false,
-            callerName: conversation.name,
+            callerName: user.firstName,
             signalData: null,
-            roomName: roomName
+            roomName: roomName,
+            targetId: actualTargetUserId
         });
     };
 
-    // Listen for incoming calls
-    useEffect(() => {
-        if (!socketRef.current) return;
-        const socket = socketRef.current;
-
-        const handleIncomingCall = (data) => {
-            // data = { room, signalData, callerName }
-            const expectedRoom = conversation.type === 'order' 
-                ? `order_${conversation.targetId}` 
-                : `dm_${[user.id, conversation.targetId].sort().join('_')}`;
-
-            if (data.room === expectedRoom && !activeCall) {
-                // Show incoming call modal instead of window.confirm
-                setIncomingCall({
-                    callerName: data.callerName || 'Kimdir',
-                    signalData: data.signalData,
-                    roomName: expectedRoom
-                });
-            }
-        };
-
-        socket.on('webrtc-offer', handleIncomingCall);
-        return () => socket.off('webrtc-offer', handleIncomingCall);
-    }, [conversation.targetId, conversation.type, user.id, activeCall]);
-
     return (
         <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: 'var(--bg-primary)' }}>
-            {/* Incoming Call Modal */}
-            {incomingCall && !activeCall && (
-                <div style={{ position: 'fixed', inset: 0, zIndex: 10000, background: 'rgba(0,0,0,0.85)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', animation: 'fadeIn 0.3s ease' }}>
-                    <div style={{ width: 100, height: 100, borderRadius: '50%', background: 'linear-gradient(135deg, var(--brand-accent, #FF6B35), #FF3CAC)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 48, marginBottom: 24, boxShadow: '0 0 40px rgba(255,107,53,0.5)', animation: 'pulse 1.5s infinite' }}>
-                        📞
-                    </div>
-                    <style>{`@keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.1); } }`}</style>
-                    <div style={{ color: '#fff', fontSize: 22, fontWeight: 800, marginBottom: 8 }}>{incomingCall.callerName}</div>
-                    <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: 14, marginBottom: 40 }}>Sizga qo'ng'iroq qilmoqda...</div>
-                    <div style={{ display: 'flex', gap: 32 }}>
-                        <button onClick={() => { setIncomingCall(null); }} style={{ width: 64, height: 64, borderRadius: 32, border: 'none', background: '#E74C3C', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: '0 4px 15px rgba(231,76,60,0.5)', fontSize: 28 }}>✕</button>
-                        <button onClick={() => { setActiveCall({ isReceiving: true, callerName: incomingCall.callerName, signalData: incomingCall.signalData, roomName: incomingCall.roomName }); setIncomingCall(null); }} style={{ width: 64, height: 64, borderRadius: 32, border: 'none', background: '#27AE60', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: '0 4px 15px rgba(39,174,96,0.5)', fontSize: 28 }}>📞</button>
-                    </div>
-                    <div style={{ display: 'flex', gap: 48, marginTop: 12 }}>
-                        <span style={{ color: 'rgba(255,255,255,0.6)', fontSize: 13, fontWeight: 600 }}>Rad etish</span>
-                        <span style={{ color: 'rgba(255,255,255,0.6)', fontSize: 13, fontWeight: 600 }}>Qabul qilish</span>
-                    </div>
-                </div>
-            )}
 
             {activeCall && (
                 <VideoCallModal 
@@ -173,6 +138,7 @@ const DirectChat = ({ conversation, onBack }) => {
                     isReceiving={activeCall.isReceiving}
                     callerName={activeCall.callerName}
                     signalData={activeCall.signalData}
+                    targetId={activeCall.targetId}
                     onEndCall={() => setActiveCall(null)}
                 />
             )}

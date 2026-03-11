@@ -7,7 +7,8 @@ const VideoCallModal = ({
     isReceiving = false, 
     socket, 
     roomName, 
-    signalData 
+    signalData,
+    targetId
 }) => {
     const [stream, setStream] = useState(null);
     const [isMuted, setIsMuted] = useState(false);
@@ -80,7 +81,7 @@ const VideoCallModal = ({
 
                 peer.on('signal', data => {
                     if (!isReceiving) {
-                        socket.emit('webrtc-offer', { room: roomName, signalData: data, callerName: callerName || 'Foydalanuvchi' });
+                        socket.emit('webrtc-offer', { room: roomName, signalData: data, callerName: callerName || 'Foydalanuvchi', targetId });
                     } else {
                         socket.emit('webrtc-answer', { room: roomName, signalData: data });
                     }

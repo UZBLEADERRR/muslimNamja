@@ -87,7 +87,7 @@ const io = new Server(server, { cors: { origin: '*' } });
 io.on('connection', (socket) => {
     console.log('Socket connected:', socket.id);
 
-    // Join arbitrary rooms (e.g. 'staff', 'order_123')
+    // Join arbitrary rooms (e.g. 'staff', 'order_123', 'user_1')
     socket.on('join-room', (roomId) => {
         socket.join(roomId);
     });
@@ -95,12 +95,20 @@ io.on('connection', (socket) => {
     // Chat Message Relay
     socket.on('send-message', (data) => {
         io.to(data.room).emit('receive-message', data);
+        if (data.targetId) {
+            io.to(`user_${data.targetId}`).emit('new-message-alert', data);
+        }
     });
 
     // WebRTC Signaling
     socket.on('webrtc-offer', data => socket.to(data.room).emit('webrtc-offer', data));
     socket.on('webrtc-answer', data => socket.to(data.room).emit('webrtc-answer', data));
     socket.on('webrtc-ice-candidate', data => socket.to(data.room).emit('webrtc-ice-candidate', data));
+
+    // Global Ring User (for incoming calls outside chat)
+    socket.on('ring-user', data => {
+        io.to(`user_${data.targetId}`).emit('incoming-call', data);
+    });
 
     // Live Location Relay
     socket.on('driver-location', data => {
