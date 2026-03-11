@@ -183,11 +183,23 @@ const AdminPage = () => {
     };
 
     const handleRoleChange = async (userId, role) => {
+        const roleNames = { user: 'Oddiy foydalanuvchi', admin: 'Admin', delivery: 'Kuryer' };
+        if (user && userId === user.id) {
+            alert('Siz o\'zingizning rolingizni o\'zgartira olmaysiz!');
+            fetchData();
+            return;
+        }
+        if (!window.confirm(`Rolingizni "${roleNames[role] || role}" ga o'zgartirmoqchimisiz?`)) {
+            fetchData(); // Reset select
+            return;
+        }
         try {
             await api.post('/admin/role', { userId, role });
+            alert(`✅ Rol muvaffaqiyatli "${roleNames[role]}" ga o'zgartirildi!`);
             fetchData();
         } catch (err) {
-            alert('Failed to update role');
+            alert(err.response?.data?.error || 'Rolni yangilashda xatolik yuz berdi');
+            fetchData();
         }
     };
 

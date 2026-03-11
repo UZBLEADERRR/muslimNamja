@@ -66,7 +66,7 @@ const userController = {
     // Update profile
     async updateProfile(req, res) {
         try {
-            const { phone, address, location, nickname, isPrivate } = req.body;
+            const { phone, address, location, nickname, isPrivate, addressDetails } = req.body;
             const userId = req.user.userId;
 
             const updates = {};
@@ -74,6 +74,7 @@ const userController = {
             if (address !== undefined) updates.address = address;
             if (nickname !== undefined) updates.nickname = nickname;
             if (isPrivate !== undefined) updates.isPrivate = isPrivate;
+            if (addressDetails !== undefined) updates.addressDetails = addressDetails;
             if (location) {
                 updates.location = location;
                 updates.distanceFromRestaurant = calculateDistance(
@@ -96,6 +97,7 @@ const userController = {
                     distanceFromRestaurant: u.distanceFromRestaurant,
                     phone: u.phone, address: u.address, location: u.location,
                     nickname: u.nickname, isPrivate: u.isPrivate, avatarUrl: u.avatarUrl,
+                    addressDetails: u.addressDetails,
                 }
             });
         } catch (error) {

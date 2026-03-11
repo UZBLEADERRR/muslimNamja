@@ -52,6 +52,10 @@ const User = sequelize.define('User', {
     isPrivate: {
         type: DataTypes.BOOLEAN,
         defaultValue: false
+    },
+    addressDetails: {
+        type: DataTypes.JSONB,  // { floor, apartment, note }
+        allowNull: true
     }
 }, {
     timestamps: true

@@ -5,6 +5,7 @@ import { useAppStore } from '../store/useAppStore';
 import api from '../utils/api';
 import { Image, Edit2, Trash2, X, Pin, Copy, Reply, Users, Send, DollarSign, MessageCircle } from 'lucide-react';
 import io from 'socket.io-client';
+import DirectChat from '../components/DirectChat';
 
 const SOCKET_URL = (import.meta.env.VITE_API_URL || '').replace('/api', '') || window.location.origin;
 
@@ -58,6 +59,7 @@ const CommunityPage = () => {
     const [transferAmount, setTransferAmount] = useState('');
     const [transferring, setTransferring] = useState(false);
     const [selectedProfile, setSelectedProfile] = useState(null);
+    const [dmConversation, setDmConversation] = useState(null);
 
     // Swipe state
     const [swipingId, setSwipingId] = useState(null);
@@ -526,10 +528,14 @@ const CommunityPage = () => {
                         <div style={{ display: 'flex', gap: 10, position: 'relative', zIndex: 2 }}>
                             <button onClick={async () => {
                                 try {
-                                    await api.post(`/inbox/${selectedProfile.id}`, { text: `Salom! 👋` });
-                                } catch (e) { /* ignore if already exists */ }
-                                setSelectedProfile(null);
-                                navigate('/track?tab=chat');
+                                    const res = await api.post(`/inbox/${selectedProfile.id}`, { text: `Salom! 👋` });
+                                    const conv = res.data || { type: 'dm', targetId: selectedProfile.id, name: selectedProfile.nickname || selectedProfile.firstName };
+                                    setSelectedProfile(null);
+                                    setDmConversation(conv);
+                                } catch (e) {
+                                    setSelectedProfile(null);
+                                    setDmConversation({ type: 'dm', targetId: selectedProfile.id, name: selectedProfile.nickname || selectedProfile.firstName });
+                                }
                             }} style={{ flex: 1, padding: 14, borderRadius: 14, background: 'var(--brand-accent2)', color: '#fff', border: 'none', fontWeight: 800, fontSize: 15, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
                                 <MessageCircle size={18} /> Xabar yozish
                             </button>
@@ -538,6 +544,13 @@ const CommunityPage = () => {
                             </button>
                         </div>
                     </div>
+                </div>
+            )}
+
+            {/* DirectChat Overlay from Profile */}
+            {dmConversation && (
+                <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'var(--bg-primary)' }}>
+                    <DirectChat conversation={dmConversation} onBack={() => setDmConversation(null)} />
                 </div>
             )}
 

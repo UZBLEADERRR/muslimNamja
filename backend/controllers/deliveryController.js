@@ -38,7 +38,7 @@ const deliveryController = {
         try {
             const deliveryManId = req.user.userId;
             const orders = await Order.findAll({
-                where: { deliveryManId, status: 'delivering' },
+                where: { deliveryManId, status: { [Op.in]: ['ready_for_pickup', 'delivering', 'delivered_awaiting_review'] } },
                 order: [['distance', 'ASC']] // Smart routing: Nearest first
             });
 

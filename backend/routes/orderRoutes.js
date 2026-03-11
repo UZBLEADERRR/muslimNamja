@@ -28,4 +28,8 @@ router.post('/:id/confirm-delivery', authMiddleware(), orderController.confirmDe
 // Driver notifies user they are nearby
 router.post('/:id/notify-nearby', authMiddleware(), orderController.notifyNearby);
 
+// Get delivery driver location (accessible to any logged-in user for tracking)
+const { deliveryController } = require('../controllers/deliveryController');
+router.get('/:id/location', authMiddleware(), deliveryController.getOrderLocation);
+
 module.exports = router;

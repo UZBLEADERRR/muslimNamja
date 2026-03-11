@@ -62,6 +62,9 @@ const CartPage = () => {
         if (!canAfford) {
             return alert(t('insufficient_balance'));
         }
+        if (!user?.address || user.address.trim() === '') {
+            return alert("Buyurtma berish uchun doimiy manzilingizni kiriting! Profil sahifasida 'Tahrirlash' tugmasini bosing va manzilni to'ldiring.");
+        }
 
         setIsProcessing(true);
         try {
@@ -239,6 +242,17 @@ const CartPage = () => {
                     </div>
                 )}
             </div>
+
+            {/* Address Missing Warning */}
+            {(!user?.address || user.address.trim() === '') && (
+                <div onClick={() => navigate('/profile')} style={{ background: 'rgba(243,156,18,0.1)', border: '1px solid rgba(243,156,18,0.3)', borderRadius: 16, padding: '14px 18px', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer' }}>
+                    <span style={{ fontSize: 24 }}>🏠</span>
+                    <div style={{ flex: 1 }}>
+                        <div style={{ color: '#F39C12', fontWeight: 700, fontSize: 13 }}>Doimiy manzil kiritilmagan!</div>
+                        <div style={{ color: 'var(--text-secondary)', fontSize: 11 }}>Buyurtma berish uchun profildan manzilni to'ldiring →</div>
+                    </div>
+                </div>
+            )}
 
             {/* Checkout Button */}
             <button

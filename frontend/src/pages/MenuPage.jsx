@@ -267,69 +267,84 @@ const MenuPage = () => {
                 </div>
             )}
 
-            {/* Product Detail Modal */}
+            {/* Product Detail — Fullscreen Page */}
             {selectedFood && (
-                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 999, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => setSelectedFood(null)}>
-                    <div onClick={e => e.stopPropagation()} style={{ width: '90%', maxWidth: 430, maxHeight: '85vh', background: 'var(--bg-primary)', borderRadius: '24px', overflow: 'auto', animation: 'scaleUp 0.3s ease' }}>
-                        {/* Product Image */}
-                        <div style={{ height: 200, background: `linear-gradient(135deg, #F5A62333, #F5A62366)`, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
-                            {selectedFood.imageUrl?.startsWith('data:image')
-                                ? <img src={selectedFood.imageUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                : <span style={{ fontSize: 80 }}>{selectedFood.imageUrl || '🍽️'}</span>}
-                            <button onClick={() => setSelectedFood(null)} style={{ position: 'absolute', top: 12, right: 12, width: 36, height: 36, borderRadius: '50%', background: 'rgba(0,0,0,0.5)', color: '#fff', border: 'none', fontSize: 18, cursor: 'pointer' }}>✕</button>
-                        </div>
+                <div style={{ position: 'fixed', inset: 0, background: 'var(--bg-primary)', zIndex: 999, display: 'flex', flexDirection: 'column', animation: 'slideUp 0.3s ease' }}>
+                    <style>{`@keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }`}</style>
+                    
+                    {/* Product Image — Full Width */}
+                    <div style={{ height: 280, background: `linear-gradient(135deg, #F5A62333, #F5A62366)`, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', flexShrink: 0 }}>
+                        {selectedFood.imageUrl?.startsWith('data:image')
+                            ? <img src={selectedFood.imageUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                            : <span style={{ fontSize: 100 }}>{selectedFood.imageUrl || '🍽️'}</span>}
+                        <button onClick={() => setSelectedFood(null)} style={{ position: 'absolute', top: 16, left: 16, width: 40, height: 40, borderRadius: '50%', background: 'rgba(0,0,0,0.5)', color: '#fff', border: 'none', fontSize: 20, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(10px)' }}>←</button>
+                        {selectedFood.stock === 0 && (
+                            <div style={{ position: 'absolute', bottom: 16, left: 16, background: 'rgba(231,76,60,0.9)', color: '#fff', padding: '6px 14px', borderRadius: 12, fontWeight: 800, fontSize: 13 }}>Sotuvda yo'q</div>
+                        )}
+                    </div>
 
-                        <div style={{ padding: '20px' }}>
-                            <h2 style={{ margin: '0 0 4px', color: 'var(--text-primary)', fontFamily: "'Fraunces', serif", fontSize: 22 }}>{getName(selectedFood)}</h2>
-                            <p style={{ color: 'var(--text-secondary)', fontSize: 13, margin: '0 0 16px', lineHeight: 1.5 }}>{getDesc(selectedFood)}</p>
-                            <div style={{ fontSize: 22, fontWeight: 900, color: 'var(--brand-accent)', fontFamily: "'Fraunces', serif", marginBottom: 20 }}>₩{selectedFood.price?.toLocaleString()}</div>
-
-                            {/* Extras / Add-ons */}
-                            {selectedFood.addons && selectedFood.addons.length > 0 && (
-                                <div style={{ marginBottom: 20 }}>
-                                    <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--text-primary)', marginBottom: 10 }}>➕ Qo'shimchalar</div>
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                                        {selectedFood.addons.map((addon, i) => {
-                                            const isSelected = selectedExtras.find(e => e.name === addon.name);
-                                            return (
-                                                <div key={i} onClick={() => toggleExtra(addon)} style={{
-                                                    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                                                    padding: '12px 14px', borderRadius: 14, cursor: 'pointer',
-                                                    background: isSelected ? 'rgba(255,107,53,0.1)' : 'var(--card-bg)',
-                                                    border: `2px solid ${isSelected ? 'var(--brand-accent)' : 'var(--card-border)'}`,
-                                                    transition: 'all 0.2s'
-                                                }}>
-                                                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                                                        <div style={{ width: 22, height: 22, borderRadius: 6, border: `2px solid ${isSelected ? 'var(--brand-accent)' : 'var(--card-border)'}`, background: isSelected ? 'var(--brand-accent)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 14, transition: 'all 0.2s' }}>
-                                                            {isSelected && '✓'}
-                                                        </div>
-                                                        <span style={{ color: 'var(--text-primary)', fontWeight: 600, fontSize: 14 }}>{addon.name}</span>
-                                                    </div>
-                                                    <span style={{ color: 'var(--brand-accent)', fontWeight: 800, fontSize: 14 }}>+₩{(addon.price || 0).toLocaleString()}</span>
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-                                </div>
+                    {/* Scrollable Content */}
+                    <div style={{ flex: 1, overflowY: 'auto', padding: '20px 20px 120px' }}>
+                        <h2 style={{ margin: '0 0 6px', color: 'var(--text-primary)', fontFamily: "'Fraunces', serif", fontSize: 26, fontWeight: 900 }}>{getName(selectedFood)}</h2>
+                        <p style={{ color: 'var(--text-secondary)', fontSize: 14, margin: '0 0 16px', lineHeight: 1.6 }}>{getDesc(selectedFood)}</p>
+                        
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
+                            <div style={{ fontSize: 26, fontWeight: 900, color: 'var(--brand-accent)', fontFamily: "'Fraunces', serif" }}>₩{selectedFood.price?.toLocaleString()}</div>
+                            {selectedFood.minOrderQuantity > 1 && (
+                                <div style={{ background: 'rgba(255,107,53,0.1)', color: 'var(--brand-accent)', padding: '4px 10px', borderRadius: 8, fontSize: 11, fontWeight: 700 }}>Min {selectedFood.minOrderQuantity} ta</div>
                             )}
-
-                            {/* Quantity */}
-                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 20, marginBottom: 20 }}>
-                                <button onClick={() => setQty(Math.max(selectedFood.minOrderQuantity || 1, qty - 1))} style={{ width: 40, height: 40, borderRadius: '50%', border: '2px solid var(--card-border)', background: 'var(--card-bg)', color: 'var(--text-primary)', fontSize: 20, cursor: 'pointer' }}>−</button>
-                                <span style={{ fontSize: 22, fontWeight: 900, color: 'var(--text-primary)', minWidth: 30, textAlign: 'center' }}>{qty}</span>
-                                <button onClick={() => setQty(qty + 1)} style={{ width: 40, height: 40, borderRadius: '50%', border: '2px solid var(--brand-accent)', background: 'var(--brand-accent)', color: '#fff', fontSize: 20, cursor: 'pointer' }}>+</button>
-                            </div>
-
-                            {/* Total & Add */}
-                            <button
-                                onClick={() => handleAddToCart(selectedFood, selectedExtras, qty)}
-                                disabled={selectedFood.stock === 0 || !isStoreOpen}
-                                style={{ width: '100%', padding: '16px', borderRadius: 16, border: 'none', background: 'linear-gradient(135deg, var(--brand-accent), #FF3CAC)', color: '#fff', fontWeight: 800, fontSize: 16, cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
-                            >
-                                <span>🛒 Savatga qo'shish</span>
-                                <span>₩{((selectedFood.price + selectedExtras.reduce((s, e) => s + (e.price || 0), 0)) * qty).toLocaleString()}</span>
-                            </button>
                         </div>
+
+                        {/* Extras / Add-ons */}
+                        {selectedFood.addons && selectedFood.addons.length > 0 && (
+                            <div style={{ marginBottom: 24 }}>
+                                <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--text-primary)', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8 }}>➕ Qo'shimchalar</div>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                                    {selectedFood.addons.map((addon, i) => {
+                                        const isSelected = selectedExtras.find(e => e.name === addon.name);
+                                        return (
+                                            <div key={i} onClick={() => toggleExtra(addon)} style={{
+                                                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                                                padding: '14px 16px', borderRadius: 16, cursor: 'pointer',
+                                                background: isSelected ? 'rgba(255,107,53,0.1)' : 'var(--card-bg)',
+                                                border: `2px solid ${isSelected ? 'var(--brand-accent)' : 'var(--card-border)'}`,
+                                                transition: 'all 0.2s'
+                                            }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                                                    <div style={{ width: 24, height: 24, borderRadius: 8, border: `2px solid ${isSelected ? 'var(--brand-accent)' : 'var(--card-border)'}`, background: isSelected ? 'var(--brand-accent)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 14, transition: 'all 0.2s' }}>
+                                                        {isSelected && '✓'}
+                                                    </div>
+                                                    <span style={{ color: 'var(--text-primary)', fontWeight: 600, fontSize: 15 }}>{addon.name}</span>
+                                                </div>
+                                                <span style={{ color: 'var(--brand-accent)', fontWeight: 800, fontSize: 15 }}>+₩{(addon.price || 0).toLocaleString()}</span>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Quantity */}
+                        <div style={{ background: 'var(--card-bg)', borderRadius: 18, padding: '16px 20px', border: '1px solid var(--card-border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                            <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)' }}>Miqdor</div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                                <button onClick={() => setQty(Math.max(selectedFood.minOrderQuantity || 1, qty - 1))} style={{ width: 44, height: 44, borderRadius: '50%', border: '2px solid var(--card-border)', background: 'var(--card-bg)', color: 'var(--text-primary)', fontSize: 22, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>−</button>
+                                <span style={{ fontSize: 24, fontWeight: 900, color: 'var(--text-primary)', minWidth: 36, textAlign: 'center' }}>{qty}</span>
+                                <button onClick={() => setQty(qty + 1)} style={{ width: 44, height: 44, borderRadius: '50%', border: '2px solid var(--brand-accent)', background: 'var(--brand-accent)', color: '#fff', fontSize: 22, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>+</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Fixed Bottom — Add to Cart */}
+                    <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '16px 20px', background: 'var(--bg-primary)', borderTop: '1px solid var(--card-border)', backdropFilter: 'blur(12px)' }}>
+                        <button
+                            onClick={() => handleAddToCart(selectedFood, selectedExtras, qty)}
+                            disabled={selectedFood.stock === 0 || !isStoreOpen}
+                            style={{ width: '100%', padding: '18px', borderRadius: 18, border: 'none', background: selectedFood.stock === 0 || !isStoreOpen ? '#95a5a6' : 'linear-gradient(135deg, var(--brand-accent), #FF3CAC)', color: '#fff', fontWeight: 800, fontSize: 17, cursor: selectedFood.stock === 0 || !isStoreOpen ? 'not-allowed' : 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxShadow: '0 4px 20px rgba(255,107,53,0.3)' }}
+                        >
+                            <span>🛒 Savatga qo'shish</span>
+                            <span>₩{((selectedFood.price + selectedExtras.reduce((s, e) => s + (e.price || 0), 0)) * qty).toLocaleString()}</span>
+                        </button>
                     </div>
                 </div>
             )}

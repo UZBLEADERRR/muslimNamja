@@ -85,7 +85,7 @@ const TrackPage = () => {
         if (activeOrder) {
             socket.emit('join-room', `order_${activeOrder.id}`);
             // Fetch initial driver location
-            api.get(`/delivery/orders/${activeOrder.id}/location`)
+            api.get(`/orders/${activeOrder.id}/location`)
                 .then(res => { if (res.data) setDriverLocation(res.data); })
                 .catch(() => null);
         }

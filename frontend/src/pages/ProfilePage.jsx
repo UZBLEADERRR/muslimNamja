@@ -49,6 +49,11 @@ const ProfilePage = () => {
     const [isPrivate, setIsPrivate] = useState(false);
     const [location, setLocation] = useState(null);
     const [saving, setSaving] = useState(false);
+    const [gettingLocation, setGettingLocation] = useState(false);
+    // Extra address details
+    const [floor, setFloor] = useState('');
+    const [apartment, setApartment] = useState('');
+    const [addressNote, setAddressNote] = useState('');
 
     // Top-up Modal
     const [showTopUp, setShowTopUp] = useState(false);
@@ -73,6 +78,11 @@ const ProfilePage = () => {
             setNickname(user.nickname || '');
             setIsPrivate(user.isPrivate || false);
             setLocation(user.location || null);
+            // Load extra address details
+            const details = user.addressDetails || {};
+            setFloor(details.floor || '');
+            setApartment(details.apartment || '');
+            setAddressNote(details.note || '');
 
             Promise.all([
                 api.get('/users/history').catch(() => ({ data: { orders: [], paymentRequests: [] } })),
@@ -106,17 +116,34 @@ const ProfilePage = () => {
             alert("Sizning qurilmangiz joylashuvni qo'llab-quvvatlamaydi.");
             return;
         }
-        navigator.geolocation.getCurrentPosition((pos) => {
+        setGettingLocation(true);
+        navigator.geolocation.getCurrentPosition(async (pos) => {
             const lat = pos.coords.latitude;
             const lng = pos.coords.longitude;
             const dist = calculateDistance(STORE_LOCATION.lat, STORE_LOCATION.lng, lat, lng);
             if (dist > 3) {
                 alert(`Sizning manzil do'kondon juda uzoqda (${dist.toFixed(1)} km). Yetkazib berish 3km doirasida mumkin!`);
-            } else {
-                setLocation({ lat, lng });
-                alert(`✅ Joylashuv aniqlandi! Masofa: ${dist.toFixed(1)} km`);
+                setGettingLocation(false);
+                return;
             }
+            setLocation({ lat, lng });
+
+            // AI reverse geocode
+            try {
+                const res = await api.post('/ai/reverse-geocode', { lat, lng });
+                if (res.data?.address) {
+                    setAddress(res.data.address);
+                    alert(`✅ Joylashuv aniqlandi va manzil avtomatik to'ldirildi!\nMasofa: ${dist.toFixed(1)} km\n\nIltimos, qavat va uy raqamini ham kiriting.`);
+                } else {
+                    alert(`✅ Joylashuv aniqlandi! Masofa: ${dist.toFixed(1)} km\n\nManzilni qo'lda kiriting.`);
+                }
+            } catch (e) {
+                console.error('Reverse geocode failed:', e);
+                alert(`✅ Joylashuv aniqlandi! Masofa: ${dist.toFixed(1)} km\n\nAI manzil aniqlay olmadi. Qo'lda kiriting.`);
+            }
+            setGettingLocation(false);
         }, (err) => {
+            setGettingLocation(false);
             alert("Joylashuvni aniqlash uchun ruxsat bering!");
         });
     };
@@ -136,8 +163,9 @@ const ProfilePage = () => {
 
         setSaving(true);
         try {
-            const res = await api.put('/users/profile', { phone, address, location, nickname, isPrivate, distanceFromRestaurant: finalDist });
-            setUser(res.data.user || { ...user, phone, address, location, nickname, isPrivate, distanceFromRestaurant: finalDist }, token);
+            const addressDetails = { floor: floor || '', apartment: apartment || '', note: addressNote || '' };
+            const res = await api.put('/users/profile', { phone, address, location, nickname, isPrivate, distanceFromRestaurant: finalDist, addressDetails });
+            setUser(res.data.user || { ...user, phone, address, location, nickname, isPrivate, distanceFromRestaurant: finalDist, addressDetails }, token);
             setShowEdit(false);
             alert('✅ Saqlandi!');
         } catch (err) {
@@ -333,10 +361,24 @@ const ProfilePage = () => {
                                 <div style={{ fontSize: 12, color: location ? '#00F5A0' : 'var(--text-secondary)' }}>
                                     {location ? `📍 Aniqlandi (${calculateDistance(STORE_LOCATION.lat, STORE_LOCATION.lng, location.lat, location.lng).toFixed(1)} km)` : 'Gps kiritilmagan'}
                                 </div>
-                                <button type="button" onClick={handleGetLocation} style={{ background: 'var(--brand-accent2)', color: '#fff', border: 'none', padding: '6px 12px', borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
-                                    Lokatsiya oling
+                                <button type="button" onClick={handleGetLocation} disabled={gettingLocation} style={{ background: 'var(--brand-accent2)', color: '#fff', border: 'none', padding: '6px 12px', borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: 'pointer', opacity: gettingLocation ? 0.6 : 1 }}>
+                                    {gettingLocation ? '⏳ Aniqlanmoqda...' : '📍 Lokatsiya oling'}
                                 </button>
                             </div>
+                        </div>
+                        <div style={{ marginTop: 10, display: 'flex', gap: 8 }}>
+                            <div style={{ flex: 1 }}>
+                                <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 4 }}>Qavat (etaj)</div>
+                                <input value={floor} onChange={e => setFloor(e.target.value)} placeholder="masalan: 3" style={inputStyle} />
+                            </div>
+                            <div style={{ flex: 1 }}>
+                                <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 4 }}>Uy/Xona raqami</div>
+                                <input value={apartment} onChange={e => setApartment(e.target.value)} placeholder="masalan: 305" style={inputStyle} />
+                            </div>
+                        </div>
+                        <div style={{ marginTop: 8 }}>
+                            <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 4 }}>Qo'shimcha ma'lumot</div>
+                            <input value={addressNote} onChange={e => setAddressNote(e.target.value)} placeholder="masalan: Kirish eshigi chap tomonda" style={inputStyle} />
                         </div>
                         <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', background: 'var(--bg-secondary)', padding: "12px 14px", borderRadius: 12, border: '1px solid var(--card-border)' }}>
                             <input type="checkbox" checked={isPrivate} onChange={e => setIsPrivate(e.target.checked)} style={{ width: 18, height: 18, accentColor: 'var(--brand-accent)' }} />

@@ -1,10 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { PhoneOff, Video, Mic, MicOff, VideoOff } from 'lucide-react';
-import { io } from 'socket.io-client';
 import Peer from 'simple-peer';
-
-const SOCKET_URL = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace('/api', '') : 'http://localhost:5000';
-let socket = null;
 
 const VideoCallModal = ({ 
     callerName, 
@@ -64,7 +60,15 @@ const VideoCallModal = ({
             })
             .catch(err => {
                 console.error("Camera access denied", err);
-                alert("Kamera yoki mikrofonga ruxsat yo'q.");
+                if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+                    alert("Kamera va mikrofonga ruxsat berilmadi. Iltimos, brauzer sozlamalaridan ruxsat bering va qayta urinib ko'ring.");
+                } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
+                    alert("Kamera yoki mikrofon topilmadi. Qurilmangizda kamera borligiga ishonch hosil qiling.");
+                } else if (err.name === 'NotReadableError' || err.name === 'TrackStartError') {
+                    alert("Kamera yoki mikrofon boshqa ilova tomonidan ishlatilmoqda. Boshqa ilovalarni yoping va qayta urinib ko'ring.");
+                } else {
+                    alert(`Kamera yoki mikrofonga ulanishda xatolik: ${err.message}`);
+                }
                 onEndCall();
             });
 

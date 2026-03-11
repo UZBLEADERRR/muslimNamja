@@ -13,4 +13,7 @@ router.use(authMiddleware()); // Only logged-in users or admins can verify payme
 // Upload and verify a screenshot
 router.post('/verify-payment', upload.single('screenshot'), aiController.verifyPayment);
 
+// Reverse geocode GPS coordinates to address via AI
+router.post('/reverse-geocode', aiController.reverseGeocode);
+
 module.exports = router;
