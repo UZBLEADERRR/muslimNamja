@@ -84,9 +84,13 @@ const TrackPage = () => {
         
         if (activeOrder) {
             socket.emit('join-room', `order_${activeOrder.id}`);
-            // Fetch initial driver location
+            // Fetch initial driver location for any active order status
             api.get(`/orders/${activeOrder.id}/location`)
                 .then(res => { if (res.data) setDriverLocation(res.data); })
+                .catch(() => null);
+            // Also try tracking endpoint
+            api.get(`/orders/${activeOrder.id}/tracking`)
+                .then(res => { if (res.data?.driverLocation) setDriverLocation(res.data.driverLocation); })
                 .catch(() => null);
         }
         
@@ -199,29 +203,45 @@ const TrackPage = () => {
                                 </div>
                             )}
 
-                            {/* Live Map */}
-                            {user?.location && driverLocation && ['delivering', 'delivered_awaiting_review'].includes(activeOrder.status) && (
+                            {/* Live Map — shows for ALL active order stages */}
+                            {user?.location && (
                                 <div style={{ margin: '0 20px 16px', height: 250, borderRadius: 20, overflow: 'hidden', border: '1px solid var(--card-border)', background: '#eee' }}>
-                                    <MapContainer center={[driverLocation.lat, driverLocation.lng]} zoom={15} style={{ height: '100%', width: '100%' }} zoomControl={false}>
+                                    <MapContainer center={driverLocation ? [driverLocation.lat, driverLocation.lng] : [user.location.lat, user.location.lng]} zoom={15} style={{ height: '100%', width: '100%' }} zoomControl={false}>
                                         <TileLayer url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png" />
                                         
-                                        <Polyline positions={[
-                                            [driverLocation.lat, driverLocation.lng],
-                                            [user.location.lat, user.location.lng]
-                                        ]} color="#e74c3c" weight={4} dashArray="8, 8" opacity={0.7} />
+                                        {/* Route line — only when driver location is available */}
+                                        {driverLocation && (
+                                            <Polyline positions={[
+                                                [driverLocation.lat, driverLocation.lng],
+                                                [user.location.lat, user.location.lng]
+                                            ]} color="#e74c3c" weight={4} dashArray="8, 8" opacity={0.7} />
+                                        )}
 
-                                        <Marker position={[driverLocation.lat, driverLocation.lng]} icon={
-                                            new L.DivIcon({ className: 'courier-icon', html: '<div style="font-size:20px; background:#fff; border-radius:50%; width:30px; height:30px; display:flex; align-items:center; justify-content:center; box-shadow:0 4px 12px rgba(0,0,0,0.2); border: 2px solid #27AE60;">🛵</div>', iconSize: [30, 30] })
-                                        }>
-                                            <Popup>Kuryer</Popup>
-                                        </Marker>
+                                        {/* Driver marker — only when driver location is available */}
+                                        {driverLocation && (
+                                            <Marker position={[driverLocation.lat, driverLocation.lng]} icon={
+                                                new L.DivIcon({ className: 'courier-icon', html: '<div style="font-size:20px; background:#fff; border-radius:50%; width:30px; height:30px; display:flex; align-items:center; justify-content:center; box-shadow:0 4px 12px rgba(0,0,0,0.2); border: 2px solid #27AE60;">🛵</div>', iconSize: [30, 30] })
+                                            }>
+                                                <Popup>Kuryer</Popup>
+                                            </Marker>
+                                        )}
 
+                                        {/* User home marker — always shown */}
                                         <Marker position={[user.location.lat, user.location.lng]} icon={
                                             new L.DivIcon({ className: 'home-icon', html: '<div style="font-size:20px; background:#fff; border-radius:50%; width:30px; height:30px; display:flex; align-items:center; justify-content:center; box-shadow:0 4px 12px rgba(0,0,0,0.2); border: 2px solid #FF3CAC;">🏠</div>', iconSize: [30, 30] })
                                         }>
                                             <Popup>Sizning manzilingiz</Popup>
                                         </Marker>
                                     </MapContainer>
+
+                                    {/* Map status overlay */}
+                                    {!driverLocation && (
+                                        <div style={{ position: 'relative', marginTop: -40, textAlign: 'center', zIndex: 400 }}>
+                                            <span style={{ background: 'rgba(0,0,0,0.7)', color: '#fff', padding: '4px 12px', borderRadius: 12, fontSize: 11, fontWeight: 600 }}>
+                                                📍 Kuryer joylashuvi hali aniqlanmagan
+                                            </span>
+                                        </div>
+                                    )}
                                 </div>
                             )}
 

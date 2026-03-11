@@ -339,7 +339,8 @@ const adminController = {
     // --- Expanded Finance & Demographic Stats ---
     async getFullStats(req, res) {
         try {
-            const users = await User.findAll({ attributes: ['id', 'walletBalance', 'gender', 'createdAt'] });
+            const period = req.query.period || 'weekly'; // daily, weekly, monthly, yearly
+            const users = await User.findAll({ attributes: ['id', 'firstName', 'lastName', 'username', 'walletBalance', 'gender', 'createdAt'] });
 
             // Wallet Pool
             const totalWalletPool = users.reduce((sum, u) => sum + (u.walletBalance || 0), 0);
@@ -360,31 +361,95 @@ const adminController = {
                 limit: 20
             });
 
-            // Peak Hours: group orders by hour
-            const allOrders = await Order.findAll({ attributes: ['createdAt', 'totalAmount'] });
+            // Period date range
+            const now = new Date();
+            let periodStart = new Date(now);
+            if (period === 'daily') periodStart.setDate(now.getDate() - 1);
+            else if (period === 'weekly') periodStart.setDate(now.getDate() - 7);
+            else if (period === 'monthly') periodStart.setMonth(now.getMonth() - 1);
+            else if (period === 'yearly') periodStart.setFullYear(now.getFullYear() - 1);
+
+            // All orders + period-filtered orders
+            const allOrders = await Order.findAll({ attributes: ['createdAt', 'totalAmount', 'userId', 'items', 'status'] });
+            const periodOrders = allOrders.filter(o => new Date(o.createdAt) >= periodStart);
+            const completedPeriodOrders = periodOrders.filter(o => o.status === 'completed');
+            
             const hourCounts = Array(24).fill(0);
             const dailyRevenueMap = {};
 
-            allOrders.forEach(o => {
+            periodOrders.forEach(o => {
                 const d = new Date(o.createdAt);
                 hourCounts[d.getHours()]++;
 
-                // Daily revenue for last 7 days
                 const dayKey = d.toISOString().split('T')[0];
                 dailyRevenueMap[dayKey] = (dailyRevenueMap[dayKey] || 0) + (o.totalAmount || 0);
             });
 
             const peakHours = hourCounts.map((count, hour) => ({ hour: `${hour}:00`, count }));
 
-            // Last 7 days revenue
-            const today = new Date();
+            // Revenue chart data based on period
             const dailyRevenue = [];
-            for (let i = 6; i >= 0; i--) {
-                const d = new Date(today);
+            const daysToShow = period === 'daily' ? 1 : period === 'weekly' ? 7 : period === 'monthly' ? 30 : 365;
+            for (let i = Math.min(daysToShow - 1, 30); i >= 0; i--) {
+                const d = new Date(now);
                 d.setDate(d.getDate() - i);
                 const key = d.toISOString().split('T')[0];
                 dailyRevenue.push({ date: key.substring(5), revenue: dailyRevenueMap[key] || 0 });
             }
+
+            // Top Users (most orders in period)
+            const userOrderCounts = {};
+            const userSpending = {};
+            periodOrders.forEach(o => {
+                if (o.userId) {
+                    userOrderCounts[o.userId] = (userOrderCounts[o.userId] || 0) + 1;
+                    userSpending[o.userId] = (userSpending[o.userId] || 0) + (o.totalAmount || 0);
+                }
+            });
+            const userMap = users.reduce((acc, u) => { acc[u.id] = u; return acc; }, {});
+            const topUsers = Object.entries(userOrderCounts)
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 10)
+                .map(([userId, count]) => {
+                    const u = userMap[userId];
+                    return {
+                        id: userId,
+                        name: u ? `${u.firstName || ''} ${u.lastName || ''}`.trim() : 'Unknown',
+                        username: u?.username || '',
+                        orderCount: count,
+                        totalSpent: userSpending[userId] || 0
+                    };
+                });
+
+            // Top Addresses (most ordered addresses)
+            const addressCounts = {};
+            allOrders.forEach(o => {
+                if (o.items) {
+                    const u = userMap[o.userId];
+                    // Try to find address from user
+                }
+            });
+            // Use user addresses for top locations
+            const userAddressCounts = {};
+            periodOrders.forEach(o => {
+                const u = userMap[o.userId];
+                if (u) {
+                    // Group by user's registered address
+                    const addr = u.dataValues?.address || 'Noma\'lum';
+                    if (addr && addr.trim()) {
+                        userAddressCounts[addr] = (userAddressCounts[addr] || 0) + 1;
+                    }
+                }
+            });
+            const topAddresses = Object.entries(userAddressCounts)
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 10)
+                .map(([address, count]) => ({ address, orderCount: count }));
+
+            // Period summary
+            const periodRevenue = periodOrders.reduce((s, o) => s + (o.totalAmount || 0), 0);
+            const periodOrderCount = periodOrders.length;
+            const periodCompletedCount = completedPeriodOrders.length;
 
             res.json({
                 totalUsers: users.length,
@@ -392,7 +457,15 @@ const adminController = {
                 demographics: { male: maleCount, female: femaleCount, unknown: unknownCount },
                 recentExpenses,
                 peakHours,
-                dailyRevenue
+                dailyRevenue,
+                topUsers,
+                topAddresses,
+                periodSummary: {
+                    period,
+                    revenue: periodRevenue,
+                    orderCount: periodOrderCount,
+                    completedCount: periodCompletedCount
+                }
             });
         } catch (error) {
             console.error('Stats error:', error);

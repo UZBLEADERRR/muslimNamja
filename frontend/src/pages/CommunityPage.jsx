@@ -527,15 +527,14 @@ const CommunityPage = () => {
 
                         <div style={{ display: 'flex', gap: 10, position: 'relative', zIndex: 2 }}>
                             <button onClick={async () => {
+                                const dmData = { type: 'dm', targetId: selectedProfile.id, name: selectedProfile.nickname || selectedProfile.firstName };
                                 try {
-                                    const res = await api.post(`/inbox/${selectedProfile.id}`, { text: `Salom! 👋` });
-                                    const conv = res.data || { type: 'dm', targetId: selectedProfile.id, name: selectedProfile.nickname || selectedProfile.firstName };
-                                    setSelectedProfile(null);
-                                    setDmConversation(conv);
+                                    await api.post(`/inbox/${selectedProfile.id}`, { text: `Salom! 👋` });
                                 } catch (e) {
-                                    setSelectedProfile(null);
-                                    setDmConversation({ type: 'dm', targetId: selectedProfile.id, name: selectedProfile.nickname || selectedProfile.firstName });
+                                    console.log('DM init note:', e?.response?.data?.error || e.message);
                                 }
+                                setSelectedProfile(null);
+                                setDmConversation(dmData);
                             }} style={{ flex: 1, padding: 14, borderRadius: 14, background: 'var(--brand-accent2)', color: '#fff', border: 'none', fontWeight: 800, fontSize: 15, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
                                 <MessageCircle size={18} /> Xabar yozish
                             </button>

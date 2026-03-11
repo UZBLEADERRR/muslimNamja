@@ -8,9 +8,10 @@ import {
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line, CartesianGrid } from 'recharts';
 import StaffChat from './admin/StaffChat';
-import DirectChat from '../../components/DirectChat';
+import DirectChat from '../components/DirectChat';
 
 const AdminPage = () => {
+    const { user } = useAppStore();
     const { t, lang } = useTranslation();
     const [activeTab, setActiveTab] = useState('dashboard');
     const [loading, setLoading] = useState(false);
@@ -382,7 +383,15 @@ const AdminPage = () => {
                                 <span style={{ color: 'var(--text-primary)', fontWeight: 700, fontSize: 13 }}>Order #{(order.id || '').toString().slice(0, 8)}</span>
                                 <span style={{ color: order.status === 'completed' ? '#27AE60' : 'var(--brand-accent)', fontSize: 12, fontWeight: 800, textTransform: 'uppercase' }}>{order.status}</span>
                             </div>
-                            <div style={{ color: 'var(--text-secondary)', fontSize: 12, marginBottom: 12 }}>₩{(order.totalAmount || 0).toLocaleString()} · {new Date(order.createdAt).toLocaleDateString()}</div>
+                            <div style={{ color: 'var(--text-secondary)', fontSize: 12, marginBottom: 12 }}>
+                                ₩{(order.totalAmount || 0).toLocaleString()} · {new Date(order.createdAt).toLocaleDateString()}
+                                {order.items?.map((item, idx) => (
+                                    <div key={idx} style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 2 }}>
+                                        {item.productName || 'Item'} x{item.quantity}
+                                        {item.extras?.length > 0 && <span style={{ color: 'var(--brand-accent)', marginLeft: 4 }}>+{item.extras.map(e => e.name).join(', ')}</span>}
+                                    </div>
+                                ))}
+                            </div>
 
                             {/* Order Actions */}
                             <div style={{ display: 'flex', gap: 8 }}>
@@ -600,7 +609,7 @@ const AdminPage = () => {
                     {/* Daily Revenue Chart */}
                     {fullStats?.dailyRevenue && (
                         <div style={{ padding: 16, borderRadius: 16, background: 'var(--card-bg)', border: '1px solid var(--card-border)' }}>
-                            <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--text-primary)', marginBottom: 12 }}>📈 Oxirgi 7 kunlik daromad</div>
+                            <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--text-primary)', marginBottom: 12 }}>📈 {fullStats.periodSummary?.period === 'daily' ? 'Bugungi' : fullStats.periodSummary?.period === 'weekly' ? 'Haftalik' : fullStats.periodSummary?.period === 'monthly' ? 'Oylik' : 'Yillik'} daromad</div>
                             <ResponsiveContainer width="100%" height={180}>
                                 <LineChart data={fullStats.dailyRevenue}>
                                     <CartesianGrid strokeDasharray="3 3" stroke="var(--card-border)" />
@@ -610,6 +619,45 @@ const AdminPage = () => {
                                     <Line type="monotone" dataKey="revenue" stroke="#27AE60" strokeWidth={2} dot={{ fill: '#27AE60' }} />
                                 </LineChart>
                             </ResponsiveContainer>
+                        </div>
+                    )}
+
+                    {/* Top Users */}
+                    {fullStats?.topUsers && fullStats.topUsers.length > 0 && (
+                        <div style={{ padding: 16, borderRadius: 16, background: 'var(--card-bg)', border: '1px solid var(--card-border)' }}>
+                            <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--text-primary)', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8 }}>👑 Eng ko'p buyurtma berganlar</div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                {fullStats.topUsers.map((u, i) => (
+                                    <div key={u.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 12px', borderRadius: 12, background: i < 3 ? 'rgba(255,215,0,0.05)' : 'var(--bg-secondary)', border: i < 3 ? '1px solid rgba(255,215,0,0.2)' : '1px solid transparent' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                            <div style={{ width: 28, height: 28, borderRadius: '50%', background: i === 0 ? '#FFD700' : i === 1 ? '#C0C0C0' : i === 2 ? '#CD7F32' : 'var(--card-border)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 900, color: i < 3 ? '#000' : 'var(--text-secondary)' }}>{i + 1}</div>
+                                            <div>
+                                                <div style={{ color: 'var(--text-primary)', fontWeight: 700, fontSize: 13 }}>{u.name || u.username || 'Foydalanuvchi'}</div>
+                                                <div style={{ color: 'var(--text-secondary)', fontSize: 11 }}>{u.orderCount} ta buyurtma</div>
+                                            </div>
+                                        </div>
+                                        <div style={{ color: 'var(--brand-accent)', fontWeight: 800, fontSize: 14 }}>₩{(u.totalSpent || 0).toLocaleString()}</div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Top Addresses */}
+                    {fullStats?.topAddresses && fullStats.topAddresses.length > 0 && (
+                        <div style={{ padding: 16, borderRadius: 16, background: 'var(--card-bg)', border: '1px solid var(--card-border)' }}>
+                            <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--text-primary)', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8 }}>📍 Eng ko'p buyurtma qilingan manzillar</div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                {fullStats.topAddresses.map((a, i) => (
+                                    <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 12px', borderRadius: 12, background: 'var(--bg-secondary)' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                            <div style={{ fontSize: 16 }}>{i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : '📍'}</div>
+                                            <div style={{ color: 'var(--text-primary)', fontWeight: 600, fontSize: 13 }}>{a.address}</div>
+                                        </div>
+                                        <div style={{ color: 'var(--text-secondary)', fontWeight: 700, fontSize: 12, background: 'var(--card-bg)', padding: '4px 10px', borderRadius: 8 }}>{a.orderCount} ta</div>
+                                    </div>
+                                ))}
+                            </div>
                         </div>
                     )}
 

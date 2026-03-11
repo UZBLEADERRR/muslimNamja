@@ -2,6 +2,9 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useTranslation } from '../i18n';
 import { useAppStore } from '../store/useAppStore';
 import api from '../utils/api';
+import { io } from 'socket.io-client';
+
+const SOCKET_URL = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace('/api', '') : 'http://localhost:5000';
 
 const LANG_LIST = [
     { code: "en", name: "English", flag: "🇬🇧" },
@@ -96,6 +99,34 @@ const ProfilePage = () => {
             });
         }
     }, [user]);
+
+    // Real-time wallet balance sync via Socket.IO
+    useEffect(() => {
+        if (!user) return;
+        const socket = io(SOCKET_URL, { transports: ['websocket', 'polling'] });
+        socket.emit('join-room', `user_${user.id}`);
+        
+        socket.on('balance-updated', (data) => {
+            if (data?.balance !== undefined) {
+                setUser({ ...user, walletBalance: data.balance }, token);
+            }
+        });
+
+        // Also poll every 30s as fallback
+        const interval = setInterval(async () => {
+            try {
+                const res = await api.get('/users/me');
+                if (res.data?.walletBalance !== undefined && res.data.walletBalance !== user.walletBalance) {
+                    setUser({ ...user, walletBalance: res.data.walletBalance }, token);
+                }
+            } catch (e) { /* ignore */ }
+        }, 30000);
+
+        return () => {
+            socket.disconnect();
+            clearInterval(interval);
+        };
+    }, [user?.id]);
 
     // Approximate center for Sejong University (Seoul Campus area)
     const STORE_LOCATION = { lat: 37.5503, lng: 127.0731 };
