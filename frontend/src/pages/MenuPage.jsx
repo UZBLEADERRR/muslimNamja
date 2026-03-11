@@ -269,8 +269,8 @@ const MenuPage = () => {
 
             {/* Product Detail Modal */}
             {selectedFood && (
-                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 999, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }} onClick={() => setSelectedFood(null)}>
-                    <div onClick={e => e.stopPropagation()} style={{ width: '100%', maxWidth: 430, maxHeight: '85vh', background: 'var(--bg-primary)', borderRadius: '24px 24px 0 0', overflow: 'auto', animation: 'slideUp 0.3s ease' }}>
+                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 999, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => setSelectedFood(null)}>
+                    <div onClick={e => e.stopPropagation()} style={{ width: '90%', maxWidth: 430, maxHeight: '85vh', background: 'var(--bg-primary)', borderRadius: '24px', overflow: 'auto', animation: 'scaleUp 0.3s ease' }}>
                         {/* Product Image */}
                         <div style={{ height: 200, background: `linear-gradient(135deg, #F5A62333, #F5A62366)`, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
                             {selectedFood.imageUrl?.startsWith('data:image')

@@ -36,6 +36,15 @@ const TrackPage = () => {
     // Auto-switch to chat tab if URL has ?tab=chat
     const urlTab = new URLSearchParams(location.search).get('tab');
     const [activeTab, setActiveTab] = useState(urlTab === 'chat' ? 'chat' : 'tracking');
+    
+    useEffect(() => {
+        if (urlTab === 'chat') {
+            setActiveTab('chat');
+        } else if (urlTab === 'tracking') {
+            setActiveTab('tracking');
+        }
+    }, [urlTab]);
+
     const [activeOrder, setActiveOrder] = useState(null);
     const [driverLocation, setDriverLocation] = useState(null);
     const [loading, setLoading] = useState(true);

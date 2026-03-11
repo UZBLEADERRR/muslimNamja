@@ -59,7 +59,7 @@ const chatController = {
 
             // Emit via Socket.IO for real-time
             try {
-                const io = require('../server').io;
+                const io = req.app.get('io');
                 if (io) io.to('community').emit('new-community-msg', fullMsg);
             } catch (e) { /* io not available */ }
 
@@ -110,7 +110,7 @@ const chatController = {
 
             // Emit via Socket.IO
             try {
-                const io = require('../server').io;
+                const io = req.app.get('io');
                 if (io) io.to('community').emit('new-community-msg', fullMsg);
             } catch (e) { /* io not available */ }
 

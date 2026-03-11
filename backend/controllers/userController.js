@@ -167,6 +167,12 @@ const userController = {
 
             await trans.commit();
 
+            // Emit via Socket.io to notify the receiver
+            try {
+                const io = req.app.get('io');
+                if (io) io.emit('balance-updated', { userId: toUserId, balance: receiver.walletBalance, amount: transferAmount, senderInfo: { id: sender.id, firstName: sender.firstName }});
+            } catch(e) { /* ignore */ }
+
             // Notify receiver via bot
             const bot = getBot();
             if (bot && receiver.telegramId) {

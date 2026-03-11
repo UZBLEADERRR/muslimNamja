@@ -3,6 +3,7 @@ import { useAppStore } from '../store/useAppStore';
 import api from '../utils/api';
 import { io } from 'socket.io-client';
 import { Send, PhoneCall, ArrowLeft, Image as ImageIcon } from 'lucide-react';
+import VideoCallModal from './VideoCallModal';
 
 const SOCKET_URL = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace('/api', '') : 'http://localhost:5000';
 
@@ -101,13 +102,61 @@ const DirectChat = ({ conversation, onBack }) => {
         }
     };
 
+    const [activeCall, setActiveCall] = useState(null); // { isReceiving, callerName, signalData, roomName }
+
     const handleCall = () => {
-        alert(`Qo'ng'iroq qilinmoqda: ${conversation.name}...`);
-        // Webrtc logic could go here
+        // We act as initiator
+        const roomName = conversation.type === 'order' 
+            ? `order_${conversation.targetId}` 
+            : `dm_${[user.id, conversation.targetId].sort().join('_')}`;
+        
+        setActiveCall({
+            isReceiving: false,
+            callerName: conversation.name,
+            signalData: null,
+            roomName: roomName
+        });
     };
+
+    // Listen for incoming calls
+    useEffect(() => {
+        if (!socketRef.current) return;
+        const socket = socketRef.current;
+
+        const handleIncomingCall = (data) => {
+            // data = { room, signalData, callerName }
+            const expectedRoom = conversation.type === 'order' 
+                ? `order_${conversation.targetId}` 
+                : `dm_${[user.id, conversation.targetId].sort().join('_')}`;
+
+            if (data.room === expectedRoom && !activeCall) {
+                if (window.confirm(`${data.callerName || 'Kimdir'} sizga qo'ng'iroq qilmoqda. Qabul qilasizmi?`)) {
+                    setActiveCall({
+                        isReceiving: true,
+                        callerName: data.callerName || 'Abonent',
+                        signalData: data.signalData,
+                        roomName: expectedRoom
+                    });
+                }
+            }
+        };
+
+        socket.on('webrtc-offer', handleIncomingCall);
+        return () => socket.off('webrtc-offer', handleIncomingCall);
+    }, [conversation.targetId, conversation.type, user.id, activeCall]);
 
     return (
         <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: 'var(--bg-primary)' }}>
+            {activeCall && (
+                <VideoCallModal 
+                    socket={socketRef.current}
+                    roomName={activeCall.roomName}
+                    isReceiving={activeCall.isReceiving}
+                    callerName={activeCall.callerName}
+                    signalData={activeCall.signalData}
+                    onEndCall={() => setActiveCall(null)}
+                />
+            )}
             {/* Header */}
             <div style={{ padding: '12px 16px', background: 'var(--card-bg)', borderBottom: '1px solid var(--card-border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>

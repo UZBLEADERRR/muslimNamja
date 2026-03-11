@@ -6,49 +6,91 @@ import Peer from 'simple-peer';
 const SOCKET_URL = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace('/api', '') : 'http://localhost:5000';
 let socket = null;
 
-const VideoCallModal = ({ callerName, onEndCall, isReceiving = false }) => {
+const VideoCallModal = ({ 
+    callerName, 
+    onEndCall, 
+    isReceiving = false, 
+    socket, 
+    roomName, 
+    signalData 
+}) => {
     const [stream, setStream] = useState(null);
     const [isMuted, setIsMuted] = useState(false);
     const [isVideoOff, setIsVideoOff] = useState(false);
     const myVideoRef = useRef(null);
     const remoteVideoRef = useRef(null);
     const peerRef = useRef(null);
+    const streamRef = useRef(null);
 
     useEffect(() => {
-        if (!socket) socket = io(SOCKET_URL);
+        if (!socket) return;
 
         navigator.mediaDevices.getUserMedia({ video: true, audio: true })
             .then(currentStream => {
                 setStream(currentStream);
+                streamRef.current = currentStream;
                 if (myVideoRef.current) {
                     myVideoRef.current.srcObject = currentStream;
                 }
 
-                // Temporary Mock Implementation for Visuals
-                // Real SimplePeer implementation requires ICE coordination which is complex mapping.
-                // We'll simulate a 3-second connection setup.
-                setTimeout(() => {
-                    // For demo purposes, we mirror the local stream to remote to show the UI working
-                    if (remoteVideoRef.current) {
-                        remoteVideoRef.current.srcObject = currentStream;
-                    }
-                }, 3000);
+                const peer = new Peer({
+                    initiator: !isReceiving,
+                    trickle: false,
+                    stream: currentStream
+                });
 
+                peer.on('signal', data => {
+                    if (!isReceiving) {
+                        // We are calling
+                        socket.emit('webrtc-offer', { room: roomName, signalData: data, callerName: 'Ajoyib Inson' });
+                    } else {
+                        // We are answering
+                        socket.emit('webrtc-answer', { room: roomName, signalData: data });
+                    }
+                });
+
+                peer.on('stream', remoteStream => {
+                    if (remoteVideoRef.current) {
+                        remoteVideoRef.current.srcObject = remoteStream;
+                    }
+                });
+
+                if (isReceiving && signalData) {
+                    peer.signal(signalData);
+                }
+
+                peerRef.current = peer;
+                
             })
             .catch(err => {
                 console.error("Camera access denied", err);
                 alert("Kamera yoki mikrofonga ruxsat yo'q.");
+                onEndCall();
             });
 
         return () => {
-            if (stream) {
-                stream.getTracks().forEach(track => track.stop());
+            if (streamRef.current) {
+                streamRef.current.getTracks().forEach(track => track.stop());
             }
             if (peerRef.current) {
                 peerRef.current.destroy();
             }
         };
     }, []);
+
+    // Listen for answer if we are the caller
+    useEffect(() => {
+        if (!socket || isReceiving) return;
+        
+        const handleAnswer = (data) => {
+            if (peerRef.current && !peerRef.current.destroyed) {
+                peerRef.current.signal(data.signalData);
+            }
+        };
+
+        socket.on('webrtc-answer', handleAnswer);
+        return () => socket.off('webrtc-answer', handleAnswer);
+    }, [socket, isReceiving]);
 
     const toggleMute = () => {
         if (stream) {

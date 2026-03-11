@@ -112,8 +112,8 @@ io.on('connection', (socket) => {
     });
 });
 
-// Export io for use in controllers
-module.exports.io = io;
+// Export io for use in controllers (using app set instead)
+app.set('io', io);
 
 server.listen(PORT, () => {
     console.log(`Server is running with Socket.IO on port ${PORT}`);

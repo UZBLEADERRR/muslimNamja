@@ -56,19 +56,20 @@ const DeliveryPage = () => {
 
     const fetchData = async () => {
         try {
-            const [ordersRes, statsRes, inboxRes] = await Promise.all([
+            const [activeRes, availableRes, statsRes, inboxRes] = await Promise.all([
                 api.get('/delivery/active'),
+                api.get('/delivery/orders/available'),
                 api.get('/delivery/stats'),
                 api.get('/inbox').catch(() => ({ data: [] }))
             ]);
 
-            const activeOrds = Array.isArray(ordersRes.data) ? ordersRes.data : [ordersRes.data];
+            const activeOrds = Array.isArray(activeRes.data) ? activeRes.data : [activeRes.data].filter(Boolean);
             const myActive = activeOrds.find(o => o.deliveryManId === user.id && ['accepted', 'preparing', 'ready_for_pickup', 'delivering', 'delivered_awaiting_review'].includes(o.status));
             
             setActiveOrder(myActive || null);
             setPhotoSent(myActive?.status === 'delivered_awaiting_review');
             
-            const availableOrds = activeOrds.filter(o => o.status === 'pending');
+            const availableOrds = Array.isArray(availableRes.data) ? availableRes.data : [];
             setOrders(availableOrds);
             
             setStats(statsRes.data || {});
