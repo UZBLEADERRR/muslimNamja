@@ -9,14 +9,30 @@ const orderController = {
     async createOrder(req, res) {
         const trans = await sequelize.transaction();
         try {
-            const { items, paymentMethod, totalAmount, deliveryFee, distance, deliveryType, meetupLocation, giftInfo } = req.body;
+            const { items, totalAmount, deliveryFee, distance, deliveryType, meetupLocation, giftInfo } = req.body;
             const userId = req.user.userId;
+            const paymentMethod = 'wallet'; // Wallet-only enforcement
 
             if (!items || items.length === 0) {
                 return res.status(400).json({ error: 'Cart is empty' });
             }
 
-            // 1. Create Order
+            // 2km radius enforcement — beyond 2km only pickup allowed
+            if (distance > 2 && deliveryType !== 'pickup') {
+                await trans.rollback();
+                return res.status(400).json({ error: '2km dan uzoq manzilga faqat olib ketish (pick up) mumkin' });
+            }
+
+            // 1. Wallet balance check — deduct first
+            const userRecord = await User.findByPk(userId, { transaction: trans });
+            if (!userRecord || userRecord.walletBalance < totalAmount) {
+                await trans.rollback();
+                return res.status(400).json({ error: 'Hamyonda mablag\' yetarli emas. Iltimos to\'ldiring.' });
+            }
+            userRecord.walletBalance -= totalAmount;
+            await userRecord.save({ transaction: trans });
+
+            // 2. Create Order
             const order = await Order.create({
                 userId,
                 items,
@@ -29,17 +45,6 @@ const orderController = {
                 giftInfo: giftInfo || null,
                 status: 'pending'
             }, { transaction: trans });
-
-            // 2. If payment is via wallet, deduct balance
-            if (paymentMethod === 'wallet') {
-                const user = await User.findByPk(userId, { transaction: trans });
-                if (user.walletBalance < totalAmount) {
-                    await trans.rollback();
-                    return res.status(400).json({ error: 'Insufficient wallet balance' });
-                }
-                user.walletBalance -= totalAmount;
-                await user.save({ transaction: trans });
-            }
 
             await trans.commit();
 
@@ -308,6 +313,35 @@ ${orderDetails}
             await trans.rollback();
             console.error(err);
             res.status(500).json({ error: 'Failed to confirm delivery' });
+        }
+    },
+
+    // Notify user that driver is nearby (within 300m)
+    async notifyNearby(req, res) {
+        try {
+            const orderId = req.params.id;
+            const order = await Order.findByPk(orderId, { include: [{ model: User, as: 'user' }] });
+            if (!order) return res.status(404).json({ error: 'Order not found' });
+
+            const bot = getBot();
+            if (bot && order.user?.telegramId) {
+                const miniAppUrl = process.env.MINI_APP_URL || 'https://muslimnamja-production.up.railway.app';
+                await bot.sendMessage(order.user.telegramId,
+                    `🎉 Kuryer yaqinlashdi! Taomingiz tez orada yetib keladi.\n\n📍 Kuryer 300m ichida!`,
+                    {
+                        reply_markup: {
+                            inline_keyboard: [[
+                                { text: '📍 Kuzatish', web_app: { url: `${miniAppUrl}?startapp=tracking` } }
+                            ]]
+                        }
+                    }
+                ).catch(console.error);
+            }
+
+            res.json({ success: true });
+        } catch (err) {
+            console.error(err);
+            res.status(500).json({ error: 'Failed to notify' });
         }
     }
 };

@@ -25,5 +25,7 @@ router.post('/:id/delivery-photo', authMiddleware(), upload.single('photo'), ord
 
 // User confirms delivery after seeing photo
 router.post('/:id/confirm-delivery', authMiddleware(), orderController.confirmDelivery);
+// Driver notifies user they are nearby
+router.post('/:id/notify-nearby', authMiddleware(), orderController.notifyNearby);
 
 module.exports = router;
