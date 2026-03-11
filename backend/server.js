@@ -74,7 +74,7 @@ if (process.env.NODE_ENV === 'production' || process.env.RAILWAY_STATIC_URL) {
 // Bot Setup
 const FRONTEND_URL = process.env.FRONTEND_URL
     || process.env.RENDER_EXTERNAL_URL
-    || (process.env.RAILWAY_STATIC_URL ? `https://${process.env.RAILWAY_STATIC_URL}` : 'https://muslimnamja-app.onrender.com'); // Using a dummy onrender url if all fails, better than localhost for mobile WebApp test
+    || (process.env.RAILWAY_STATIC_URL ? `https://${process.env.RAILWAY_STATIC_URL}` : 'https://muslimnamja-production.up.railway.app'); 
 
 const bot = setupBot(process.env.TELEGRAM_BOT_TOKEN, FRONTEND_URL);
 setBot(bot);
