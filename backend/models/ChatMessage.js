@@ -13,7 +13,11 @@ const ChatMessage = sequelize.define('ChatMessage', {
     },
     orderId: {
         type: DataTypes.UUID,
-        allowNull: true // If null, it's a community message
+        allowNull: true // If null and receiverId is null, it's a community message
+    },
+    receiverId: {
+        type: DataTypes.UUID,
+        allowNull: true // If orderId is null and this is set, it's a direct message (DM)
     },
     text: DataTypes.TEXT,
     isSystem: {

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useTranslation } from '../../i18n';
 import api from '../../utils/api';
 import { colors, cardStyle, inputStyle, btnPrimary, btnDanger, btnSuccess, chipStyle, kpiCard, badge, sectionTitle, subText, mainText, bigNum } from './adminStyles';
-import StaffChat from './StaffChat';
+import AdminInbox from './AdminInbox';
 
 const tg = window.Telegram?.WebApp;
 
@@ -676,7 +676,7 @@ const AdminPage = () => {
                     <div style={{ animation: 'fadeIn 0.3s ease', height: 'calc(100vh - 160px)', display: 'flex', flexDirection: 'column' }}>
                         <div style={{ ...sectionTitle, flexShrink: 0 }}>💬 Yordam markazi — Userlar va Kuryerlar bilan chat</div>
                         <div style={{ flex: 1, overflow: 'hidden', borderRadius: 16, border: `1px solid ${colors.border}` }}>
-                            <StaffChat />
+                            <AdminInbox />
                         </div>
                     </div>
                 )}

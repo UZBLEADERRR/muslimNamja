@@ -2,20 +2,24 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useTranslation } from '../i18n';
 import { useAppStore } from '../store/useAppStore';
 import api from '../utils/api';
-import { Truck, Package, CheckCircle, MapPin, Camera, Image as ImageIcon, MessageSquare, X, Phone, Navigation } from 'lucide-react';
-import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
-import 'leaflet/dist/leaflet.css';
+import { MapContainer, TileLayer, Marker, Popup, Polyline } from 'react-leaflet';
 import L from 'leaflet';
-import { io } from 'socket.io-client';
-import StaffChat from './admin/StaffChat';
+import 'leaflet/dist/leaflet.css';
+import { Truck, MapPin, CheckCircle, Navigation, Camera, MessageSquare, Phone, Map, Wallet } from 'lucide-react';
+import DirectChat from '../components/DirectChat';
 
-const SOCKET_URL = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace('/api', '') : 'http://localhost:5000';
+// Fix typical Leaflet icon issue
+delete L.Icon.Default.prototype._getIconUrl;
+L.Icon.Default.mergeOptions({
+    iconRetinaUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon-2x.png',
+    iconUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon.png',
+    shadowUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-shadow.png',
+});
 
-// Restaurant location
 const RESTAURANT = { lat: 37.5503, lng: 127.0731 };
 
 const haversineDistance = (c1, c2) => {
-    const R = 6371;
+    const R = 6371; // km
     const dLat = (c2.lat - c1.lat) * Math.PI / 180;
     const dLng = (c2.lng - c1.lng) * Math.PI / 180;
     const a = Math.sin(dLat / 2) ** 2 + Math.cos(c1.lat * Math.PI / 180) * Math.cos(c2.lat * Math.PI / 180) * Math.sin(dLng / 2) ** 2;
@@ -26,182 +30,97 @@ const DeliveryPage = () => {
     const { t } = useTranslation();
     const { user } = useAppStore();
 
-    // Core state
+    // TABS: map, chat, earnings
+    const [activeTab, setActiveTab] = useState('map');
+
     const [orders, setOrders] = useState([]);
     const [activeOrder, setActiveOrder] = useState(null);
-    const [stats, setStats] = useState({ totalDeliveries: 0, totalDistance: 0, totalEarnings: 0 });
+    const [stats, setStats] = useState({});
+    const [myLocation, setMyLocation] = useState(null);
     const [loading, setLoading] = useState(true);
 
-    // Toggle: 'map' or 'chat'
-    const [viewMode, setViewMode] = useState('map');
+    // Track Trip Total Distance
+    const [totalTripKm, setTotalTripKm] = useState(0);
 
-    // Chat state
-    const [chatMessages, setChatMessages] = useState([]);
-    const [newChatMsg, setNewChatMsg] = useState('');
-    const [chatImage, setChatImage] = useState(null);
-    const [sendingChat, setSendingChat] = useState(false);
+    // Inbox state
+    const [inbox, setInbox] = useState([]);
+    const [selectedChat, setSelectedChat] = useState(null);
 
-    // Photo Delivery State
-    const [deliveryPhoto, setDeliveryPhoto] = useState(null);
+    // Photo
     const [uploadingPhoto, setUploadingPhoto] = useState(false);
     const [photoSent, setPhotoSent] = useState(false);
-
-    // Geolocation state
-    const [myLocation, setMyLocation] = useState(null);
-    const [totalTripKm, setTotalTripKm] = useState(0);
-    const [notifiedNearby, setNotifiedNearby] = useState(false);
-
-    // Staff Chat UI
-    const [showStaffChat, setShowStaffChat] = useState(false);
-
-    const messagesEndRef = useRef(null);
-    const chatFileInputRef = useRef(null);
     const deliveryPhotoRef = useRef(null);
-    const socketRef = useRef(null);
-    const prevLocationRef = useRef(null);
-    const geoWatchIdRef = useRef(null);
 
-    const fetchData = () => {
-        api.get('/delivery/stats').then(res => setStats(res.data)).catch(console.error);
+    const fetchData = async () => {
+        try {
+            const [ordersRes, statsRes, inboxRes] = await Promise.all([
+                api.get('/delivery/active'),
+                api.get('/delivery/stats'),
+                api.get('/inbox').catch(() => ({ data: [] }))
+            ]);
 
-        api.get('/delivery/active').then(res => {
-            // Backend returns an array of active orders — take the first one
-            const data = Array.isArray(res.data) ? res.data[0] : res.data;
-            if (data && data.id) {
-                setActiveOrder(data);
-                fetchChat(data.id);
-            } else {
-                setActiveOrder(null);
-                api.get('/delivery/orders/available')
-                    .then(availRes => setOrders(availRes.data || []))
-                    .catch(console.error)
-                    .finally(() => setLoading(false));
-            }
-        }).catch(err => {
-            console.error(err);
+            const activeOrds = Array.isArray(ordersRes.data) ? ordersRes.data : [ordersRes.data];
+            const myActive = activeOrds.find(o => o.deliveryManId === user.id && ['accepted', 'preparing', 'ready_for_pickup', 'delivering', 'delivered_awaiting_review'].includes(o.status));
+            
+            setActiveOrder(myActive || null);
+            setPhotoSent(myActive?.status === 'delivered_awaiting_review');
+            
+            const availableOrds = activeOrds.filter(o => o.status === 'pending');
+            setOrders(availableOrds);
+            
+            setStats(statsRes.data || {});
+            setInbox(inboxRes.data || []);
+            
+        } catch (error) {
+            console.error(error);
+        } finally {
             setLoading(false);
-        });
+        }
     };
-
-    const fetchChat = (orderId) => {
-        if (!orderId) { setLoading(false); return; }
-        api.get(`/orders/${orderId}/chat`)
-            .then(res => {
-                setChatMessages(res.data || []);
-                const isPromptSent = (res.data || []).some(m => m.offerAction === 'confirm_delivery_prompt');
-                if (isPromptSent) setPhotoSent(true);
-            })
-            .catch(err => console.error('Chat fetch error:', err))
-            .finally(() => setLoading(false));
-    };
-
-    // Keep activeOrder in a ref so geolocation callback can access latest value
-    const activeOrderRef = useRef(null);
-    const notifiedNearbyRef = useRef(false);
-    useEffect(() => { activeOrderRef.current = activeOrder; }, [activeOrder]);
-    useEffect(() => { notifiedNearbyRef.current = notifiedNearby; }, [notifiedNearby]);
 
     useEffect(() => {
+        if (!user) return;
         fetchData();
         const interval = setInterval(fetchData, 10000);
         return () => clearInterval(interval);
-    }, []);
+    }, [user]);
 
-    // Socket.IO — separate from geolocation
+    // Track Location
     useEffect(() => {
-        const socket = io(SOCKET_URL, { transports: ['websocket', 'polling'] });
-        socketRef.current = socket;
-        socket.on('receive-message', (msg) => {
-            setChatMessages(prev => [...prev, msg]);
-        });
-        return () => { socket.disconnect(); };
-    }, []);
-
-    // Geolocation — one-time persistent permission, never re-created
-    useEffect(() => {
-        const watchId = navigator.geolocation.watchPosition(
-            (pos) => {
-                const loc = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-                setMyLocation(loc);
-
-                // Track distance traveled
-                if (prevLocationRef.current) {
-                    const delta = haversineDistance(prevLocationRef.current, loc);
-                    if (delta > 0.01) { // filter noise, min 10m
-                        setTotalTripKm(prev => prev + delta);
+        if (!navigator.geolocation) return;
+        let watchId;
+        
+        const updateLoc = (pos) => {
+            const newLoc = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+            setMyLocation(prev => {
+                if (prev && activeOrder) {
+                    const distMoved = haversineDistance(prev, newLoc);
+                    if (distMoved > 0.05) { // 50m movement
+                        setTotalTripKm(curr => curr + distMoved);
+                        api.post(`/delivery/orders/${activeOrder.id}/location`, { location: newLoc }).catch(console.error);
                     }
+                } else if (activeOrder && !prev) {
+                    api.post(`/delivery/orders/${activeOrder.id}/location`, { location: newLoc }).catch(console.error);
                 }
-                prevLocationRef.current = loc;
-
-                // Send location to order room using ref for latest activeOrder
-                const order = activeOrderRef.current;
-                if (order && socketRef.current?.connected) {
-                    socketRef.current.emit('driver-location', {
-                        room: `order_${order.id}`,
-                        orderId: order.id,
-                        location: loc
-                    });
-                }
-
-                // Proximity check — auto-notify when within 300m
-                if (order?.user?.location && !notifiedNearbyRef.current) {
-                    const distToUser = haversineDistance(loc, order.user.location);
-                    if (distToUser < 0.3) {
-                        setNotifiedNearby(true);
-                        api.post(`/orders/${order.id}/notify-nearby`).catch(() => {});
-                    }
-                }
-            },
-            (err) => console.error("Geolocation error:", err),
-            { enableHighAccuracy: true, maximumAge: 10000, timeout: 30000 }
-        );
-        geoWatchIdRef.current = watchId;
-
-        return () => {
-            navigator.geolocation.clearWatch(watchId);
-            geoWatchIdRef.current = null;
+                return newLoc;
+            });
         };
-    }, []); // Empty dependency = runs once, never re-created
 
-    // Join room
-    useEffect(() => {
-        if (activeOrder && socketRef.current) {
-            socketRef.current.emit('join-room', `order_${activeOrder.id}`);
-        }
+        navigator.geolocation.getCurrentPosition(updateLoc, console.error, { enableHighAccuracy: true });
+        watchId = navigator.geolocation.watchPosition(updateLoc, console.error, { enableHighAccuracy: true, maximumAge: 10000, timeout: 5000 });
+
+        return () => navigator.geolocation.clearWatch(watchId);
     }, [activeOrder]);
-
-    useEffect(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }, [chatMessages]);
 
     const handleAccept = async (order) => {
         try {
             await api.post(`/delivery/orders/${order.id}/accept`);
             setTotalTripKm(0);
-            setNotifiedNearby(false);
             fetchData();
+            setActiveTab('map');
         } catch (err) {
             alert(err.response?.data?.error || 'Qabul qilib bo\'lmadi');
         }
-    };
-
-    const handleSendChatMessage = async (e) => {
-        e.preventDefault();
-        if ((!newChatMsg.trim() && !chatImage) || sendingChat || !activeOrder) return;
-
-        setSendingChat(true);
-        try {
-            const formData = new FormData();
-            if (chatImage) formData.append('image', chatImage);
-            if (newChatMsg.trim()) formData.append('text', newChatMsg);
-            await api.post(`/orders/${activeOrder.id}/chat`, formData, {
-                headers: { 'Content-Type': 'multipart/form-data' }
-            });
-            setNewChatMsg('');
-            setChatImage(null);
-            fetchChat(activeOrder.id);
-        } catch (err) { alert('Xabar yuborib bo\'lmadi'); }
-        finally { setSendingChat(false); }
     };
 
     const handleUploadDeliveryPhoto = async (e) => {
@@ -216,13 +135,23 @@ const DeliveryPage = () => {
                 headers: { 'Content-Type': 'multipart/form-data' }
             });
             setPhotoSent(true);
-            fetchChat(activeOrder.id);
             alert("Rasm yuborildi! Mijoz tasdiqlashini kuting.");
         } catch (err) { alert('Rasm yuklashda xatolik yuz berdi.'); }
         finally { setUploadingPhoto(false); }
     };
 
-    // Estimate delivery time using distance
+    // Calculate Map Routing Line
+    const getRoutingPositions = () => {
+        const positions = [];
+        if (myLocation) positions.push([myLocation.lat, myLocation.lng]);
+        if (activeOrder && activeOrder.user?.location) {
+            // Can add restaurant in the middle if needed, but direct line to user is clearer 
+            // once order is picked up. Let's just draw direct to user for simplicity.
+            positions.push([activeOrder.user.location.lat, activeOrder.user.location.lng]);
+        }
+        return positions;
+    };
+
     const estimateTime = () => {
         if (!myLocation || !activeOrder?.user?.location) return null;
         const dist = haversineDistance(myLocation, activeOrder.user.location);
@@ -230,190 +159,191 @@ const DeliveryPage = () => {
         return mins < 1 ? '1' : `${mins}`;
     };
 
-    // Trip earnings at ₩1,000 per km
     const tripEarnings = Math.round(totalTripKm * 1000);
 
+    if (loading) return <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-secondary)' }}>{t('loading')}</div>;
+
+    // Inside a Chat
+    if (activeTab === 'chat' && selectedChat) {
+        return <DirectChat conversation={selectedChat} onBack={() => { setSelectedChat(null); fetchData(); }} />;
+    }
+
     return (
-        <div className="animate-slide-up" style={{ padding: '16px 20px', paddingBottom: '90px', display: 'flex', flexDirection: 'column', height: '100%' }}>
-            {/* Header & Stats Dashboard */}
-            <div style={{ flexShrink: 0 }}>
-                <h2 style={{ fontSize: '22px', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '12px', color: 'var(--text-primary)', fontFamily: "'Fraunces', serif" }}>
-                    <div style={{ background: 'var(--brand-accent2)', width: '36px', height: '36px', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 12px rgba(78,205,196,0.3)' }}>
-                        <Truck size={18} color="white" />
-                    </div>
-                    {t('delivery_dashboard')}
-                </h2>
-
-                {/* Stats Cards */}
-                <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
-                    <div style={{ flex: 1, background: 'var(--card-bg)', borderRadius: 14, padding: '10px 12px', border: '1px solid var(--card-border)' }}>
-                        <div style={{ color: 'var(--text-secondary)', fontSize: 10, fontWeight: 700 }}>{t('total_km')}</div>
-                        <div style={{ color: 'var(--brand-accent2)', fontSize: 16, fontWeight: 900, fontFamily: "'Fraunces', serif" }}>{stats.totalDistance?.toFixed(1) || 0}</div>
-                    </div>
-                    <div style={{ flex: 1, background: 'var(--card-bg)', borderRadius: 14, padding: '10px 12px', border: '1px solid var(--card-border)' }}>
-                        <div style={{ color: 'var(--text-secondary)', fontSize: 10, fontWeight: 700 }}>{t('completed_deliveries')}</div>
-                        <div style={{ color: 'var(--brand-accent2)', fontSize: 16, fontWeight: 900, fontFamily: "'Fraunces', serif" }}>{stats.totalDeliveries || 0}</div>
-                    </div>
-                    <div style={{ flex: 1.3, background: 'var(--card-bg)', borderRadius: 14, padding: '10px 12px', border: '1px solid var(--card-border)' }}>
-                        <div style={{ color: 'var(--text-secondary)', fontSize: 10, fontWeight: 700 }}>{t('earnings')}</div>
-                        <div style={{ color: 'var(--brand-accent)', fontSize: 16, fontWeight: 900, fontFamily: "'Fraunces', serif" }}>₩{(stats.totalEarnings || 0).toLocaleString()}</div>
-                    </div>
-                </div>
-
-                {/* Current Trip Earning (only when active) */}
-                {activeOrder && (
-                    <div style={{ background: 'linear-gradient(135deg, rgba(78,205,196,0.1), rgba(78,205,196,0.02))', border: '1px solid rgba(78,205,196,0.2)', borderRadius: 14, padding: '10px 16px', marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <div>
-                            <div style={{ fontSize: 10, color: 'var(--text-secondary)', fontWeight: 700 }}>🛵 Bu safar ({t('earning_per_km')})</div>
-                            <div style={{ fontSize: 14, fontWeight: 900, color: 'var(--brand-accent2)', display: 'flex', alignItems: 'baseline', gap: 6 }}>
-                                {totalTripKm.toFixed(1)} km
-                                <span style={{ fontSize: 16, color: 'var(--brand-accent)' }}>= ₩{tripEarnings.toLocaleString()}</span>
-                            </div>
-                        </div>
-                        {estimateTime() && (
-                            <div style={{ textAlign: 'right' }}>
-                                <div style={{ fontSize: 10, color: 'var(--text-secondary)' }}>⏱ Taxminiy</div>
-                                <div style={{ fontSize: 18, fontWeight: 900, color: 'var(--brand-accent)', fontFamily: "'Fraunces', serif" }}>{estimateTime()} min</div>
-                            </div>
-                        )}
-                    </div>
-                )}
-
-                {/* Toggle: Map / Chat (only when active order) */}
-                {activeOrder && (
-                    <div style={{ display: 'flex', gap: 6, marginBottom: 16, background: 'var(--bg-secondary)', borderRadius: 12, padding: 4 }}>
-                        {[
-                            { id: 'map', icon: '🗺', label: t('map_view') },
-                            { id: 'chat', icon: '💬', label: t('chat_view') }
-                        ].map(m => (
-                            <button key={m.id} onClick={() => setViewMode(m.id)} style={{
-                                flex: 1, padding: '10px', borderRadius: 10, border: 'none', fontWeight: 700, fontSize: 13, cursor: 'pointer',
-                                background: viewMode === m.id ? 'var(--brand-accent)' : 'transparent',
-                                color: viewMode === m.id ? '#fff' : 'var(--text-secondary)',
-                                transition: 'all 0.2s'
-                            }}>
-                                {m.icon} {m.label}
-                            </button>
-                        ))}
-                    </div>
-                )}
+        <div className="animate-slide-up" style={{ display: 'flex', flexDirection: 'column', height: '100%', paddingBottom: 80, background: 'var(--bg-primary)' }}>
+            
+            {/* Top Toggles */}
+            <div style={{ padding: '16px 20px', background: 'var(--card-bg)', borderBottom: '1px solid var(--card-border)', display: 'flex', gap: 6, position: 'sticky', top: 0, zIndex: 50, overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+                <button onClick={() => setActiveTab('map')} style={{ flex: 1, padding: '10px', borderRadius: 12, border: 'none', fontWeight: 700, fontSize: 13, cursor: 'pointer', transition: 'all 0.3s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, background: activeTab === 'map' ? 'var(--brand-accent2)' : 'var(--bg-secondary)', color: activeTab === 'map' ? '#fff' : 'var(--text-primary)', whiteSpace: 'nowrap' }}>
+                    <Map size={16} /> Yetkazish
+                </button>
+                <button onClick={() => setActiveTab('chat')} style={{ flex: 1, padding: '10px', borderRadius: 12, border: 'none', fontWeight: 700, fontSize: 13, cursor: 'pointer', transition: 'all 0.3s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, background: activeTab === 'chat' ? 'var(--brand-accent2)' : 'var(--bg-secondary)', color: activeTab === 'chat' ? '#fff' : 'var(--text-primary)', whiteSpace: 'nowrap' }}>
+                    <MessageSquare size={16} /> Chatlar {inbox.length > 0 && `(${inbox.length})`}
+                </button>
+                <button onClick={() => setActiveTab('earnings')} style={{ flex: 1, padding: '10px', borderRadius: 12, border: 'none', fontWeight: 700, fontSize: 13, cursor: 'pointer', transition: 'all 0.3s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, background: activeTab === 'earnings' ? 'var(--brand-accent2)' : 'var(--bg-secondary)', color: activeTab === 'earnings' ? '#fff' : 'var(--text-primary)', whiteSpace: 'nowrap' }}>
+                    <Wallet size={16} /> Daromad
+                </button>
             </div>
 
-            {loading ? (
-                <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-secondary)' }}>{t('loading')}</div>
-            ) : activeOrder ? (
-                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-
-                    {/* Active Order Card */}
-                    <div style={{ background: 'linear-gradient(135deg, var(--brand-accent), #FF3CAC)', color: 'white', padding: '16px', borderRadius: '18px', marginBottom: '12px', boxShadow: '0 8px 24px rgba(255,107,53,0.3)', flexShrink: 0 }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                            <span style={{ background: 'rgba(255,255,255,0.2)', padding: '3px 10px', borderRadius: '16px', fontSize: '10px', fontWeight: 800 }}>{t('active_delivery')}</span>
-                            <span style={{ fontWeight: 800, fontSize: 14 }}>₩{activeOrder.totalAmount?.toLocaleString()}</span>
+            {/* TAB: MAP & DELIVERY */}
+            {activeTab === 'map' && (
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', animation: 'fadeIn 0.3s ease' }}>
+                    
+                    {!activeOrder ? (
+                         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 40, textAlign: 'center' }}>
+                            <div style={{ background: 'var(--bg-secondary)', width: 100, height: 100, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 20 }}>
+                                <Truck size={48} color="var(--brand-accent2)" />
+                            </div>
+                            <h3 style={{ color: 'var(--text-primary)', fontSize: 20, marginBottom: 8 }}>Faol buyurtma yo'q</h3>
+                            <p style={{ color: 'var(--text-secondary)', fontSize: 14 }}>"Daromad" bo'limidan yangi buyurtmalarni qabul qilishingiz mumkin.</p>
+                            <button onClick={() => setActiveTab('earnings')} style={{ padding: '12px 24px', background: 'var(--brand-accent2)', color: '#fff', border: 'none', borderRadius: 12, fontWeight: 700, marginTop: 20, cursor: 'pointer' }}>
+                                Buyurtmalarni ko'rish
+                            </button>
                         </div>
-                        <div style={{ fontSize: 12, opacity: 0.9 }}>👤 {activeOrder.user?.firstName} · 📞 {activeOrder.user?.phone}</div>
-                        <p style={{ margin: '4px 0 12px', fontSize: '15px', fontWeight: 700 }}>📍 {activeOrder.user?.address}</p>
-                        <div style={{ display: 'flex', gap: '8px' }}>
-                            <a href={`tel:${activeOrder.user?.phone}`} style={{ flex: 1, background: 'rgba(255,255,255,0.2)', color: '#fff', textDecoration: 'none', padding: '10px', borderRadius: '12px', textAlign: 'center', fontWeight: 700, fontSize: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
-                                <Phone size={14} /> Qo'ng'iroq
-                            </a>
-                            <a href={`https://map.kakao.com/link/to/${encodeURIComponent(activeOrder.user?.address || '')},${activeOrder.user?.location?.lat || 37.5503},${activeOrder.user?.location?.lng || 127.0731}`} target="_blank" rel="noopener noreferrer" style={{ flex: 1, background: '#FBEB00', color: '#000', textDecoration: 'none', padding: '10px', borderRadius: '12px', textAlign: 'center', fontWeight: 700, fontSize: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
-                                <Navigation size={14} /> KakaoMap
-                            </a>
-                        </div>
-                    </div>
+                    ) : (
+                        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '16px 20px' }}>
+                            {/* Active Order Card */}
+                            <div style={{ background: 'linear-gradient(135deg, var(--brand-accent), #FF3CAC)', color: 'white', padding: '16px', borderRadius: '18px', marginBottom: '16px', boxShadow: '0 8px 24px rgba(255,107,53,0.3)', flexShrink: 0 }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                                    <span style={{ background: 'rgba(255,255,255,0.2)', padding: '4px 12px', borderRadius: '16px', fontSize: '11px', fontWeight: 800 }}>Mijoz kutyapti</span>
+                                    <span style={{ fontWeight: 800, fontSize: 16 }}>₩{activeOrder.totalAmount?.toLocaleString()}</span>
+                                </div>
+                                <div style={{ fontSize: 13, opacity: 0.9 }}>👤 {activeOrder.user?.firstName} · 📞 {activeOrder.user?.phone}</div>
+                                <p style={{ margin: '6px 0 16px', fontSize: '15px', fontWeight: 800 }}>📍 {activeOrder.user?.address}</p>
+                                <div style={{ display: 'flex', gap: '8px' }}>
+                                    <a href={`tel:${activeOrder.user?.phone}`} style={{ flex: 1, background: 'rgba(255,255,255,0.2)', color: '#fff', textDecoration: 'none', padding: '12px', borderRadius: '14px', textAlign: 'center', fontWeight: 800, fontSize: '13px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                                        <Phone size={16} /> Qo'ng'iroq
+                                    </a>
+                                    <a href={`https://map.kakao.com/link/to/${encodeURIComponent(activeOrder.user?.address || '')},${activeOrder.user?.location?.lat || 37.5503},${activeOrder.user?.location?.lng || 127.0731}`} target="_blank" rel="noopener noreferrer" style={{ flex: 1, background: '#FBEB00', color: '#000', textDecoration: 'none', padding: '12px', borderRadius: '14px', textAlign: 'center', fontWeight: 800, fontSize: '13px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                                        <Navigation size={16} /> KakaoMap
+                                    </a>
+                                </div>
+                            </div>
 
-                    {/* MAP VIEW */}
-                    {viewMode === 'map' && (
-                        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 12 }}>
-                            {activeOrder.user?.location && myLocation && (
-                                <div style={{ height: 220, width: '100%', borderRadius: 16, overflow: 'hidden', border: '1px solid var(--card-border)', flexShrink: 0 }}>
+                            {/* Map */}
+                            {myLocation && activeOrder.user?.location && (
+                                <div style={{ flex: 1, minHeight: 300, width: '100%', borderRadius: 20, overflow: 'hidden', border: '1px solid var(--card-border)', marginBottom: 16, position: 'relative' }}>
                                     <MapContainer center={[myLocation.lat, myLocation.lng]} zoom={14} style={{ height: '100%', width: '100%' }} zoomControl={false}>
                                         <TileLayer url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png" />
+                                        
+                                        {/* Polyline Route */}
+                                        <Polyline positions={getRoutingPositions()} color="#27AE60" weight={5} dashArray="10, 10" opacity={0.8} />
+
                                         <Marker position={[myLocation.lat, myLocation.lng]} icon={
-                                            new L.DivIcon({ className: 'courier-icon', html: '<div style="font-size:24px; background:#fff; border-radius:50%; width:32px; height:32px; display:flex; align-items:center; justify-content:center; box-shadow:0 4px 12px rgba(0,0,0,0.2); border: 2px solid #27AE60;">🛵</div>', iconSize: [32, 32] })
+                                            new L.DivIcon({ className: 'courier-icon', html: '<div style="font-size:24px; background:#fff; border-radius:50%; width:36px; height:36px; display:flex; align-items:center; justify-content:center; box-shadow:0 4px 12px rgba(0,0,0,0.2); border: 3px solid #27AE60;">🛵</div>', iconSize: [36, 36] })
                                         }>
-                                            <Popup>Men shu yerdaman</Popup>
+                                            <Popup>Mening Joylashuvim</Popup>
                                         </Marker>
+
                                         <Marker position={[activeOrder.user.location.lat, activeOrder.user.location.lng]} icon={
-                                            new L.DivIcon({ className: 'home-icon', html: '<div style="font-size:24px; background:#fff; border-radius:50%; width:32px; height:32px; display:flex; align-items:center; justify-content:center; box-shadow:0 4px 12px rgba(0,0,0,0.2); border: 2px solid #FF3CAC;">🏠</div>', iconSize: [32, 32] })
+                                            new L.DivIcon({ className: 'home-icon', html: '<div style="font-size:24px; background:#fff; border-radius:50%; width:36px; height:36px; display:flex; align-items:center; justify-content:center; box-shadow:0 4px 12px rgba(0,0,0,0.2); border: 3px solid #FF3CAC;">🏠</div>', iconSize: [36, 36] })
                                         }>
-                                            <Popup>Mijoz manzili</Popup>
+                                            <Popup>Mijoz Manzili</Popup>
                                         </Marker>
                                     </MapContainer>
+
+                                    {estimateTime() && (
+                                        <div style={{ position: 'absolute', top: 10, right: 10, zIndex: 400, background: 'rgba(255,255,255,0.9)', padding: '6px 12px', borderRadius: 12, fontWeight: 800, color: 'var(--brand-accent2)', fontSize: 13, boxShadow: '0 4px 10px rgba(0,0,0,0.1)' }}>
+                                            ⏱ ~{estimateTime()} min
+                                        </div>
+                                    )}
                                 </div>
                             )}
 
-                            {/* Delivery Photo & Complete */}
-                            <div style={{ display: 'flex', gap: 8 }}>
+                            {/* Photo Upload for Delivery Complete */}
+                            <div style={{ flexShrink: 0 }}>
                                 <input type="file" accept="image/*" capture="environment" ref={deliveryPhotoRef} onChange={handleUploadDeliveryPhoto} style={{ display: 'none' }} />
                                 {!photoSent ? (
-                                    <button onClick={() => deliveryPhotoRef.current?.click()} disabled={uploadingPhoto} style={{ flex: 1, padding: '14px', background: '#27AE60', color: '#fff', border: 'none', borderRadius: 14, fontWeight: 700, fontSize: 13, cursor: 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8 }}>
-                                        {uploadingPhoto ? '⏳ Yuklanmoqda...' : <><Camera size={16} /> Yetib keldim, rasm</>}
+                                    <button onClick={() => deliveryPhotoRef.current?.click()} disabled={uploadingPhoto} style={{ width: '100%', padding: '16px', background: '#27AE60', color: '#fff', border: 'none', borderRadius: 16, fontWeight: 800, fontSize: 15, cursor: 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8, boxShadow: '0 4px 14px rgba(39,174,96,0.3)' }}>
+                                        {uploadingPhoto ? '⏳ Yuklanmoqda...' : <><Camera size={20} /> Yetib keldim, rasmga olish</>}
                                     </button>
                                 ) : (
-                                    <div style={{ flex: 1, padding: '14px', textAlign: 'center', color: 'var(--brand-accent2)', fontWeight: 700, fontSize: 13, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 6, background: 'var(--card-bg)', borderRadius: 14, border: '1px solid var(--card-border)' }}>
-                                        <CheckCircle size={16} /> Mijoz tasdiqlashi kutilmoqda
+                                    <div style={{ width: '100%', padding: '16px', textAlign: 'center', color: '#27AE60', fontWeight: 800, fontSize: 14, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 6, background: 'rgba(39,174,96,0.1)', borderRadius: 16, border: '1px solid rgba(39,174,96,0.3)' }}>
+                                        <CheckCircle size={18} /> Rasm yuborildi. Mijoz tasdiqlashi kutilmoqda.
                                     </div>
                                 )}
                             </div>
                         </div>
                     )}
+                </div>
+            )}
 
-                    {/* CHAT VIEW */}
-                    {viewMode === 'chat' && (
-                        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: 'var(--card-bg)', borderRadius: '18px', border: '1px solid var(--card-border)', overflow: 'hidden' }}>
-                            <div style={{ padding: 10, borderBottom: '1px solid var(--card-border)', background: 'rgba(39,174,96,0.05)' }}>
-                                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--brand-accent2)' }}>💬 {activeOrder.user?.firstName} bilan chat</div>
-                            </div>
-
-                            <div style={{ flex: 1, overflowY: 'auto', padding: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
-                                {chatMessages.length === 0 && (
-                                    <div style={{ textAlign: 'center', color: 'var(--text-secondary)', fontSize: 12, padding: 20 }}>Mijozga xabar yozing yoki rasm yuboring.</div>
-                                )}
-                                {chatMessages.map(msg => {
-                                    const isMe = msg.senderId === user?.id;
-                                    const isPrompt = msg.offerAction === 'confirm_delivery_prompt';
-                                    if (isPrompt) return null;
-
-                                    return (
-                                        <div key={msg.id} style={{ alignSelf: isMe ? 'flex-end' : 'flex-start', maxWidth: '80%', background: isMe ? 'var(--brand-accent2)' : 'var(--bg-secondary)', color: isMe ? '#fff' : 'var(--text-primary)', padding: 10, borderRadius: 14, borderBottomRightRadius: isMe ? 4 : 14, borderBottomLeftRadius: isMe ? 14 : 4 }}>
-                                            {msg.imageUrl && <img src={msg.imageUrl} alt="" style={{ width: '100%', borderRadius: 8, marginBottom: msg.text ? 6 : 0 }} />}
-                                            {msg.text && <div style={{ fontSize: 13, lineHeight: 1.4 }}>{msg.text}</div>}
-                                            <div style={{ fontSize: 9, opacity: 0.6, textAlign: 'right', marginTop: 3 }}>{new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
+            {/* TAB: CHAT LIST */}
+            {activeTab === 'chat' && (
+                <div style={{ animation: 'fadeIn 0.3s ease', padding: '16px 20px', flex: 1, overflowY: 'auto' }}>
+                    
+                    {inbox.length === 0 ? (
+                        <div style={{ textAlign: 'center', padding: 40, color: 'var(--text-secondary)' }}>
+                            <div style={{ fontSize: 40, marginBottom: 10 }}>💬</div>
+                            <div>Hozircha xabarlar yo'q</div>
+                        </div>
+                    ) : (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                            {inbox.map(conv => (
+                                <div key={conv.id} onClick={() => setSelectedChat(conv)} style={{ display: 'flex', gap: 12, background: 'var(--card-bg)', padding: 14, borderRadius: 16, border: '1px solid var(--card-border)', cursor: 'pointer', alignItems: 'center' }}>
+                                    <div style={{ width: 48, height: 48, borderRadius: '50%', background: conv.id.includes('dm') ? 'linear-gradient(135deg, #F5A623, #F39C12)' : 'linear-gradient(135deg, var(--brand-accent2), #11998E)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, flexShrink: 0 }}>
+                                        {conv.id.includes('dm') ? '🛡️' : '👤'}
+                                    </div>
+                                    <div style={{ flex: 1, overflow: 'hidden' }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                                            <div style={{ fontWeight: 800, fontSize: 15, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{conv.name}</div>
+                                            <div style={{ fontSize: 11, color: 'var(--text-secondary)', flexShrink: 0 }}>
+                                                {new Date(conv.updatedAt).toLocaleTimeString('uz-UZ', { hour: '2-digit', minute: '2-digit' })}
+                                            </div>
                                         </div>
-                                    );
-                                })}
-                                <div ref={messagesEndRef} />
-                            </div>
-
-                            <div style={{ padding: 8, borderTop: '1px solid var(--card-border)', background: 'var(--bg-primary)' }}>
-                                <form onSubmit={handleSendChatMessage} style={{ display: 'flex', gap: 8 }}>
-                                    <input type="file" accept="image/*" ref={chatFileInputRef} onChange={e => setChatImage(e.target.files?.[0])} style={{ display: 'none' }} />
-                                    <button type="button" onClick={() => chatFileInputRef.current?.click()} style={{ background: 'var(--bg-secondary)', border: '1px solid var(--card-border)', borderRadius: '50%', width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center', color: chatImage ? 'var(--brand-accent2)' : 'var(--text-secondary)', cursor: 'pointer', flexShrink: 0 }}>
-                                        <ImageIcon size={16} />
-                                    </button>
-                                    <input value={newChatMsg} onChange={e => setNewChatMsg(e.target.value)} placeholder="Xabar..." style={{ flex: 1, background: 'var(--bg-secondary)', border: '1px solid var(--card-border)', borderRadius: 20, padding: '0 12px', color: 'var(--text-primary)', outline: 'none', fontSize: 13, height: 36 }} />
-                                    <button type="submit" disabled={sendingChat || (!newChatMsg.trim() && !chatImage)} style={{ background: 'var(--brand-accent2)', color: '#fff', border: 'none', borderRadius: '50%', width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0, opacity: (sendingChat || (!newChatMsg.trim() && !chatImage)) ? 0.5 : 1 }}>↑</button>
-                                </form>
-                            </div>
+                                        <div style={{ fontSize: 13, color: 'var(--text-secondary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                            {conv.lastMessage || 'Xabar yo\'q'}
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
                         </div>
                     )}
                 </div>
-            ) : (
-                /* AVAILABLE ORDERS VIEW */
-                <div style={{ flex: 1, overflowY: 'auto' }}>
-                    <h3 style={{ marginBottom: '16px', color: 'var(--text-primary)', fontSize: '18px' }}>{t('available_orders')} ({orders.length})</h3>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            )}
+
+            {/* TAB: EARNINGS & ORDERS */}
+            {activeTab === 'earnings' && (
+                <div style={{ animation: 'fadeIn 0.3s ease', padding: '16px 20px', flex: 1, overflowY: 'auto' }}>
+                    
+                    {/* Stats */}
+                    <div style={{ background: 'var(--card-bg)', borderRadius: 18, border: '1px solid var(--card-border)', padding: 16, marginBottom: 20 }}>
+                        <h3 style={{ fontSize: 16, color: 'var(--text-primary)', marginBottom: 16 }}>📊 Daromad Statistikasi</h3>
+                        <div style={{ display: 'flex', gap: 12 }}>
+                            <div style={{ flex: 1, background: 'var(--bg-secondary)', borderRadius: 14, padding: 12, border: '1px solid var(--card-border)' }}>
+                                <div style={{ color: 'var(--text-secondary)', fontSize: 11, fontWeight: 700 }}>Masofa (km)</div>
+                                <div style={{ color: 'var(--brand-accent2)', fontSize: 18, fontWeight: 900 }}>{stats.totalDistance?.toFixed(1) || 0}</div>
+                            </div>
+                            <div style={{ flex: 1, background: 'var(--bg-secondary)', borderRadius: 14, padding: 12, border: '1px solid var(--card-border)' }}>
+                                <div style={{ color: 'var(--text-secondary)', fontSize: 11, fontWeight: 700 }}>Buyurtmalar</div>
+                                <div style={{ color: 'var(--brand-accent2)', fontSize: 18, fontWeight: 900 }}>{stats.totalDeliveries || 0}</div>
+                            </div>
+                            <div style={{ flex: 1.2, background: 'var(--bg-secondary)', borderRadius: 14, padding: 12, border: '1px solid var(--card-border)' }}>
+                                <div style={{ color: 'var(--text-secondary)', fontSize: 11, fontWeight: 700 }}>To'lov (₩)</div>
+                                <div style={{ color: 'var(--brand-accent)', fontSize: 18, fontWeight: 900 }}>{(stats.totalEarnings || 0).toLocaleString()}</div>
+                            </div>
+                        </div>
+
+                        {activeOrder && (
+                            <div style={{ marginTop: 12, borderTop: '1px dashed var(--card-border)', paddingTop: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <div style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 700 }}>Joriy sayohat ({totalTripKm.toFixed(1)} km)</div>
+                                <div style={{ fontSize: 16, color: 'var(--brand-accent)', fontWeight: 900 }}>+ ₩{tripEarnings.toLocaleString()}</div>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Available Orders list */}
+                    <h3 style={{ marginBottom: 16, color: 'var(--text-primary)', fontSize: 18 }}>Yangi Buyurtmalar ({orders.length})</h3>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                         {orders.length === 0 ? (
-                            <div style={{ textAlign: 'center', padding: '40px' }}>
+                            <div style={{ textAlign: 'center', padding: '40px', background: 'var(--card-bg)', borderRadius: 16 }}>
                                 <div style={{ fontSize: 40, marginBottom: 12 }}>📦</div>
-                                <p style={{ color: 'var(--text-secondary)', fontSize: 14 }}>{t('no_orders')}</p>
+                                <p style={{ color: 'var(--text-secondary)', fontSize: 14 }}>Buyurtmalar mavjud emas</p>
                             </div>
                         ) : (
                             orders.map(order => {
                                 const distFromRestaurant = order.distance || 0;
                                 const estimatedMins = Math.round(distFromRestaurant / 0.5 * 3);
-                                const estimatedEarning = Math.round(distFromRestaurant * 2 * 1000); // round trip
+                                const estimatedEarning = Math.round(distFromRestaurant * 2 * 1000); // round trip estimation
 
                                 return (
                                     <div key={order.id} style={{ padding: '16px', borderRadius: '18px', background: 'var(--card-bg)', border: '1px solid var(--card-border)', boxShadow: 'var(--shadow-main)' }}>
@@ -427,11 +357,11 @@ const DeliveryPage = () => {
                                         </div>
                                         <div style={{ fontSize: 13, color: 'var(--text-primary)', marginBottom: 6 }}>📍 {order.user?.address}</div>
                                         <div style={{ display: 'flex', gap: 12, marginBottom: 12 }}>
-                                            <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>⏱ ~{estimatedMins} min</div>
-                                            <div style={{ fontSize: 11, color: 'var(--brand-accent)', fontWeight: 700 }}>💰 ~₩{estimatedEarning.toLocaleString()}</div>
+                                            <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>⏱ ~{estimatedMins} min</div>
+                                            <div style={{ fontSize: 12, color: '#27AE60', fontWeight: 800 }}>💰 ~₩{estimatedEarning.toLocaleString()}</div>
                                         </div>
-                                        <button onClick={() => handleAccept(order)} style={{ width: '100%', padding: '12px', borderRadius: '14px', border: 'none', background: 'var(--text-primary)', color: 'var(--bg-primary)', fontWeight: 700, cursor: 'pointer', fontSize: 14 }}>
-                                            {t('accept')} 🛵
+                                        <button onClick={() => handleAccept(order)} style={{ width: '100%', padding: '14px', borderRadius: '14px', border: 'none', background: 'var(--text-primary)', color: 'var(--bg-primary)', fontWeight: 800, cursor: 'pointer', fontSize: 15, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                                            Qabul Qilish 🛵
                                         </button>
                                     </div>
                                 );
@@ -441,23 +371,6 @@ const DeliveryPage = () => {
                 </div>
             )}
 
-            {/* Staff Chat FAB */}
-            <button onClick={() => setShowStaffChat(true)} style={{ position: 'fixed', bottom: 90, right: 20, zIndex: 99, width: 52, height: 52, borderRadius: 26, background: 'var(--brand-accent2)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 14px rgba(78,205,196,0.4)', border: 'none', cursor: 'pointer' }}>
-                <MessageSquare size={22} />
-            </button>
-
-            {/* Staff Chat Modal */}
-            {showStaffChat && (
-                <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', zIndex: 100, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
-                    <div style={{ width: '100%', maxWidth: 500, height: '80vh', background: 'var(--bg-primary)', borderRadius: '20px 20px 0 0', display: 'flex', flexDirection: 'column', overflow: 'hidden', animation: 'slideUp 0.3s ease-out' }}>
-                        <div style={{ padding: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--card-bg)', borderBottom: '1px solid var(--card-border)' }}>
-                            <span style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: 14 }}>👥 {t('staff_chat')}</span>
-                            <button onClick={() => setShowStaffChat(false)} style={{ background: 'none', border: 'none', color: 'var(--text-primary)', cursor: 'pointer' }}><X size={22} /></button>
-                        </div>
-                        <div style={{ flex: 1, overflow: 'hidden' }}><StaffChat /></div>
-                    </div>
-                </div>
-            )}
         </div>
     );
 };

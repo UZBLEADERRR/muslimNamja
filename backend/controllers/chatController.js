@@ -15,6 +15,7 @@ const chatController = {
     async getMessages(req, res) {
         try {
             const messages = await ChatMessage.findAll({
+                where: { orderId: null, receiverId: null },
                 limit: 100,
                 order: [['createdAt', 'DESC']]
             });

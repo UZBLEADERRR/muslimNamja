@@ -18,6 +18,7 @@ const chatRoutes = require('./routes/chatRoutes');
 const orderRoutes = require('./routes/orderRoutes');
 const productRoutes = require('./routes/productRoutes');
 const publicRoutes = require('./routes/publicRoutes');
+const inboxRoutes = require('./routes/inboxRoutes');
 const { setBot } = require('./utils/globals');
 const setupBot = require('./bot');
 
@@ -30,6 +31,7 @@ app.use('/api/chat', chatRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/products', productRoutes);
 app.use('/api/public', publicRoutes);
+app.use('/api/inbox', inboxRoutes);
 
 // Database connection
 const sequelize = require('./config/database');
