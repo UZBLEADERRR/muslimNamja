@@ -92,73 +92,73 @@ const DeliveryPage = () => {
             .catch(console.error);
     };
 
+    // Keep activeOrder in a ref so geolocation callback can access latest value
+    const activeOrderRef = useRef(null);
+    const notifiedNearbyRef = useRef(false);
+    useEffect(() => { activeOrderRef.current = activeOrder; }, [activeOrder]);
+    useEffect(() => { notifiedNearbyRef.current = notifiedNearby; }, [notifiedNearby]);
+
     useEffect(() => {
         fetchData();
         const interval = setInterval(fetchData, 10000);
         return () => clearInterval(interval);
     }, []);
 
-    // Socket.IO & Geolocation — one-time persistent permission
+    // Socket.IO — separate from geolocation
     useEffect(() => {
-        // Socket
         const socket = io(SOCKET_URL, { transports: ['websocket', 'polling'] });
         socketRef.current = socket;
         socket.on('receive-message', (msg) => {
             setChatMessages(prev => [...prev, msg]);
         });
+        return () => { socket.disconnect(); };
+    }, []);
 
-        // One-time persistent geolocation permission
-        if (!geoWatchIdRef.current) {
-            geoWatchIdRef.current = navigator.geolocation.watchPosition(
-                (pos) => {
-                    const loc = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-                    setMyLocation(loc);
+    // Geolocation — one-time persistent permission, never re-created
+    useEffect(() => {
+        const watchId = navigator.geolocation.watchPosition(
+            (pos) => {
+                const loc = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+                setMyLocation(loc);
 
-                    // Track distance traveled
-                    if (prevLocationRef.current) {
-                        const delta = haversineDistance(prevLocationRef.current, loc);
-                        if (delta > 0.01) { // filter noise, min 10m
-                            setTotalTripKm(prev => prev + delta);
-                        }
+                // Track distance traveled
+                if (prevLocationRef.current) {
+                    const delta = haversineDistance(prevLocationRef.current, loc);
+                    if (delta > 0.01) { // filter noise, min 10m
+                        setTotalTripKm(prev => prev + delta);
                     }
-                    prevLocationRef.current = loc;
+                }
+                prevLocationRef.current = loc;
 
-                    // Send location to order room
-                    if (activeOrder && socket.connected) {
-                        socket.emit('driver-location', {
-                            room: `order_${activeOrder.id}`,
-                            orderId: activeOrder.id,
-                            location: loc
-                        });
-                    }
+                // Send location to order room using ref for latest activeOrder
+                const order = activeOrderRef.current;
+                if (order && socketRef.current?.connected) {
+                    socketRef.current.emit('driver-location', {
+                        room: `order_${order.id}`,
+                        orderId: order.id,
+                        location: loc
+                    });
+                }
 
-                    // Proximity check — auto-notify when within 300m
-                    if (activeOrder?.user?.location && !notifiedNearby) {
-                        const distToUser = haversineDistance(loc, activeOrder.user.location);
-                        if (distToUser < 0.3) {
-                            setNotifiedNearby(true);
-                            // Auto-send message
-                            api.post(`/orders/${activeOrder.id}/chat`, {}, {
-                                headers: { 'Content-Type': 'multipart/form-data' }
-                            }).catch(() => {});
-                            // Send bot notification via API
-                            api.post(`/orders/${activeOrder.id}/notify-nearby`).catch(() => {});
-                        }
+                // Proximity check — auto-notify when within 300m
+                if (order?.user?.location && !notifiedNearbyRef.current) {
+                    const distToUser = haversineDistance(loc, order.user.location);
+                    if (distToUser < 0.3) {
+                        setNotifiedNearby(true);
+                        api.post(`/orders/${order.id}/notify-nearby`).catch(() => {});
                     }
-                },
-                (err) => console.error("Geolocation error:", err),
-                { enableHighAccuracy: true, maximumAge: 5000 }
-            );
-        }
+                }
+            },
+            (err) => console.error("Geolocation error:", err),
+            { enableHighAccuracy: true, maximumAge: 10000, timeout: 30000 }
+        );
+        geoWatchIdRef.current = watchId;
 
         return () => {
-            socket.disconnect();
-            if (geoWatchIdRef.current) {
-                navigator.geolocation.clearWatch(geoWatchIdRef.current);
-                geoWatchIdRef.current = null;
-            }
+            navigator.geolocation.clearWatch(watchId);
+            geoWatchIdRef.current = null;
         };
-    }, [activeOrder]);
+    }, []); // Empty dependency = runs once, never re-created
 
     // Join room
     useEffect(() => {
