@@ -66,7 +66,7 @@ const authController = {
                     username: tgUser.username,
                     phone,
                     address,
-                    gender,
+                    gender: gender || null,
                     registrationIp: userIp,
                     lastLoginIp: userIp,
                     location,

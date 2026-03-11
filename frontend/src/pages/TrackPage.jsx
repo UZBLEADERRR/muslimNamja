@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { useTranslation } from '../i18n';
 import { useAppStore } from '../store/useAppStore';
 import api from '../utils/api';
@@ -30,8 +31,11 @@ const haversineDistance = (c1, c2) => {
 const TrackPage = () => {
     const { t } = useTranslation();
     const { user } = useAppStore();
+    const location = useLocation();
     
-    const [activeTab, setActiveTab] = useState('tracking'); // 'tracking' or 'chat'
+    // Auto-switch to chat tab if URL has ?tab=chat
+    const urlTab = new URLSearchParams(location.search).get('tab');
+    const [activeTab, setActiveTab] = useState(urlTab === 'chat' ? 'chat' : 'tracking');
     const [activeOrder, setActiveOrder] = useState(null);
     const [driverLocation, setDriverLocation] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -195,7 +199,7 @@ const TrackPage = () => {
                                         <Polyline positions={[
                                             [driverLocation.lat, driverLocation.lng],
                                             [user.location.lat, user.location.lng]
-                                        ]} color="#FF3CAC" weight={4} dashArray="8, 8" opacity={0.7} />
+                                        ]} color="#e74c3c" weight={4} dashArray="8, 8" opacity={0.7} />
 
                                         <Marker position={[driverLocation.lat, driverLocation.lng]} icon={
                                             new L.DivIcon({ className: 'courier-icon', html: '<div style="font-size:20px; background:#fff; border-radius:50%; width:30px; height:30px; display:flex; align-items:center; justify-content:center; box-shadow:0 4px 12px rgba(0,0,0,0.2); border: 2px solid #27AE60;">🛵</div>', iconSize: [30, 30] })
@@ -264,6 +268,37 @@ const TrackPage = () => {
                 <div style={{ animation: 'fadeIn 0.3s ease', padding: '16px 20px', flex: 1 }}>
                     <h2 style={{ color: "var(--text-primary)", fontFamily: "'Fraunces', serif", fontSize: 22, fontWeight: 900, marginBottom: 16 }}>Suhbatlar</h2>
                     
+                    {/* Always show Help Center button */}
+                    <div
+                        onClick={async () => {
+                            // Find or create a DM with admin
+                            if (inbox.find(c => c.name?.includes('Yordam'))) {
+                                setSelectedChat(inbox.find(c => c.name?.includes('Yordam')));
+                            } else {
+                                try {
+                                    const res = await api.get('/inbox');
+                                    const adminChat = (res.data || []).find(c => c.name?.includes('Yordam') || c.name?.includes('Support'));
+                                    if (adminChat) {
+                                        setSelectedChat(adminChat);
+                                    } else {
+                                        // Create new by fetching inbox which auto-adds admin
+                                        fetchInbox();
+                                        alert('Yordam markazi ochildi. Iltimos, qayta urinib ko\'ring.');
+                                    }
+                                } catch (e) { console.error(e); }
+                            }
+                        }}
+                        style={{ display: 'flex', gap: 12, background: 'linear-gradient(135deg, var(--brand-accent), #FF3CAC)', padding: 14, borderRadius: 16, cursor: 'pointer', alignItems: 'center', marginBottom: 16, boxShadow: '0 4px 14px rgba(255,107,53,0.3)' }}
+                    >
+                        <div style={{ width: 44, height: 44, borderRadius: '50%', background: 'rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, flexShrink: 0 }}>
+                            🛡️
+                        </div>
+                        <div style={{ flex: 1 }}>
+                            <div style={{ fontWeight: 800, fontSize: 15, color: '#fff' }}>Yordam Markazi (Support)</div>
+                            <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.8)' }}>Admin bilan bog'laning</div>
+                        </div>
+                    </div>
+
                     {inbox.length === 0 ? (
                         <div style={{ textAlign: 'center', padding: 40, color: 'var(--text-secondary)' }}>
                             <div style={{ fontSize: 40, marginBottom: 10 }}>💬</div>

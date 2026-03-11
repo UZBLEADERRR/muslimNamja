@@ -278,6 +278,31 @@ const DeliveryPage = () => {
             {activeTab === 'chat' && (
                 <div style={{ animation: 'fadeIn 0.3s ease', padding: '16px 20px', flex: 1, overflowY: 'auto' }}>
                     
+                    {/* Always show Help Center button */}
+                    <div
+                        onClick={async () => {
+                            const adminChat = inbox.find(c => c.name?.includes('Yordam') || c.name?.includes('Support'));
+                            if (adminChat) {
+                                setSelectedChat(adminChat);
+                            } else {
+                                try {
+                                    const res = await api.get('/inbox');
+                                    const ac = (res.data || []).find(c => c.name?.includes('Yordam') || c.name?.includes('Support'));
+                                    if (ac) setSelectedChat(ac);
+                                    else { fetchData(); alert('Yordam markazi ochildi.'); }
+                                } catch (e) { console.error(e); }
+                            }
+                        }}
+                        style={{ display: 'flex', gap: 12, background: 'linear-gradient(135deg, var(--brand-accent2), #11998E)', padding: 14, borderRadius: 16, cursor: 'pointer', alignItems: 'center', marginBottom: 16, boxShadow: '0 4px 14px rgba(78,205,196,0.3)' }}
+                    >
+                        <div style={{ width: 44, height: 44, borderRadius: '50%', background: 'rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, flexShrink: 0 }}>
+                            🛡️
+                        </div>
+                        <div style={{ flex: 1 }}>
+                            <div style={{ fontWeight: 800, fontSize: 15, color: '#fff' }}>Yordam Markazi (Admin)</div>
+                            <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.8)' }}>Admin bilan bog'laning</div>
+                        </div>
+                    </div>
                     {inbox.length === 0 ? (
                         <div style={{ textAlign: 'center', padding: 40, color: 'var(--text-secondary)' }}>
                             <div style={{ fontSize: 40, marginBottom: 10 }}>💬</div>

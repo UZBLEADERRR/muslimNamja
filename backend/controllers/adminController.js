@@ -4,6 +4,8 @@ const Order = require('../models/Order');
 const Expense = require('../models/Expense');
 const PaymentRequest = require('../models/PaymentRequest');
 const SystemSetting = require('../models/SystemSetting');
+const AuditLog = require('../models/AuditLog');
+const sequelize = require('../config/database');
 const { Op } = require('sequelize');
 const { getBot } = require('../utils/globals');
 
@@ -174,7 +176,7 @@ const adminController = {
     async getAllUsers(req, res) {
         try {
             const users = await User.findAll({
-                attributes: ['id', 'firstName', 'lastName', 'username', 'phone', 'role', 'walletBalance', 'distanceFromRestaurant', 'createdAt'],
+                attributes: ['id', 'firstName', 'lastName', 'username', 'phone', 'address', 'gender', 'role', 'walletBalance', 'distanceFromRestaurant', 'createdAt'],
                 order: [['createdAt', 'DESC']]
             });
             res.json({ users, total: users.length });

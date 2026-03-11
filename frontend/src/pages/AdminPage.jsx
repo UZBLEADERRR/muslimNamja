@@ -4,10 +4,11 @@ import { useAppStore } from '../store/useAppStore';
 import api from '../utils/api';
 import {
     Shield, Package, Activity, Users, DollarSign,
-    Box, Settings, Plus, Trash2, CheckCircle, BrainCircuit, Megaphone, MessageSquare
+    Box, Settings, Plus, Trash2, CheckCircle, BrainCircuit, Megaphone, MessageSquare, MessageCircle
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line, CartesianGrid } from 'recharts';
 import StaffChat from './admin/StaffChat';
+import DirectChat from '../../components/DirectChat';
 
 const AdminPage = () => {
     const { t, lang } = useTranslation();
@@ -54,6 +55,9 @@ const AdminPage = () => {
     const [newAdText, setNewAdText] = useState('');
     const [newAdImage, setNewAdImage] = useState(null);
     const [addingAd, setAddingAd] = useState(false);
+
+    // Admin DM state
+    const [adminDmTarget, setAdminDmTarget] = useState(null);
 
     const [editingExpenseId, setEditingExpenseId] = useState(null);
     const [editingExpenseValue, setEditingExpenseValue] = useState('');
@@ -528,24 +532,28 @@ const AdminPage = () => {
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                         {usersData.users?.map(u => (
                             <div key={u.id} style={{ padding: '14px', borderRadius: 14, background: 'var(--card-bg)', border: '1px solid var(--card-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <div>
+                                <div style={{ flex: 1 }}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                                         <div style={{ color: 'var(--text-primary)', fontWeight: 700, fontSize: 13 }}>{u.firstName} {u.lastName || ''}</div>
-                                        {u.gender === 'male' && <span style={{ fontSize: 12 }}>👨</span>}
-                                        {u.gender === 'female' && <span style={{ fontSize: 12 }}>👩</span>}
                                     </div>
                                     <div style={{ color: 'var(--text-secondary)', fontSize: 11 }}>{u.phone || 'Tel raqam yo\'q'}</div>
+                                    {u.address && <div style={{ color: 'var(--text-secondary)', fontSize: 11 }}>📍 {u.address}</div>}
                                     <div style={{ color: 'var(--brand-accent2)', fontSize: 11, fontWeight: 800 }}>Hamyon: ₩{u.walletBalance?.toLocaleString()}</div>
                                 </div>
-                                <select value={u.role} onChange={e => handleRoleChange(u.id, e.target.value)} style={{
-                                    background: u.role === 'admin' ? 'var(--brand-accent)' : u.role === 'delivery' ? 'var(--brand-accent2)' : 'var(--bg-secondary)',
-                                    color: u.role !== 'user' ? '#fff' : 'var(--text-primary)',
-                                    border: '1px solid var(--card-border)', borderRadius: 8, padding: '6px', fontSize: 11, fontWeight: 700, outline: 'none'
-                                }}>
-                                    <option value="user">User</option>
-                                    <option value="admin">Admin</option>
-                                    <option value="delivery">Delivery</option>
-                                </select>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                    <button onClick={() => setAdminDmTarget({ id: `dm_${u.id}`, type: 'dm', targetId: u.id, name: `👤 ${u.firstName}` })} style={{ background: 'rgba(78,205,196,0.1)', color: 'var(--brand-accent2)', border: 'none', borderRadius: 8, padding: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center' }} title="Xabar yozish">
+                                        <MessageCircle size={16} />
+                                    </button>
+                                    <select value={u.role} onChange={e => handleRoleChange(u.id, e.target.value)} style={{
+                                        background: u.role === 'admin' ? 'var(--brand-accent)' : u.role === 'delivery' ? 'var(--brand-accent2)' : 'var(--bg-secondary)',
+                                        color: u.role !== 'user' ? '#fff' : 'var(--text-primary)',
+                                        border: '1px solid var(--card-border)', borderRadius: 8, padding: '6px', fontSize: 11, fontWeight: 700, outline: 'none'
+                                    }}>
+                                        <option value="user">User</option>
+                                        <option value="admin">Admin</option>
+                                        <option value="delivery">Delivery</option>
+                                    </select>
+                                </div>
                             </div>
                         ))}
                     </div>
@@ -779,6 +787,25 @@ const AdminPage = () => {
                         </div>
                     </div>
 
+                    {/* Data Cleanup */}
+                    <div style={{ padding: '20px', borderRadius: '16px', background: 'var(--card-bg)', border: '1px solid var(--card-border)' }}>
+                        <h3 style={{ fontSize: '16px', color: 'var(--text-primary)', margin: '0 0 8px' }}>🗑 Eski Ma'lumotlarni Tozalash</h3>
+                        <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 16 }}>Tugatilgan buyurtmalar va ko'rib chiqilgan to'lovlarni o'chiradi.</p>
+                        <button
+                            onClick={async () => {
+                                if (!window.confirm("Rostdan ham eski buyurtma va to'lovlarni o'chirasizmi? Bu qaytarilmaydi!")) return;
+                                try {
+                                    const res = await api.delete('/admin/cleanup');
+                                    alert(res.data.message || "Tozalandi!");
+                                    fetchData();
+                                } catch (err) { alert('Tozalashda xatolik yuz berdi'); }
+                            }}
+                            style={{ width: '100%', padding: '14px', borderRadius: '14px', background: 'rgba(231,76,60,0.1)', color: '#E74C3C', border: '1px solid rgba(231,76,60,0.3)', fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, fontSize: 14 }}
+                        >
+                            <Trash2 size={18} /> Tarixni tozalash
+                        </button>
+                    </div>
+
                 </div>
             )}
 
@@ -828,6 +855,13 @@ const AdminPage = () => {
                             </div>
                         </div>
                     ))}
+                </div>
+            )}
+
+            {/* Admin DM Modal */}
+            {adminDmTarget && (
+                <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'var(--bg-primary)' }}>
+                    <DirectChat conversation={adminDmTarget} onBack={() => setAdminDmTarget(null)} />
                 </div>
             )}
 

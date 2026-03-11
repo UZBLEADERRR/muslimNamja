@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useTranslation } from '../i18n';
 import { useAppStore } from '../store/useAppStore';
 import api from '../utils/api';
-import { Image, Edit2, Trash2, X, Pin, Copy, Reply, Users, Send, DollarSign } from 'lucide-react';
+import { Image, Edit2, Trash2, X, Pin, Copy, Reply, Users, Send, DollarSign, MessageCircle } from 'lucide-react';
 import io from 'socket.io-client';
 
 const SOCKET_URL = (import.meta.env.VITE_API_URL || '').replace('/api', '') || window.location.origin;
@@ -41,6 +42,7 @@ const isPremium = (u) => (u?.walletBalance || 0) > 0;
 const CommunityPage = () => {
     const { t } = useTranslation();
     const { user } = useAppStore();
+    const navigate = useNavigate();
     const [posts, setPosts] = useState([]);
     const [newMessage, setNewMessage] = useState('');
     const [imageFile, setImageFile] = useState(null);
@@ -519,15 +521,22 @@ const CommunityPage = () => {
                                     <div style={{ fontSize: 14, color: '#FFD700', fontWeight: 600 }}>₩{(selectedProfile.walletBalance || 0).toLocaleString()}</div>
                                 </div>
                             )}
-                            <div style={{ background: 'var(--bg-secondary)', padding: '8px 16px', borderRadius: 12 }}>
-                                <div style={{ fontSize: 11, color: 'var(--text-secondary)', fontWeight: 700, textTransform: 'uppercase' }}>Jinsi</div>
-                                <div style={{ fontSize: 14, color: 'var(--text-primary)', fontWeight: 600 }}>{selectedProfile.gender === 'male' ? 'Erkak 👨' : selectedProfile.gender === 'female' ? 'Ayol 👩' : '—'}</div>
-                            </div>
                         </div>
 
-                        <button onClick={() => { setTransferTarget(selectedProfile); setSelectedProfile(null); setShowMembers(true); }} style={{ width: '100%', padding: 14, borderRadius: 14, background: 'var(--brand-accent)', color: '#fff', border: 'none', fontWeight: 800, fontSize: 15, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, position: 'relative', zIndex: 2 }}>
-                            <DollarSign size={18} /> Pul O'tkazish
-                        </button>
+                        <div style={{ display: 'flex', gap: 10, position: 'relative', zIndex: 2 }}>
+                            <button onClick={async () => {
+                                try {
+                                    await api.post(`/inbox/${selectedProfile.id}`, { text: `Salom! 👋` });
+                                } catch (e) { /* ignore if already exists */ }
+                                setSelectedProfile(null);
+                                navigate('/track?tab=chat');
+                            }} style={{ flex: 1, padding: 14, borderRadius: 14, background: 'var(--brand-accent2)', color: '#fff', border: 'none', fontWeight: 800, fontSize: 15, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                                <MessageCircle size={18} /> Xabar yozish
+                            </button>
+                            <button onClick={() => { setTransferTarget(selectedProfile); setSelectedProfile(null); setShowMembers(true); }} style={{ flex: 1, padding: 14, borderRadius: 14, background: 'var(--brand-accent)', color: '#fff', border: 'none', fontWeight: 800, fontSize: 15, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                                <DollarSign size={18} /> Pul O'tkazish
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}
