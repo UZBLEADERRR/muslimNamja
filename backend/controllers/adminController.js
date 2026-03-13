@@ -459,12 +459,12 @@ const adminController = {
 
             res.json({
                 financials: {
-                    totalDeposited: allApprovedDeposits,
-                    totalSpent: totalSpentSinceStart,
-                    currentWalletPool: currentTotalWalletBalance
+                    totalDeposited: totalDepositedApproved,
+                    totalSpent: totalSpentByUsers,
+                    currentWalletPool: totalWalletBalance
                 },
                 flow: flowData,
-                distribution: deliveryTypeCounts,
+                distribution: dist,
                 locations: {
                     delivery: getTop(topDestinations),
                     meetup: getTop(topMeetups),
@@ -500,6 +500,33 @@ const adminController = {
         } catch (error) {
             console.error(error);
             res.status(500).json({ error: 'Failed to add expense' });
+        }
+    },
+
+    async askAnalyst(req, res) {
+        try {
+            const { message, context } = req.body;
+            const { GoogleGenerativeAI } = require('@google/generative-ai');
+            const apiKey = process.env.AI_API_KEY;
+
+            if (!apiKey) return res.status(400).json({ error: 'AI API Key not configured' });
+
+            const genAI = new GoogleGenerativeAI(apiKey);
+            const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+
+            const prompt = `Siz 'Muslim Namja' restorani admini uchun moliyaviy tahlilchisiz. 
+            Mavjud ma'lumotlar: ${JSON.stringify(context)}
+            Foydalanuvchi savoli: ${message}
+            
+            Faqat ma'lumotlarga asoslanib javob bering. Javobingiz do'stona va professional bo'lsin. 
+            Agar ma'lumot yetarli bo'lmasa, buni ayting.`;
+
+            const result = await model.generateContent(prompt);
+            const response = await result.response.text();
+            res.json({ response });
+        } catch (error) {
+            console.error('AI Analyst error:', error);
+            res.status(500).json({ error: 'AI tahlilida xatolik' });
         }
     },
 
