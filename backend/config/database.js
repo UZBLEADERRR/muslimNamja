@@ -5,12 +5,12 @@ const databaseUrl = process.env.DATABASE_URL;
 const sequelize = new Sequelize(databaseUrl, {
     dialect: 'postgres',
     logging: false, // Set to console.log to see SQL queries
-    dialectOptions: {
+    dialectOptions: process.env.NODE_ENV === 'production' ? {
         ssl: {
             require: true,
-            rejectUnauthorized: false // Required for Railway/Render SSL
+            rejectUnauthorized: false
         }
-    }
+    } : {}
 });
 
 module.exports = sequelize;
