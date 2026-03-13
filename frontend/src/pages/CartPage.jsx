@@ -43,11 +43,11 @@ const CartPage = () => {
 
     let deliveryFee = 0;
     if (deliveryType === 'home') {
-        deliveryFee = distance > 1 ? 3000 : 0;
+        deliveryFee = 1000; // Fixed fee for home delivery
     } else if (deliveryType === 'pickup') {
-        deliveryFee = -1000;
+        deliveryFee = -1000; // Discount for pickup
     } else if (deliveryType === 'meetup') {
-        deliveryFee = 1500;
+        deliveryFee = 0; // Free for meetup
     }
 
     const total = subtotal + deliveryFee;

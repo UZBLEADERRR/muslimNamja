@@ -336,140 +336,131 @@ const adminController = {
         }
     },
 
-    // --- Expanded Finance & Demographic Stats ---
     async getFullStats(req, res) {
         try {
             const period = req.query.period || 'weekly'; // daily, weekly, monthly, yearly
-            const users = await User.findAll({ attributes: ['id', 'firstName', 'lastName', 'username', 'walletBalance', 'gender', 'createdAt'] });
+            const users = await User.findAll({ attributes: ['id', 'firstName', 'lastName', 'username', 'walletBalance', 'gender', 'createdAt', 'address'] });
 
-            // Wallet Pool
-            const totalWalletPool = users.reduce((sum, u) => sum + (u.walletBalance || 0), 0);
+            // 1. Wallet Stats
+            const currentTotalWalletBalance = users.reduce((sum, u) => sum + (u.walletBalance || 0), 0);
+            
+            // Total deposits (since start)
+            const allApprovedDeposits = await PaymentRequest.sum('amount', { where: { status: 'approved' } }) || 0;
 
-            // Gender Demographics
-            let maleCount = 0;
-            let femaleCount = 0;
-            let unknownCount = 0;
-            users.forEach(u => {
-                if (u.gender === 'male') maleCount++;
-                else if (u.gender === 'female') femaleCount++;
-                else unknownCount++;
+            // 2. Orders Statistics
+            const allOrders = await Order.findAll({ attributes: ['createdAt', 'totalAmount', 'userId', 'deliveryType', 'meetupLocation', 'status'] });
+            
+            // Total spent (since start)
+            const totalSpentSinceStart = allOrders
+                .filter(o => o.status === 'completed')
+                .reduce((sum, o) => sum + (o.totalAmount || 0), 0);
+
+            // Distribution by type (Home vs Meetup vs Pickup)
+            const deliveryTypeCounts = { home: 0, meetup: 0, pickup: 0 };
+            allOrders.forEach(o => {
+                if (deliveryTypeCounts[o.deliveryType] !== undefined) deliveryTypeCounts[o.deliveryType]++;
             });
 
-            // Recent manual expenses
-            const recentExpenses = await Expense.findAll({
-                order: [['createdAt', 'DESC']],
-                limit: 20
-            });
-
-            // Period date range
+            // 3. Timeframe Logic for Hourly/Daily/Monthly peaks
             const now = new Date();
             let periodStart = new Date(now);
-            if (period === 'daily') periodStart.setDate(now.getDate() - 1);
+            if (period === 'daily') periodStart.setHours(now.getHours() - 24);
             else if (period === 'weekly') periodStart.setDate(now.getDate() - 7);
             else if (period === 'monthly') periodStart.setMonth(now.getMonth() - 1);
             else if (period === 'yearly') periodStart.setFullYear(now.getFullYear() - 1);
 
-            // All orders + period-filtered orders
-            const allOrders = await Order.findAll({ attributes: ['createdAt', 'totalAmount', 'userId', 'items', 'status'] });
             const periodOrders = allOrders.filter(o => new Date(o.createdAt) >= periodStart);
-            const completedPeriodOrders = periodOrders.filter(o => o.status === 'completed');
             
-            const hourCounts = Array(24).fill(0);
-            const dailyRevenueMap = {};
-
-            periodOrders.forEach(o => {
-                const d = new Date(o.createdAt);
-                hourCounts[d.getHours()]++;
-
-                const dayKey = d.toISOString().split('T')[0];
-                dailyRevenueMap[dayKey] = (dailyRevenueMap[dayKey] || 0) + (o.totalAmount || 0);
-            });
-
-            const peakHours = hourCounts.map((count, hour) => ({ hour: `${hour}:00`, count }));
-
-            // Revenue chart data based on period
-            const dailyRevenue = [];
-            const daysToShow = period === 'daily' ? 1 : period === 'weekly' ? 7 : period === 'monthly' ? 30 : 365;
-            for (let i = Math.min(daysToShow - 1, 30); i >= 0; i--) {
-                const d = new Date(now);
-                d.setDate(d.getDate() - i);
-                const key = d.toISOString().split('T')[0];
-                dailyRevenue.push({ date: key.substring(5), revenue: dailyRevenueMap[key] || 0 });
+            // Flow Data (Time-series)
+            const flowData = [];
+            if (period === 'daily') {
+                const hourRev = Array(24).fill(0).map((_, i) => ({ time: `${i}:00`, revenue: 0, count: 0 }));
+                periodOrders.forEach(o => {
+                    const h = new Date(o.createdAt).getHours();
+                    hourRev[h].revenue += o.totalAmount || 0;
+                    hourRev[h].count++;
+                });
+                flowData.push(...hourRev);
+            } else if (period === 'weekly' || period === 'monthly') {
+                const days = period === 'weekly' ? 7 : 30;
+                const dailyRev = {};
+                for (let i = days - 1; i >= 0; i--) {
+                    const d = new Date(now);
+                    d.setDate(d.getDate() - i);
+                    const k = d.toISOString().split('T')[0];
+                    dailyRev[k] = { time: k.substring(5), revenue: 0, count: 0 };
+                }
+                periodOrders.forEach(o => {
+                    const k = new Date(o.createdAt).toISOString().split('T')[0];
+                    if (dailyRev[k]) {
+                        dailyRev[k].revenue += o.totalAmount || 0;
+                        dailyRev[k].count++;
+                    }
+                });
+                flowData.push(...Object.values(dailyRev));
+            } else {
+                // Yearly (Monthly buckets)
+                const monthRev = Array(12).fill(0).map((_, i) => ({ time: `${i + 1}-oy`, revenue: 0, count: 0 }));
+                periodOrders.forEach(o => {
+                    const m = new Date(o.createdAt).getMonth();
+                    monthRev[m].revenue += o.totalAmount || 0;
+                    monthRev[m].count++;
+                });
+                flowData.push(...monthRev);
             }
 
-            // Top Users (most orders in period)
-            const userOrderCounts = {};
-            const userSpending = {};
-            periodOrders.forEach(o => {
-                if (o.userId) {
-                    userOrderCounts[o.userId] = (userOrderCounts[o.userId] || 0) + 1;
-                    userSpending[o.userId] = (userSpending[o.userId] || 0) + (o.totalAmount || 0);
-                }
-            });
-            const userMap = users.reduce((acc, u) => { acc[u.id] = u; return acc; }, {});
-            const topUsers = Object.entries(userOrderCounts)
-                .sort((a, b) => b[1] - a[1])
-                .slice(0, 10)
-                .map(([userId, count]) => {
-                    const u = userMap[userId];
-                    return {
-                        id: userId,
-                        name: u ? `${u.firstName || ''} ${u.lastName || ''}`.trim() : 'Unknown',
-                        username: u?.username || '',
-                        orderCount: count,
-                        totalSpent: userSpending[userId] || 0
-                    };
-                });
+            // 4. Locations analysis
+            const topDestinations = {};
+            const topMeetups = {};
+            const topPickups = {}; // Noted as "Pick-up spots" but might just be restaurant. 
+            // The user asks for Top 5 Home Addresses, Meet-up Locations, and Pick-up Locations.
 
-            // Top Addresses (most ordered addresses)
-            const addressCounts = {};
             allOrders.forEach(o => {
-                if (o.items) {
-                    const u = userMap[o.userId];
-                    // Try to find address from user
+                if (o.deliveryType === 'home') {
+                    const u = users.find(x => x.id === o.userId);
+                    const addr = u?.address || 'Noma\'lum';
+                    topDestinations[addr] = (topDestinations[addr] || 0) + 1;
+                } else if (o.deliveryType === 'meetup' && o.meetupLocation) {
+                    topMeetups[o.meetupLocation] = (topMeetups[o.meetupLocation] || 0) + 1;
+                } else if (o.deliveryType === 'pickup') {
+                    // Usually pickup is at restaurant, but let's log if there are multiple spots
+                    const loc = o.meetupLocation || 'Asosiy Restoran';
+                    topPickups[loc] = (topPickups[loc] || 0) + 1;
                 }
             });
-            // Use user addresses for top locations
-            const userAddressCounts = {};
-            periodOrders.forEach(o => {
-                const u = userMap[o.userId];
-                if (u) {
-                    // Group by user's registered address
-                    const addr = u.dataValues?.address || 'Noma\'lum';
-                    if (addr && addr.trim()) {
-                        userAddressCounts[addr] = (userAddressCounts[addr] || 0) + 1;
-                    }
-                }
-            });
-            const topAddresses = Object.entries(userAddressCounts)
-                .sort((a, b) => b[1] - a[1])
-                .slice(0, 10)
-                .map(([address, count]) => ({ address, orderCount: count }));
 
-            // Period summary
-            const periodRevenue = periodOrders.reduce((s, o) => s + (o.totalAmount || 0), 0);
-            const periodOrderCount = periodOrders.length;
-            const periodCompletedCount = completedPeriodOrders.length;
+            const getTop = (obj) => Object.entries(obj).sort((a,b) => b[1]-a[1]).slice(0, 5).map(([label, count]) => ({ label, count }));
+
+            // 5. Demographics & Expenses
+            let maleCount = 0, femaleCount = 0;
+            users.forEach(u => { if (u.gender === 'male') maleCount++; else if (u.gender === 'female') femaleCount++; });
+
+            const recentExpenses = await Expense.findAll({ order: [['createdAt', 'DESC']], limit: 10 });
 
             res.json({
-                totalUsers: users.length,
-                totalWalletPool,
-                demographics: { male: maleCount, female: femaleCount, unknown: unknownCount },
-                recentExpenses,
-                peakHours,
-                dailyRevenue,
-                topUsers,
-                topAddresses,
+                financials: {
+                    totalDeposited: allApprovedDeposits,
+                    totalSpent: totalSpentSinceStart,
+                    currentWalletPool: currentTotalWalletBalance
+                },
+                flow: flowData,
+                distribution: deliveryTypeCounts,
+                locations: {
+                    delivery: getTop(topDestinations),
+                    meetup: getTop(topMeetups),
+                    pickup: getTop(topPickups)
+                },
+                demographics: { male: maleCount, female: femaleCount },
                 periodSummary: {
                     period,
-                    revenue: periodRevenue,
-                    orderCount: periodOrderCount,
-                    completedCount: periodCompletedCount
-                }
+                    orderCount: periodOrders.length,
+                    revenue: periodOrders.reduce((s,o) => s + (o.totalAmount || 0), 0)
+                },
+                recentExpenses
             });
         } catch (error) {
             console.error('Stats error:', error);
-            res.status(500).json({ error: 'Failed to fetch full stats' });
+            res.status(500).json({ error: 'Stats generation failed' });
         }
     },
 

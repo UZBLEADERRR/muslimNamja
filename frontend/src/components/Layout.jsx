@@ -54,11 +54,11 @@ const Layout = () => {
         });
 
         socket.on('new-message-alert', (data) => {
-            // Only show toast if we are not currently in that chat
-            // Simplified check: just show toast
-            if (data.senderId !== user.id) {
-                setToastMsg({ text: `Yangi xabar: ${data.text || 'Rasm'}`, sender: data.sender?.firstName || 'Mijoz' });
-                setTimeout(() => setToastMsg(null), 3000);
+            if (String(data.senderId) !== String(user?.id)) {
+                setToastMsg({ text: data.text || 'Rasm', sender: data.sender?.firstName || 'Mijoz' });
+                // Play notification sound if possible
+                try { new Audio('/assets/notification.mp3').play().catch(() => {}); } catch(e){}
+                setTimeout(() => setToastMsg(null), 5000);
             }
         });
 
@@ -107,31 +107,75 @@ const Layout = () => {
                 </div>
             )}
 
-            {/* Global Toast */}
+            {/* Premium In-App Notification (Toast) */}
             {toastMsg && (
-                <div onClick={() => navigate('/community')} style={{ position: 'fixed', top: 60, left: '50%', transform: 'translateX(-50%)', zIndex: 1000, background: 'var(--brand-accent)', color: '#fff', padding: '10px 20px', borderRadius: 20, boxShadow: '0 4px 15px rgba(255,107,53,0.4)', fontSize: 13, fontWeight: 700, cursor: 'pointer', animation: 'fadeInDown 0.3s ease' }}>
-                    💬 {toastMsg.sender}: {toastMsg.text}
+                <div onClick={() => navigate('/community')} style={{
+                    position: 'fixed',
+                    top: 20,
+                    left: '5%',
+                    right: '5%',
+                    zIndex: 10000,
+                    background: 'rgba(20, 25, 35, 0.85)',
+                    backdropFilter: 'blur(15px)',
+                    border: '1px solid rgba(255, 255, 255, 0.15)',
+                    borderRadius: '20px',
+                    padding: '12px 16px',
+                    boxShadow: '0 10px 40px rgba(0,0,0,0.4)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 12,
+                    animation: 'slideDown 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
+                    cursor: 'pointer'
+                }}>
+                    <div style={{
+                        width: 44,
+                        height: 44,
+                        borderRadius: '14px',
+                        background: 'linear-gradient(135deg, var(--brand-accent), #FF3CAC)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: 20,
+                        boxShadow: '0 4px 12px rgba(255,107,53,0.3)'
+                    }}>💬</div>
+                    <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: 13, fontWeight: 800, color: '#fff', marginBottom: 2 }}>{toastMsg.sender}</div>
+                        <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.7)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{toastMsg.text}</div>
+                    </div>
+                    <button onClick={(e) => { e.stopPropagation(); setToastMsg(null); }} style={{ background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: '50%', width: 28, height: 28, color: '#fff', fontSize: 14 }}>✕</button>
                 </div>
             )}
-            <style>{`@keyframes fadeInDown { from { opacity: 0; transform: translate(-50%, -20px); } to { opacity: 1; transform: translate(-50%, 0); } }`}</style>
 
-            {/* Global Incoming Call */}
+            {/* Global Incoming Call - Premium Look */}
             {incomingCall && !activeCall && (
-                <div style={{ position: 'fixed', inset: 0, zIndex: 10000, background: 'rgba(0,0,0,0.85)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', animation: 'fadeIn 0.3s ease' }}>
-                    <div style={{ width: 100, height: 100, borderRadius: '50%', background: 'linear-gradient(135deg, var(--brand-accent, #FF6B35), #FF3CAC)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 48, marginBottom: 24, boxShadow: '0 0 40px rgba(255,107,53,0.5)', animation: 'pulse-call 1.5s infinite' }}>
-                        📞
+                <div style={{ position: 'fixed', inset: 0, zIndex: 10000, background: 'rgba(5, 10, 20, 0.95)', backdropFilter: 'blur(20px)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', animation: 'fadeIn 0.4s ease' }}>
+                    <div style={{ position: 'relative', marginBottom: 30 }}>
+                        <div style={{ width: 120, height: 120, borderRadius: '50%', background: 'linear-gradient(135deg, #FF6B35, #FF3CAC)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 56, boxShadow: '0 0 60px rgba(255,107,53,0.4)', animation: 'pulse-call 1.5s infinite', zIndex: 2 }}>📞</div>
+                        <div style={{ position: 'absolute', inset: -10, borderRadius: '50%', border: '2px solid rgba(255,107,53,0.3)', animation: 'ping 2s cubic-bezier(0, 0, 0.2, 1) infinite' }} />
                     </div>
-                    <style>{`@keyframes pulse-call { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.1); } }`}</style>
-                    <div style={{ color: '#fff', fontSize: 22, fontWeight: 800, marginBottom: 8 }}>{incomingCall.callerName}</div>
-                    <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: 14, marginBottom: 40 }}>Sizga qo'ng'iroq qilmoqda...</div>
-                    <div style={{ display: 'flex', gap: 32 }}>
-                        <button onClick={() => setIncomingCall(null)} style={{ width: 64, height: 64, borderRadius: 32, border: 'none', background: '#E74C3C', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: '0 4px 15px rgba(231,76,60,0.5)', fontSize: 28 }}>✕</button>
-                        <button onClick={() => { setActiveCall({ isReceiving: true, callerName: incomingCall.callerName, signalData: incomingCall.signalData, roomName: incomingCall.roomName }); setIncomingCall(null); }} style={{ width: 64, height: 64, borderRadius: 32, border: 'none', background: '#27AE60', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: '0 4px 15px rgba(39,174,96,0.5)', fontSize: 28 }}>📞</button>
+                    
+                    <div style={{ textAlign: 'center' }}>
+                        <div style={{ color: '#fff', fontSize: 28, fontWeight: 900, marginBottom: 8, letterSpacing: -0.5 }}>{incomingCall.callerName}</div>
+                        <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: 16, fontWeight: 500, animation: 'blink 1s infinite' }}>Sizga qo'ng'iroq qilmoqda...</div>
                     </div>
-                    <div style={{ display: 'flex', gap: 48, marginTop: 12 }}>
-                        <span style={{ color: 'rgba(255,255,255,0.6)', fontSize: 13, fontWeight: 600 }}>Rad etish</span>
-                        <span style={{ color: 'rgba(255,255,255,0.6)', fontSize: 13, fontWeight: 600 }}>Qabul qilish</span>
+
+                    <div style={{ display: 'flex', gap: 40, marginTop: 80 }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
+                            <button onClick={() => setIncomingCall(null)} style={{ width: 72, height: 72, borderRadius: '50%', border: 'none', background: '#FF3B30', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: '0 8px 25px rgba(255,59,48,0.4)', fontSize: 32, transition: 'transform 0.2s' }} onMouseDown={e => e.currentTarget.style.transform='scale(0.9)'} onMouseUp={e => e.currentTarget.style.transform='scale(1)'}>✕</button>
+                            <span style={{ color: 'rgba(255,255,255,0.6)', fontSize: 13, fontWeight: 600 }}>Rad etish</span>
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
+                            <button onClick={() => { setActiveCall({ isReceiving: true, callerName: incomingCall.callerName, signalData: incomingCall.signalData, roomName: incomingCall.roomName }); setIncomingCall(null); }} style={{ width: 72, height: 72, borderRadius: '50%', border: 'none', background: '#34C759', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: '0 8px 25px rgba(52,199,89,0.4)', fontSize: 32, transition: 'transform 0.2s' }} onMouseDown={e => e.currentTarget.style.transform='scale(0.9)'} onMouseUp={e => e.currentTarget.style.transform='scale(1)'}>📞</button>
+                            <span style={{ color: 'rgba(255,255,255,0.6)', fontSize: 13, fontWeight: 600 }}>Qabul qilish</span>
+                        </div>
                     </div>
+
+                    <style>{`
+                        @keyframes slideDown { from { transform: translateY(-100px) scale(0.9); opacity: 0; } to { transform: translateY(0) scale(1); opacity: 1; } }
+                        @keyframes pulse-call { 0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255,107,53, 0.7); } 70% { transform: scale(1.05); box-shadow: 0 0 0 20px rgba(255,107,53, 0); } 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255,107,53, 0); } }
+                        @keyframes ping { 75%, 100% { transform: scale(2); opacity: 0; } }
+                        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+                    `}</style>
                 </div>
             )}
 

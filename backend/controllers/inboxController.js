@@ -16,162 +16,99 @@ const inboxController = {
             const conversations = [];
 
             // Get main admin id — needed for sorting and support chat
-            const admins = await User.findAll({ where: { role: 'admin' }, attributes: ['id'], limit: 5 });
+            const admins = await User.findAll({ where: { role: 'admin' }, attributes: ['id', 'firstName'], limit: 5 });
             const mainAdminId = admins.length > 0 ? admins[0].id : null;
 
-            if (isAdmin) {
-                // Admin inbox: all users who ever DMed the admin OR admin DMed them
-                // Find all unique users in DMs with any admin (where receiverId is an admin or senderId is an admin)
-                // Actually, admins share one Support inbox. So any DM with receiverId=null and orderId=null?
-                // No, DM means orderId is null AND receiverId is NOT null.
-                
-                const dmUsers = await ChatMessage.findAll({
-                    attributes: ['senderId', 'receiverId'],
-                    where: {
-                        orderId: null,
-                        [Op.or]: [
-                            { receiverId: userId },
-                            { senderId: userId }
-                        ]
-                    },
-                    group: ['senderId', 'receiverId']
+            // 1) Active Orders (Buyer or Driver)
+            const orderWhere = user.role === 'delivery' 
+                ? { deliveryManId: userId, status: { [Op.notIn]: ['completed', 'cancelled'] } } 
+                : { userId: userId, status: { [Op.notIn]: ['completed', 'cancelled'] } };
+
+            const activeOrders = await Order.findAll({
+                where: orderWhere,
+                include: [
+                    { model: User, as: 'User', attributes: ['firstName'] },
+                    { model: User, as: 'DeliveryMan', attributes: ['firstName'] }
+                ]
+            });
+
+            for (let order of activeOrders) {
+                const lastMsg = await ChatMessage.findOne({
+                    where: { orderId: order.id },
+                    order: [['createdAt', 'DESC']]
                 });
 
-                const uniqueUserIds = new Set();
-                dmUsers.forEach(m => {
-                    if (m.senderId !== userId) uniqueUserIds.add(m.senderId);
-                    if (m.receiverId !== userId) uniqueUserIds.add(m.receiverId);
+                conversations.push({
+                    id: `order_${order.id}`,
+                    type: 'order',
+                    targetId: order.id,
+                    name: user.role === 'delivery' 
+                        ? `Buyurtma: ${order.User?.firstName || 'Mijoz'}` 
+                        : `🛵 Kuryer: ${order.DeliveryMan?.firstName || 'Kutilmoqda...'}`,
+                    lastMessage: lastMsg ? lastMsg.text || (lastMsg.imageUrl ? '📷 Rasm' : '') : 'Chatni boshlash',
+                    updatedAt: lastMsg ? lastMsg.createdAt : order.createdAt,
+                    orderData: order
                 });
-
-                // Get last msg for each
-                for (let uid of uniqueUserIds) {
-                    const u = await User.findByPk(uid, { attributes: ['id', 'firstName', 'role'] });
-                    if (!u) continue;
-                    
-                    const lastMsg = await ChatMessage.findOne({
-                        where: {
-                            orderId: null,
-                            [Op.or]: [
-                                { senderId: userId, receiverId: uid },
-                                { senderId: uid, receiverId: userId }
-                            ]
-                        },
-                        order: [['createdAt', 'DESC']]
-                    });
-
-                    conversations.push({
-                        id: `dm_${uid}`,
-                        type: 'dm',
-                        targetId: uid,
-                        name: `${u.role === 'delivery' ? '🛵' : '👤'} ${u.firstName}`,
-                        lastMessage: lastMsg ? lastMsg.text || (lastMsg.imageUrl ? '📷 Rasm' : '') : '',
-                        updatedAt: lastMsg ? lastMsg.createdAt : new Date()
-                    });
-                }
-            } else {
-                // Normal User or Driver inbox: 
-                // 1) Active Orders (where they are buyer or driver)
-                const activeOrders = await Order.findAll({
-                    where: user.role === 'delivery' ? { deliveryManId: userId, status: { [Op.notIn]: ['completed', 'cancelled'] } } 
-                                                  : { userId: userId, status: { [Op.notIn]: ['completed', 'cancelled'] } },
-                    include: [
-                        { model: User, as: 'User', attributes: ['firstName'] },
-                        { model: User, as: 'DeliveryMan', attributes: ['firstName'] }
-                    ]
-                });
-
-                for (let order of activeOrders) {
-                    const lastMsg = await ChatMessage.findOne({
-                        where: { orderId: order.id },
-                        order: [['createdAt', 'DESC']]
-                    });
-
-                    conversations.push({
-                        id: `order_${order.id}`,
-                        type: 'order',
-                        targetId: order.id,
-                        name: user.role === 'delivery' 
-                            ? `Buyurtma: ${order.User?.firstName || 'Mijoz'}` 
-                            : `🛵 Kuryer: ${order.DeliveryMan?.firstName || 'Kutilmoqda...'}`,
-                        lastMessage: lastMsg ? lastMsg.text || (lastMsg.imageUrl ? '📷 Rasm' : '') : 'Chatni boshlash',
-                        updatedAt: lastMsg ? lastMsg.createdAt : order.createdAt,
-                        orderData: order
-                    });
-                }
-
-                // 2) Support (DM with Admin)
-
-                if (mainAdminId) {
-                    const lastDmMsg = await ChatMessage.findOne({
-                        where: {
-                            orderId: null,
-                            [Op.or]: [
-                                { senderId: userId, receiverId: mainAdminId },
-                                { senderId: mainAdminId, receiverId: userId }
-                            ]
-                        },
-                        order: [['createdAt', 'DESC']]
-                    });
-
-                    conversations.push({
-                        id: `dm_${mainAdminId}`,
-                        type: 'dm',
-                        targetId: mainAdminId,
-                        name: '🛡️ Yordam Markazi (Support)',
-                        lastMessage: lastDmMsg ? lastDmMsg.text || (lastDmMsg.imageUrl ? '📷 Rasm' : '') : 'Admin bilan bog\'lanish',
-                        updatedAt: lastDmMsg ? lastDmMsg.createdAt : new Date(0)
-                    });
-                }
-
-                // 3) Other User DMs (Community DMs)
-                const dmUsers = await ChatMessage.findAll({
-                    attributes: ['senderId', 'receiverId'],
-                    where: {
-                        orderId: null,
-                        [Op.or]: [
-                            { receiverId: userId },
-                            { senderId: userId }
-                        ]
-                    },
-                    group: ['senderId', 'receiverId']
-                });
-
-                const uniqueUserIds = new Set();
-                dmUsers.forEach(m => {
-                    if (m.senderId !== userId) uniqueUserIds.add(m.senderId);
-                    if (m.receiverId !== userId) uniqueUserIds.add(m.receiverId);
-                });
-
-                for (let uid of uniqueUserIds) {
-                    if (uid === mainAdminId) continue; // skip admin
-                    const u = await User.findByPk(uid, { attributes: ['id', 'firstName', 'role'] });
-                    if (!u) continue;
-                    
-                    const lastMsg = await ChatMessage.findOne({
-                        where: {
-                            orderId: null,
-                            [Op.or]: [
-                                { senderId: userId, receiverId: uid },
-                                { senderId: uid, receiverId: userId }
-                            ]
-                        },
-                        order: [['createdAt', 'DESC']]
-                    });
-
-                    conversations.push({
-                        id: `dm_${uid}`,
-                        type: 'dm',
-                        targetId: uid,
-                        name: `${u.role === 'delivery' ? '🛵' : '👤'} ${u.firstName}`,
-                        lastMessage: lastMsg ? lastMsg.text || (lastMsg.imageUrl ? '📷 Rasm' : '') : '',
-                        updatedAt: lastMsg ? lastMsg.createdAt : new Date()
-                    });
-                }
             }
 
-            // Sort by latest message, putting Support/Admin channel always on top
+            // 2) Direct Messages (DMs)
+            const dmMessages = await ChatMessage.findAll({
+                attributes: ['senderId', 'receiverId'],
+                where: {
+                    orderId: null,
+                    [Op.or]: [
+                        { receiverId: userId },
+                        { senderId: userId }
+                    ]
+                },
+                raw: true
+            });
+
+            const uniqueUserIds = new Set();
+            dmMessages.forEach(m => {
+                const otherId = String(m.senderId) === String(userId) ? m.receiverId : m.senderId;
+                if (otherId && String(otherId) !== String(userId)) uniqueUserIds.add(otherId);
+            });
+
+            for (let uid of uniqueUserIds) {
+                const u = await User.findByPk(uid, { attributes: ['id', 'firstName', 'role'] });
+                if (!u) continue;
+                
+                const lastMsg = await ChatMessage.findOne({
+                    where: {
+                        orderId: null,
+                        [Op.or]: [
+                            { senderId: userId, receiverId: uid },
+                            { senderId: uid, receiverId: userId }
+                        ]
+                    },
+                    order: [['createdAt', 'DESC']]
+                });
+
+                conversations.push({
+                    id: `dm_${uid}`,
+                    type: 'dm',
+                    targetId: uid,
+                    name: uid === mainAdminId ? '🛡️ Yordam Markazi (Support)' : `${u.role === 'delivery' ? '🛵' : '👤'} ${u.firstName}`,
+                    lastMessage: lastMsg ? lastMsg.text || (lastMsg.imageUrl ? '📷 Rasm' : '') : (uid === mainAdminId ? 'Admin bilan bog\'lanish' : ''),
+                    updatedAt: lastMsg ? lastMsg.createdAt : new Date(0)
+                });
+            }
+
+            // Ensure Support is always in the list even if no messages
+            if (!isAdmin && mainAdminId && !conversations.find(c => c.id === `dm_${mainAdminId}`)) {
+                conversations.push({
+                    id: `dm_${mainAdminId}`,
+                    type: 'dm',
+                    targetId: mainAdminId,
+                    name: '🛡️ Yordam Markazi (Support)',
+                    lastMessage: 'Admin bilan bog\'lanish',
+                    updatedAt: new Date(0)
+                });
+            }
+
+            // Sort by latest message, putting Support/Admin channel always on top for users
             conversations.sort((a, b) => {
-                // If the user isn't an admin, pin the admin DM
                 if (!isAdmin && mainAdminId) {
                     if (a.id === `dm_${mainAdminId}`) return -1;
                     if (b.id === `dm_${mainAdminId}`) return 1;
@@ -238,9 +175,17 @@ const inboxController = {
 
             const sender = await User.findByPk(senderId, { attributes: ['id', 'firstName', 'role'] });
             
-            // Note: Broadcasting logic via Socket.IO should probably use the targetId directly 
-            // e.g., io.to(`user_${targetId}`).emit(...)
-            // We will let the frontend listen to private events or broadcast to `dm_${senderId}_${targetId}`.
+            const io = req.app.get('io');
+            if (io) {
+                const messageData = { ...msg.toJSON(), sender };
+                io.to(`dm_${targetId}`).emit('receive-message', messageData);
+                io.to(`dm_${senderId}`).emit('receive-message', messageData);
+                io.to(`user_${targetId}`).emit('new-message-alert', {
+                    text: text || '📷 Rasm',
+                    sender: sender,
+                    senderId: senderId
+                });
+            }
             
             res.status(201).json({ ...msg.toJSON(), sender });
         } catch (error) {

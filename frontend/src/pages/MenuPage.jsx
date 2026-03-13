@@ -338,17 +338,52 @@ const MenuPage = () => {
                                 </div>
                             </div>
 
-                            {/* Add to Cart Button — inside scroll, sticky at bottom */}
-                            <div style={{ position: 'sticky', bottom: 0, paddingTop: 8, paddingBottom: 16, background: 'var(--bg-primary)' }}>
+                            {/* Add to Cart Button — Fixed at bottom of the modal */}
+                            <div style={{ 
+                                position: 'fixed', 
+                                bottom: 0, 
+                                left: 0, 
+                                right: 0, 
+                                padding: '16px 20px 30px', 
+                                background: 'linear-gradient(to top, var(--bg-primary) 80%, transparent)',
+                                zIndex: 20
+                            }}>
                                 <button
                                     onClick={() => handleAddToCart(selectedFood, selectedExtras, qty)}
                                     disabled={selectedFood.stock === 0 || !isStoreOpen}
-                                    style={{ width: '100%', padding: '16px', borderRadius: 16, border: 'none', background: selectedFood.stock === 0 || !isStoreOpen ? '#95a5a6' : 'linear-gradient(135deg, var(--brand-accent), #FF3CAC)', color: '#fff', fontWeight: 800, fontSize: 16, cursor: selectedFood.stock === 0 || !isStoreOpen ? 'not-allowed' : 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxShadow: '0 4px 20px rgba(255,107,53,0.3)' }}
+                                    style={{ 
+                                        width: '100%', 
+                                        padding: '18px', 
+                                        borderRadius: 20, 
+                                        border: 'none', 
+                                        background: selectedFood.stock === 0 || !isStoreOpen ? '#95a5a6' : 'linear-gradient(135deg, var(--brand-accent), #FF3CAC)', 
+                                        color: '#fff', 
+                                        fontWeight: 900, 
+                                        fontSize: 17, 
+                                        cursor: selectedFood.stock === 0 || !isStoreOpen ? 'not-allowed' : 'pointer', 
+                                        display: 'flex', 
+                                        justifyContent: 'space-between', 
+                                        alignItems: 'center', 
+                                        boxShadow: '0 10px 30px rgba(255,107,53,0.4)',
+                                        animation: 'bounceIn 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55)'
+                                    }}
                                 >
-                                    <span>🛒 Savatga qo'shish</span>
-                                    <span>₩{((selectedFood.price + selectedExtras.reduce((s, e) => s + (e.price || 0), 0)) * qty).toLocaleString()}</span>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                        <span style={{ fontSize: 20 }}>🛒</span>
+                                        <span>{t('add') || 'Savatga qo\'shish'}</span>
+                                    </div>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                        {qty > 1 && <span style={{ fontSize: 12, opacity: 0.8, fontWeight: 600 }}>{qty} ×</span>}
+                                        <span>₩{((selectedFood.price + selectedExtras.reduce((s, e) => s + (e.price || 0), 0)) * qty).toLocaleString()}</span>
+                                    </div>
                                 </button>
                             </div>
+                            <style>{`
+                                @keyframes bounceIn {
+                                    from { transform: scale(0.9); opacity: 0; }
+                                    to { transform: scale(1); opacity: 1; }
+                                }
+                            `}</style>
                         </div>
                     </div>
                 </div>

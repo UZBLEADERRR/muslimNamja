@@ -108,8 +108,36 @@ io.on('connection', (socket) => {
     socket.on('webrtc-ice-candidate', data => socket.to(data.room).emit('webrtc-ice-candidate', data));
 
     // Global Ring User (for incoming calls outside chat)
-    socket.on('ring-user', data => {
-        io.to(`user_${data.targetId}`).emit('incoming-call', data);
+    socket.on('ring-user', async (data) => {
+        const { targetId, callerName, room } = data;
+        io.to(`user_${targetId}`).emit('incoming-call', data);
+
+        // Bot Fallback Logic: If not answered in 15s, send TG message
+        setTimeout(async () => {
+            try {
+                // We need to check if the user is still 'ringing' (not busy/answered)
+                // For simplicity, we'll send a message if they are offline or didn't answer in time
+                const User = require('./models/User');
+                const targetUser = await User.findByPk(targetId);
+                const { getBot } = require('./utils/globals');
+                const bot = getBot();
+
+                if (targetUser && targetUser.telegramId && bot) {
+                    // Check if target socket has accepted (this is tricky without global state)
+                    // So we send a notification that says "You missed a call" or "Incoming call"
+                    bot.sendMessage(targetUser.telegramId, `📞 <b>Kirim qo'ng'iroq!</b>\n\n<b>${callerName}</b> siz bilan bog'lanmoqchi.`, {
+                        parse_mode: 'HTML',
+                        reply_markup: {
+                            inline_keyboard: [
+                                [{ text: "✅ Javob Berish (Ilovaga kirish)", url: `https://t.me/muslim_namja_bot/app?startapp=call_${room}` }]
+                            ]
+                        }
+                    }).catch(e => console.error('Bot call notify error:', e));
+                }
+            } catch (err) {
+                console.error('Call fallback error:', err);
+            }
+        }, 12000); // 12 seconds delay for bot fallback
     });
 
     // Live Location Relay

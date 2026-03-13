@@ -212,6 +212,24 @@ ${orderDetails}
             });
 
             const sender = await User.findByPk(senderId, { attributes: ['id', 'firstName', 'role'] });
+            
+            const io = req.app.get('io');
+            if (io) {
+                const order = await Order.findByPk(id);
+                const messageData = { ...msg.toJSON(), sender };
+                io.to(`order_${id}`).emit('receive-message', messageData);
+                
+                if (order) {
+                    const targetUid = String(senderId) === String(order.userId) ? order.deliveryManId : order.userId;
+                    if (targetUid) {
+                        io.to(`user_${targetUid}`).emit('new-message-alert', {
+                            text: text || '📷 Rasm',
+                            sender: sender,
+                            senderId: senderId
+                        });
+                    }
+                }
+            }
             res.status(201).json({ ...msg.toJSON(), sender });
         } catch (err) {
             res.status(500).json({ error: 'Failed to post order message' });

@@ -13,6 +13,8 @@ const AdminPage = () => {
 
     // Data states
     const [dashStats, setDashStats] = useState(null);
+    const [expandedStats, setExpandedStats] = useState(null);
+    const [timeframe, setTimeframe] = useState('weekly');
     const [orders, setOrders] = useState({ orders: [], stats: {} });
     const [products, setProducts] = useState([]);
     const [usersData, setUsersData] = useState({ users: [], total: 0 });
@@ -55,14 +57,16 @@ const AdminPage = () => {
     const fetchData = async () => {
         setLoading(true);
         try {
-            const [resDash, resOrd, resProd, resUsers, resPay] = await Promise.all([
+            const [resDash, resOrd, resProd, resUsers, resPay, resStats] = await Promise.all([
                 api.get('/admin/dashboard').catch(() => ({ data: {} })),
                 api.get('/admin/orders').catch(() => ({ data: { orders: [], stats: {} } })),
                 api.get('/admin/products').catch(() => ({ data: [] })),
                 api.get('/admin/users').catch(() => ({ data: { users: [], total: 0 } })),
                 api.get('/admin/payment-requests').catch(() => ({ data: [] })),
+                api.get(`/admin/stats?period=${timeframe}`).catch(() => ({ data: null })),
             ]);
             setDashStats(resDash.data);
+            setExpandedStats(resStats.data);
             setOrders(resOrd.data || { orders: [], stats: {} });
             setProducts(resProd.data || []);
             setUsersData(resUsers.data || { users: [], total: 0 });
@@ -85,7 +89,7 @@ const AdminPage = () => {
         finally { setLoading(false); }
     };
 
-    useEffect(() => { fetchData(); }, []);
+    useEffect(() => { fetchData(); }, [timeframe]);
 
     // Handle Telegram Back Button
     useEffect(() => {
@@ -238,80 +242,144 @@ const AdminPage = () => {
                 {/* =================== ANALYTICS TAB =================== */}
                 {activeTab === 'analytics' && !loading && (
                     <div style={{ animation: 'fadeIn 0.3s ease' }}>
-                        {/* KPIs */}
+                        
+                        {/* 1. Historical Financials */}
+                        <div style={sectionTitle}>💰 Moliyaviy Holat (Tarixdan beri)</div>
                         <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
-                            <div style={kpiCard(colors.accent)}>
-                                <div style={subText}>Jami Buyurtma</div>
-                                <div style={{ ...bigNum, color: colors.accent }}>{dashStats?.totalOrders || allOrders.length}</div>
-                            </div>
                             <div style={kpiCard(colors.profit)}>
-                                <div style={subText}>Daromad</div>
-                                <div style={{ ...bigNum, color: colors.profit, fontSize: 20 }}>₩{totalRevenue.toLocaleString()}</div>
+                                <div style={subText}>Jami Deposit</div>
+                                <div style={{ ...bigNum, color: colors.profit, fontSize: 18 }}>₩{(expandedStats?.financials?.totalDeposited || 0).toLocaleString()}</div>
+                            </div>
+                            <div style={kpiCard(colors.accent)}>
+                                <div style={subText}>Jami Savdo</div>
+                                <div style={{ ...bigNum, color: colors.accent, fontSize: 18 }}>₩{(expandedStats?.financials?.totalSpent || 0).toLocaleString()}</div>
                             </div>
                             <div style={kpiCard(colors.warning)}>
-                                <div style={subText}>Userlar</div>
-                                <div style={{ ...bigNum, color: colors.warning }}>{usersData.total || 0}</div>
+                                <div style={subText}>Hamyonlar qoldig'i</div>
+                                <div style={{ ...bigNum, color: colors.warning, fontSize: 18 }}>₩{(expandedStats?.financials?.currentWalletPool || 0).toLocaleString()}</div>
                             </div>
                         </div>
 
-                        {/* Top Addresses */}
+                        {/* 2. Interactive Flow Chart */}
                         <div style={cardStyle}>
-                            <div style={sectionTitle}>📍 Eng ko'p buyurtma berilgan manzillar</div>
-                            {(() => {
-                                const addrCount = {};
-                                allOrders.forEach(o => { const addr = o.user?.address || 'Noma\'lum'; addrCount[addr] = (addrCount[addr] || 0) + 1; });
-                                const sorted = Object.entries(addrCount).sort((a, b) => b[1] - a[1]).slice(0, 5);
-                                return sorted.length === 0 ? <div style={subText}>Ma'lumot yo'q</div> : sorted.map(([addr, cnt], i) => (
-                                    <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: i < sorted.length - 1 ? `1px solid ${colors.border}` : 'none' }}>
-                                        <span style={{ ...mainText, fontSize: 12 }}>📍 {addr.slice(0, 30)}{addr.length > 30 ? '...' : ''}</span>
-                                        <span style={badge(colors.accent)}>{cnt} ta</span>
-                                    </div>
-                                ));
-                            })()}
-                        </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                                <div style={sectionTitle}>📈 Savdo oqimi</div>
+                                <div style={{ display: 'flex', gap: 4 }}>
+                                    {['daily', 'weekly', 'monthly', 'yearly'].map(p => (
+                                        <button key={p} onClick={() => setTimeframe(p)} style={{
+                                            padding: '4px 8px', borderRadius: 6, border: 'none',
+                                            background: timeframe === p ? colors.accent : colors.surface,
+                                            color: timeframe === p ? '#fff' : colors.subtext,
+                                            fontSize: 9, fontWeight: 800, cursor: 'pointer'
+                                        }}>{p === 'daily' ? 'Kun' : p === 'weekly' ? 'Hafta' : p === 'monthly' ? 'Oy' : 'Yil'}</button>
+                                    ))}
+                                </div>
+                            </div>
 
-                        {/* Top Users */}
-                        <div style={cardStyle}>
-                            <div style={sectionTitle}>👑 Eng ko'p buyurtma qilgan userlar</div>
-                            {(() => {
-                                const userCount = {};
-                                allOrders.forEach(o => { const name = o.user?.firstName || 'Noma\'lum'; userCount[name] = (userCount[name] || 0) + 1; });
-                                const sorted = Object.entries(userCount).sort((a, b) => b[1] - a[1]).slice(0, 5);
-                                return sorted.length === 0 ? <div style={subText}>Ma'lumot yo'q</div> : sorted.map(([name, cnt], i) => (
-                                    <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: i < sorted.length - 1 ? `1px solid ${colors.border}` : 'none' }}>
-                                        <span style={mainText}>{['🥇', '🥈', '🥉', '4️⃣', '5️⃣'][i]} {name}</span>
-                                        <span style={badge(colors.profit)}>{cnt} ta</span>
-                                    </div>
-                                ));
-                            })()}
-                        </div>
-
-                        {/* Orders by Day */}
-                        <div style={cardStyle}>
-                            <div style={sectionTitle}>📅 Kunlik buyurtmalar (oxirgi 7 kun)</div>
-                            {(() => {
-                                const dayCounts = {};
-                                const today = new Date();
-                                for (let i = 6; i >= 0; i--) {
-                                    const d = new Date(today); d.setDate(d.getDate() - i);
-                                    dayCounts[d.toLocaleDateString('uz', { weekday: 'short', month: 'short', day: 'numeric' })] = 0;
-                                }
-                                allOrders.forEach(o => {
-                                    const d = new Date(o.createdAt);
-                                    const key = d.toLocaleDateString('uz', { weekday: 'short', month: 'short', day: 'numeric' });
-                                    if (dayCounts[key] !== undefined) dayCounts[key]++;
-                                });
-                                const maxVal = Math.max(1, ...Object.values(dayCounts));
-                                return Object.entries(dayCounts).map(([day, count], i) => (
-                                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
-                                        <span style={{ ...subText, width: 80, flexShrink: 0, fontSize: 10 }}>{day}</span>
-                                        <div style={{ flex: 1, height: 20, background: colors.surface, borderRadius: 6, overflow: 'hidden' }}>
-                                            <div style={{ width: `${(count / maxVal) * 100}%`, height: '100%', background: `linear-gradient(90deg, ${colors.accent}, ${colors.purple})`, borderRadius: 6, transition: 'width 0.5s ease' }} />
+                            {/* Chart Area */}
+                            <div style={{ height: 180, display: 'flex', alignItems: 'flex-end', gap: 4, marginBottom: 10, padding: '0 10px' }}>
+                                {(() => {
+                                    const data = expandedStats?.flow || [];
+                                    const maxVal = Math.max(1, ...data.map(d => d.revenue));
+                                    return data.map((d, i) => (
+                                        <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, height: '100%' }}>
+                                            <div style={{ flex: 1, width: '100%', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
+                                                <div style={{ 
+                                                    width: '100%', 
+                                                    height: `${(d.revenue / maxVal) * 100}%`, 
+                                                    background: `linear-gradient(to top, ${colors.accent}, ${colors.profit})`, 
+                                                    borderRadius: '4px 4px 0 0',
+                                                    minHeight: d.revenue > 0 ? 4 : 0,
+                                                    boxShadow: d.revenue > 0 ? '0 0 10px rgba(0,212,255,0.2)' : 'none'
+                                                }} />
+                                            </div>
+                                            <span style={{ fontSize: 8, color: colors.subtext, whiteSpace: 'nowrap', transform: timeframe === 'yearly' || timeframe === 'monthly' ? 'rotate(-45deg)' : 'none', marginTop: 4 }}>{d.time}</span>
                                         </div>
-                                        <span style={{ ...mainText, width: 24, textAlign: 'right', fontSize: 12 }}>{count}</span>
+                                    ));
+                                })()}
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'center', gap: 16, marginTop: 10 }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                                    <div style={{ width: 8, height: 8, borderRadius: 2, background: colors.accent }} />
+                                    <span style={subText}>Savdo oqimi (₩)</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* 3. Distribution Charts */}
+                        <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+                            <div style={{ ...cardStyle, flex: 1 }}>
+                                <div style={{ ...sectionTitle, fontSize: 13 }}>🛒 Buyurtma turi</div>
+                                {(() => {
+                                    const dist = expandedStats?.distribution || { home: 0, meetup: 0, pickup: 0 };
+                                    const total = Math.max(1, dist.home + dist.meetup + dist.pickup);
+                                    return (
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                            {[
+                                                { label: 'Uygacha (₩1000)', val: dist.home, color: colors.accent },
+                                                { label: 'Meet-up (Bepul)', val: dist.meetup, color: colors.purple },
+                                                { label: 'Pick-up (-₩1000)', val: dist.pickup, color: colors.warning }
+                                            ].map((item, i) => (
+                                                <div key={i}>
+                                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: colors.text, marginBottom: 2 }}>
+                                                        <span>{item.label}</span>
+                                                        <span>{Math.round((item.val/total)*100)}%</span>
+                                                    </div>
+                                                    <div style={{ height: 6, background: colors.surface, borderRadius: 3, overflow: 'hidden' }}>
+                                                        <div style={{ width: `${(item.val / total) * 100}%`, height: '100%', background: item.color }} />
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    );
+                                })()}
+                            </div>
+                            <div style={{ ...cardStyle, flex: 1, textAlign: 'center' }}>
+                                <div style={{ ...sectionTitle, fontSize: 13 }}>👥 Demografiya</div>
+                                <div style={{ display: 'flex', justifyContent: 'center', gap: 20, marginTop: 10 }}>
+                                    <div>
+                                        <div style={{ fontSize: 24 }}>🧔</div>
+                                        <div style={{ ...mainText, color: colors.accent }}>{expandedStats?.demographics?.male || 0}</div>
+                                        <div style={subText}>Erkak</div>
                                     </div>
-                                ));
-                            })()}
+                                    <div>
+                                        <div style={{ fontSize: 24 }}>👩</div>
+                                        <div style={{ ...mainText, color: colors.pink }}>{expandedStats?.demographics?.female || 0}</div>
+                                        <div style={subText}>Ayol</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* 4. Top Locations per category */}
+                        <div style={cardStyle}>
+                            <div style={sectionTitle}>🔝 Top Manzillar</div>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                                <div>
+                                    <div style={{ ...mainText, fontSize: 11, marginBottom: 8, color: colors.accent }}>🏠 Uygacha yetkazish</div>
+                                    {(expandedStats?.locations?.delivery || []).map((loc, i) => (
+                                        <div key={i} style={{ fontSize: 10, color: colors.subtext, marginBottom: 4 }}>
+                                            {i+1}. {loc.label.slice(0, 15)}... <span style={{ color: colors.text }}>({loc.count})</span>
+                                        </div>
+                                    ))}
+                                </div>
+                                <div>
+                                    <div style={{ ...mainText, fontSize: 11, marginBottom: 8, color: colors.purple }}>🤝 Meet-up nuqtalari</div>
+                                    {(expandedStats?.locations?.meetup || []).map((loc, i) => (
+                                        <div key={i} style={{ fontSize: 10, color: colors.subtext, marginBottom: 4 }}>
+                                            {i+1}. {loc.label} <span style={{ color: colors.text }}>({loc.count})</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                            <div style={{ marginTop: 12, borderTop: `1px solid ${colors.border}`, paddingTop: 8 }}>
+                                <div style={{ ...mainText, fontSize: 11, marginBottom: 8, color: colors.warning }}>🚶 Pick-up (Olib ketish)</div>
+                                {(expandedStats?.locations?.pickup || []).map((loc, i) => (
+                                    <span key={i} style={{ fontSize: 10, color: colors.subtext, marginRight: 10 }}>
+                                        {loc.label} ({loc.count})
+                                    </span>
+                                ))}
+                            </div>
                         </div>
                     </div>
                 )}
@@ -347,9 +415,18 @@ const AdminPage = () => {
                                     {/* Items */}
                                     <div style={{ background: colors.surface, borderRadius: 10, padding: 10, marginBottom: 10 }}>
                                         {order.items?.map((item, i) => (
-                                            <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: colors.text, padding: '2px 0' }}>
-                                                <span>{item.productName} × {item.quantity}</span>
-                                                <span>₩{((item.price || 0) * item.quantity).toLocaleString()}</span>
+                                            <div key={i} style={{ fontSize: 12, color: colors.text, padding: '2px 0' }}>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                                    <span>{item.productName} × {item.quantity}</span>
+                                                    <span>₩{((item.price || 0) * item.quantity).toLocaleString()}</span>
+                                                </div>
+                                                {item.extras && item.extras.length > 0 && (
+                                                    <div style={{ fontSize: 10, color: colors.accent, marginTop: 2, paddingLeft: 8 }}>
+                                                        {item.extras.map((ex, j) => (
+                                                            <div key={j}>+ {ex.name} (₩{(ex.price || 0).toLocaleString()})</div>
+                                                        ))}
+                                                    </div>
+                                                )}
                                             </div>
                                         ))}
                                     </div>
