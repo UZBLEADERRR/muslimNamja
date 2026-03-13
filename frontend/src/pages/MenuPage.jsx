@@ -346,7 +346,7 @@ const MenuPage = () => {
                                 transform: 'translateX(-50%)',
                                 width: '100%',
                                 maxWidth: 430,
-                                padding: '16px 20px 30px', 
+                                padding: '16px 20px 20px', 
                                 background: 'var(--bg-primary)',
                                 backdropFilter: 'blur(20px)',
                                 borderTop: '1px solid var(--card-border)',

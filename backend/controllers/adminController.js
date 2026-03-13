@@ -348,7 +348,9 @@ const adminController = {
             const totalDepositedApproved = await PaymentRequest.sum('amount', { where: { status: 'approved' } }) || 0;
 
             // 2. Orders Statistics
-            const allOrders = await Order.findAll({ attributes: ['createdAt', 'totalAmount', 'userId', 'deliveryType', 'meetupLocation', 'status', 'deliveryFee', 'distance'] });
+            const allOrders = await Order.findAll({ 
+                attributes: ['createdAt', 'totalAmount', 'userId', 'deliveryType', 'meetupLocation', 'status', 'deliveryFee', 'distance', 'deliveryManId', 'deliveryManEarning', 'items'] 
+            });
             
             // Total spent (since start)
             const totalSpentByUsers = allOrders
@@ -371,6 +373,25 @@ const adminController = {
                     totalDeliveryFees += (o.deliveryFee || 0);
                 }
             });
+
+            // 3. Courier Stats
+            const courierStats = {};
+            allOrders.filter(o => o.status === 'completed' && o.deliveryManId).forEach(o => {
+                const cid = o.deliveryManId;
+                if (!courierStats[cid]) courierStats[cid] = { count: 0, earnings: 0 };
+                courierStats[cid].count++;
+                courierStats[cid].earnings += (o.deliveryManEarning || 0);
+            });
+
+            // Get courier names
+            const courierIds = Object.keys(courierStats);
+            const couriers = courierIds.length > 0 ? await User.findAll({ where: { id: courierIds }, attributes: ['id', 'firstName', 'lastName'] }) : [];
+            const courierRanking = couriers.map(c => ({
+                id: c.id,
+                name: `${c.firstName} ${c.lastName || ''}`,
+                count: courierStats[c.id].count,
+                earnings: courierStats[c.id].earnings
+            })).sort((a, b) => b.count - a.count);
 
             // Kitchen Expenses
             const kitchenExpenses = await Expense.sum('amount') || 0;
@@ -461,7 +482,8 @@ const adminController = {
                 financials: {
                     totalDeposited: totalDepositedApproved,
                     totalSpent: totalSpentByUsers,
-                    currentWalletPool: totalWalletBalance
+                    currentWalletPool: totalWalletBalance,
+                    totalDeliveryFees
                 },
                 flow: flowData,
                 distribution: dist,
@@ -470,6 +492,7 @@ const adminController = {
                     meetup: getTop(topMeetups),
                     pickup: getTop(topPickups)
                 },
+                couriers: courierRanking,
                 demographics: { male: maleCount, female: femaleCount },
                 periodSummary: {
                     period,

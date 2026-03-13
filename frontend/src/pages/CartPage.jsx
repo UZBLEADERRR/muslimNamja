@@ -68,13 +68,17 @@ const CartPage = () => {
 
         setIsProcessing(true);
         try {
-            const items = cart.map(item => ({
-                productId: item.product?._id || item.product?.id,
-                productName: item.product?.name || 'Item',
-                quantity: item.quantity || 1,
-                price: item.product?.price || item.priceAtTime || 0,
-                extras: item.extras || []
-            }));
+            const items = cart.map(item => {
+                const nameObj = item.product?.name || {};
+                const pName = nameObj[lang] || nameObj.uz || nameObj.en || 'Item';
+                return {
+                    productId: item.product?._id || item.product?.id,
+                    productName: pName,
+                    quantity: item.quantity || 1,
+                    price: item.product?.price || item.priceAtTime || 0,
+                    extras: item.extras || []
+                };
+            });
 
             await api.post('/orders', {
                 items,

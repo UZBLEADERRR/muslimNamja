@@ -128,7 +128,12 @@ const AdminPage = () => {
         } catch { alert("Qo'shishda xatolik"); }
     };
     const handleRoleChange = async (userId, role) => {
-        try { await api.post('/admin/role', { userId, role }); fetchData(); } catch { alert("Xatolik"); }
+        try { 
+            await api.post('/admin/role', { userId, role }); 
+            alert("Ro'l o'zgartirildi!");
+            fetchData(); 
+            setSelectedUser(null);
+        } catch { alert("Xatolik"); }
     };
     const handlePaymentAction = async (id, action) => {
         try { await api.put(`/admin/payment-requests/${id}`, { action }); alert(`To'lov ${action === 'approve' ? 'tasdiqlandi' : 'rad etildi'}!`); fetchData(); } catch { alert("Xatolik"); }
@@ -251,22 +256,36 @@ const AdminPage = () => {
                     <div className="animate-fade-in">
                         {/* 1. Historical Financials */}
                         <div style={sectionTitle}>💰 Moliyaviy Holat (Sof Foyda Tahlili)</div>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, marginBottom: 16 }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 16 }}>
                             <div style={kpiCard(colors.profit)}>
-                                <div style={subText}>Jami Deposit</div>
-                                <div style={{ ...bigNum, color: colors.profit, fontSize: 16 }}>₩{(expandedStats?.financials?.totalDeposited || 0).toLocaleString()}</div>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <div style={subText}>Jami Deposit</div>
+                                    <div style={{ ...bigNum, color: colors.profit, fontSize: 18 }}>₩{(expandedStats?.financials?.totalDeposited || 0).toLocaleString()}</div>
+                                </div>
                             </div>
                             <div style={kpiCard(colors.accent)}>
-                                <div style={subText}>Sof Foyda</div>
-                                <div style={{ ...bigNum, color: colors.accent, fontSize: 16 }}>₩{(expandedStats?.financials?.netProfit || 0).toLocaleString()}</div>
-                            </div>
-                            <div style={kpiCard(colors.danger)}>
-                                <div style={subText}>Harajatlar</div>
-                                <div style={{ ...bigNum, color: colors.danger, fontSize: 16 }}>₩{(expandedStats?.financials?.kitchenExpenses || 0).toLocaleString()}</div>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <div style={subText}>Sof Foyda</div>
+                                    <div style={{ ...bigNum, color: colors.accent, fontSize: 18 }}>₩{(expandedStats?.financials?.netProfit || 0).toLocaleString()}</div>
+                                </div>
                             </div>
                             <div style={kpiCard(colors.warning)}>
-                                <div style={subText}>Hamyonlar Pool</div>
-                                <div style={{ ...bigNum, color: colors.warning, fontSize: 16 }}>₩{(expandedStats?.financials?.currentWalletPool || 0).toLocaleString()}</div>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <div style={subText}>Yetkazishdan tushgan foyda</div>
+                                    <div style={{ ...bigNum, color: colors.warning, fontSize: 18 }}>₩{(expandedStats?.financials?.totalDeliveryFees || 0).toLocaleString()}</div>
+                                </div>
+                            </div>
+                            <div style={kpiCard(colors.danger)}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <div style={subText}>Oshxona Harajatlari</div>
+                                    <div style={{ ...bigNum, color: colors.danger, fontSize: 18 }}>₩{(expandedStats?.financials?.kitchenExpenses || 0).toLocaleString()}</div>
+                                </div>
+                            </div>
+                            <div style={kpiCard(colors.purple)}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <div style={subText}>Hamyonlar Jami</div>
+                                    <div style={{ ...bigNum, color: colors.purple, fontSize: 18 }}>₩{(expandedStats?.financials?.currentWalletPool || 0).toLocaleString()}</div>
+                                </div>
                             </div>
                         </div>
 
@@ -355,6 +374,28 @@ const AdminPage = () => {
                             </div>
                             
                             <div style={cardStyle}>
+                                <div style={{ ...sectionTitle, fontSize: 13 }}>🛵 Kuryerlar Statistikasi</div>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                    {expandedStats?.couriers && expandedStats.couriers.length > 0 ? (
+                                        expandedStats.couriers.map((c, i) => (
+                                            <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: colors.surface, padding: '8px 12px', borderRadius: 10 }}>
+                                                <div>
+                                                    <div style={{ fontSize: 12, color: colors.text, fontWeight: 700 }}>{c.name}</div>
+                                                    <div style={{ fontSize: 9, color: colors.subtext }}>ID: {c.id.slice(0, 8)}</div>
+                                                </div>
+                                                <div style={{ textAlign: 'right' }}>
+                                                    <div style={{ fontSize: 12, color: colors.accent, fontWeight: 800 }}>{c.count} ta buyurtma</div>
+                                                    <div style={{ fontSize: 10, color: colors.profit }}>₩{c.earnings.toLocaleString()}</div>
+                                                </div>
+                                            </div>
+                                        ))
+                                    ) : (
+                                        <div style={{ fontSize: 11, color: colors.subtext, textAlign: 'center' }}>Ma'lumot yo'q</div>
+                                    )}
+                                </div>
+                            </div>
+
+                            <div style={cardStyle}>
                                 <div style={{ ...sectionTitle, fontSize: 13 }}>🔝 Top Manzillar</div>
                                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                                     <div>
@@ -408,7 +449,13 @@ const AdminPage = () => {
                                         {(order.items || []).map((item, i) => (
                                             <div key={i} style={{ fontSize: 12, color: colors.text, padding: '2px 0', borderBottom: i < (order.items.length - 1) ? `1px solid ${colors.border}10` : 'none' }}>
                                                 <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 600 }}>
-                                                    <span>{item.productName || 'Item'} × {item.quantity}</span>
+                                                    <span>
+                                                        {(() => {
+                                                            const name = item.productName || 'Item';
+                                                            if (typeof name === 'object') return name[lang] || name.uz || name.en || 'Item';
+                                                            return name;
+                                                        })()} × {item.quantity}
+                                                    </span>
                                                     <span>₩{((item.price || 0) * item.quantity).toLocaleString()}</span>
                                                 </div>
                                                 {item.extras && item.extras.length > 0 && (
@@ -523,8 +570,8 @@ const AdminPage = () => {
                                             </span>
                                         </div>
                                     </div>
-                                    {pr.screenshotUrl && (
-                                        <img src={pr.screenshotUrl} alt="screenshot" style={{ width: '100%', borderRadius: 12, marginBottom: 10, maxHeight: 200, objectFit: 'cover' }} />
+                                    {pr.imageUrl && (
+                                        <img src={pr.imageUrl} alt="screenshot" style={{ width: '100%', borderRadius: 12, marginBottom: 10, maxHeight: 400, objectFit: 'contain', background: colors.surface }} />
                                     )}
                                     {pr.status === 'pending' && (
                                         <div style={{ display: 'flex', gap: 8 }}>
