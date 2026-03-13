@@ -176,7 +176,7 @@ const adminController = {
     async getAllUsers(req, res) {
         try {
             const users = await User.findAll({
-                attributes: ['id', 'firstName', 'lastName', 'username', 'phone', 'address', 'gender', 'role', 'walletBalance', 'distanceFromRestaurant', 'createdAt', 'lastActivity', 'telegramId'],
+                attributes: ['id', 'firstName', 'lastName', 'username', 'phone', 'address', 'gender', 'role', 'walletBalance', 'distanceFromRestaurant', 'createdAt', 'telegramId'],
                 order: [['createdAt', 'DESC']]
             });
             res.json({ users, total: users.length });

@@ -172,7 +172,14 @@ const AdminPage = () => {
         if (!confirm("O'chirasizmi?")) return;
         try { const r = await api.delete(`/admin/ads/${id}`); setAdBanners(r.data.banners); } catch { alert("Xatolik"); }
     };
-    const saveSpots = async (key, list) => { await api.post('/admin/settings', { key, value: JSON.stringify(list) }); };
+    const saveSpots = async (key, list) => { 
+        try {
+            await api.post('/admin/settings', { key, value: JSON.stringify(list) }); 
+            // Optional: alert('Saqlandi');
+        } catch (e) {
+            alert("Xatolik: Saqlab bo'lmadi");
+        }
+    };
 
     // Tab definitions
     const tabs = [
@@ -398,10 +405,10 @@ const AdminPage = () => {
                                     <div style={{ ...subText, marginBottom: 8 }}>📍 {order.user?.address || '-'} · 📏 {order.distance?.toFixed(1) || 0} km</div>
                                     {/* Items */}
                                     <div style={{ background: colors.surface, borderRadius: 10, padding: 10, marginBottom: 10 }}>
-                                        {order.items?.map((item, i) => (
-                                            <div key={i} style={{ fontSize: 12, color: colors.text, padding: '2px 0' }}>
-                                                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                                    <span>{item.productName} × {item.quantity}</span>
+                                        {(order.items || []).map((item, i) => (
+                                            <div key={i} style={{ fontSize: 12, color: colors.text, padding: '2px 0', borderBottom: i < (order.items.length - 1) ? `1px solid ${colors.border}10` : 'none' }}>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 600 }}>
+                                                    <span>{item.productName || 'Item'} × {item.quantity}</span>
                                                     <span>₩{((item.price || 0) * item.quantity).toLocaleString()}</span>
                                                 </div>
                                                 {item.extras && item.extras.length > 0 && (
@@ -712,7 +719,7 @@ const AdminPage = () => {
                                     <div style={subText}>💳 Hamyon: <span style={{ color: colors.profit, fontWeight: 800 }}>₩{(selectedUser.walletBalance || 0).toLocaleString()}</span></div>
                                     <div style={subText}>🛵 Masofasi: {selectedUser.distanceFromRestaurant?.toFixed(1) || '-'} km</div>
                                     <div style={subText}>📅 Ro'yxatdan: {new Date(selectedUser.createdAt).toLocaleDateString()}</div>
-                                    <div style={subText}>🔑 Rol: <span style={badge(selectedUser.role === 'admin' ? colors.danger : selectedUser.role === 'driver' ? colors.accent : colors.profit)}>{selectedUser.role || 'user'}</span></div>
+                                    <div style={subText}>🔑 Rol: <span style={badge(selectedUser.role === 'admin' ? colors.danger : selectedUser.role === 'delivery' ? colors.accent : colors.profit)}>{selectedUser.role || 'user'}</span></div>
                                 </div>
                                 {/* Top up wallet */}
                                 <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
@@ -750,7 +757,7 @@ const AdminPage = () => {
                                     <div style={mainText}>{u.firstName || 'Nomsiz'} {u.nickname ? `(${u.nickname})` : ''}</div>
                                     <div style={subText}>📞 {u.phone || '-'} · 💳 ₩{(u.walletBalance || 0).toLocaleString()}</div>
                                 </div>
-                                <span style={badge(u.role === 'admin' ? colors.danger : u.role === 'driver' ? colors.accent : colors.subtext)}>{u.role || 'user'}</span>
+                                <span style={badge(u.role === 'admin' ? colors.danger : u.role === 'delivery' ? colors.accent : colors.subtext)}>{u.role || 'user'}</span>
                             </div>
                         ))}
                     </div>

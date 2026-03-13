@@ -112,7 +112,10 @@ const DirectChat = ({ conversation, onBack }) => {
         if (conversation.type === 'dm') {
             actualTargetUserId = conversation.targetId;
         } else {
-            actualTargetUserId = user.id === conversation.orderData?.userId 
+            // It's an order chat. targetId depends on who we are.
+            // If we are the customer (orderData.userId), target is courier (orderData.deliveryManId).
+            // If we are the courier (user.id === deliveryManId), target is customer.
+            actualTargetUserId = String(user.id) === String(conversation.orderData?.userId)
                 ? conversation.orderData?.deliveryManId 
                 : conversation.orderData?.userId;
         }

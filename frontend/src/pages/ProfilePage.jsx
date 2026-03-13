@@ -319,7 +319,15 @@ const ProfilePage = () => {
                         <div style={{ width: 32, height: 32, borderRadius: 16, background: 'rgba(78,205,196,0.1)', color: 'var(--brand-accent2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>💰</div>
                         <div>
                             <div style={{ color: "var(--text-secondary)", fontSize: 11, fontWeight: 700, textTransform: 'uppercase' }}>Hamyon ({t('wallet')})</div>
-                            <div style={{ color: "var(--text-primary)", fontWeight: 900, fontSize: 20, fontFamily: "'Fraunces', serif" }}>₩{(user.walletBalance || 0).toLocaleString()}</div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                <div style={{ color: "var(--text-primary)", fontWeight: 900, fontSize: 20, fontFamily: "'Fraunces', serif" }}>₩{(user.walletBalance || 0).toLocaleString()}</div>
+                                <button onClick={async () => {
+                                    try {
+                                        const res = await api.get('/users/me');
+                                        setUser({ ...user, walletBalance: res.data.walletBalance }, token);
+                                    } catch (e) { }
+                                }} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 14 }}>🔄</button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -444,7 +452,10 @@ const ProfilePage = () => {
                                 <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>Hamyon ko'rsatkichingiz boshqalardan yashiriladi</div>
                             </div>
                         </label>
-                        <button onClick={handleSaveProfile} disabled={saving} style={{ ...btnStyle, marginTop: 10 }}>{saving ? '⏳...' : 'Saqlash'}</button>
+                        <div style={{ display: 'flex', gap: 10, marginTop: 10 }}>
+                            <button onClick={() => setShowEdit(false)} style={{ ...btnStyle, background: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--card-border)', flex: 1 }}>Bekor qilish</button>
+                            <button onClick={handleSaveProfile} disabled={saving} style={{ ...btnStyle, flex: 2 }}>{saving ? '⏳...' : 'Saqlash'}</button>
+                        </div>
                     </div>
                 </Modal>
             )}

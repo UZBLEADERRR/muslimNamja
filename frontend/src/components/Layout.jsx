@@ -4,6 +4,7 @@ import { useTranslation } from '../i18n';
 import { useAppStore } from '../store/useAppStore';
 import { io } from 'socket.io-client';
 import IncomingCallModal from './IncomingCallModal';
+import VideoCallModal from './VideoCallModal';
 
 const SOCKET_URL = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace('/api', '') : 'http://localhost:5000';
 const RINGTONE_URL = 'https://assets.mixkit.co/active_storage/sfx/1359/1359-preview.mp3'; // Professional ringtone

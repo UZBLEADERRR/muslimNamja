@@ -79,7 +79,7 @@ const MenuPage = () => {
         const extrasTotal = extras.reduce((s, e) => s + (e.price || 0), 0);
         const cartItem = {
             _id: food.id || food._id,
-            name,
+            productName: name,
             price: food.price + extrasTotal,
             emoji: food.imageUrl || '🍽️',
             stock: food.stock,
@@ -288,7 +288,7 @@ const MenuPage = () => {
                         </div>
 
                         {/* Content */}
-                        <div style={{ padding: '20px 20px 24px', flex: 1 }}>
+                        <div style={{ padding: '20px 20px 160px', flex: 1 }}>
                             <h2 style={{ margin: '0 0 6px', color: 'var(--text-primary)', fontFamily: "'Fraunces', serif", fontSize: 24, fontWeight: 900 }}>{getName(selectedFood)}</h2>
                             <p style={{ color: 'var(--text-secondary)', fontSize: 14, margin: '0 0 16px', lineHeight: 1.6 }}>{getDesc(selectedFood)}</p>
                             
@@ -341,13 +341,13 @@ const MenuPage = () => {
                             {/* Add to Cart Button — Fixed at bottom of the modal */}
                             <div style={{ 
                                 position: 'fixed', 
-                                bottom: 90, 
+                                bottom: 0, 
                                 left: '50%',
                                 transform: 'translateX(-50%)',
                                 width: '100%',
                                 maxWidth: 430,
-                                padding: '16px 20px 20px', 
-                                background: 'rgba(5, 10, 20, 0.9)', // Darker overlay for better visibility
+                                padding: '16px 20px 30px', 
+                                background: 'var(--bg-primary)',
                                 backdropFilter: 'blur(20px)',
                                 borderTop: '1px solid var(--card-border)',
                                 zIndex: 100 // High z-index to stay above other page content but below toast/modal

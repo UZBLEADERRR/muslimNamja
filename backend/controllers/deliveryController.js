@@ -86,7 +86,7 @@ const deliveryController = {
 
             const [count, orders] = await Order.update(
                 { status: 'delivering', deliveryManId: deliveryManId },
-                { where: { id: orderId, status: 'ready_for_pickup', deliveryManId: null }, returning: true }
+                { where: { id: orderId, status: { [Op.in]: ['accepted', 'preparing', 'ready_for_pickup'] }, deliveryManId: null }, returning: true }
             );
 
             if (count === 0) return res.status(400).json({ error: 'Order not available' });
