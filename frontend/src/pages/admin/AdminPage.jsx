@@ -219,7 +219,7 @@ const AdminPage = () => {
     const predictedMonthlyRevenue = (currentMonthRevenue / daysPassedThisMonth) * daysInMonth;
 
     return (
-        <div style={{ background: colors.bg, minHeight: '100vh', paddingBottom: 80 }}>
+        <div style={{ background: colors.bg, minHeight: 'auto', paddingBottom: 100 }}>
             {/* Header */}
             <div style={{ position: 'sticky', top: 0, zIndex: 100, padding: '12px 16px', background: 'rgba(8,12,20,0.97)', backdropFilter: 'blur(12px)', borderBottom: `1px solid ${colors.border}` }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>

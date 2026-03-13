@@ -147,7 +147,7 @@ const Layout = () => {
     const cartCount = cart.reduce((acc, item) => acc + item.quantity, 0);
 
     return (
-        <div style={{ maxWidth: 430, margin: "0 auto", minHeight: "100vh", background: "var(--bg-primary)", position: "relative", overflow: "hidden" }}>
+        <div style={{ maxWidth: 430, margin: "0 auto", minHeight: "100vh", background: "var(--bg-primary)", position: "relative" }}>
 
             {/* Main Header - Only on Home */}
             {showTopNav && (

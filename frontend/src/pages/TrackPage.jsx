@@ -48,6 +48,7 @@ const TrackPage = () => {
     const [activeOrder, setActiveOrder] = useState(null);
     const [driverLocation, setDriverLocation] = useState(null);
     const [loading, setLoading] = useState(true);
+    const [paymentRequests, setPaymentRequests] = useState([]);
 
     // Chat List
     const [inbox, setInbox] = useState([]);
@@ -63,6 +64,14 @@ const TrackPage = () => {
         finally { setLoading(false); }
     };
 
+    const fetchPayments = async () => {
+        try {
+            const res = await api.get('/users/history');
+            const pending = (res.data?.paymentRequests || []).filter(p => p.status === 'pending');
+            setPaymentRequests(pending);
+        } catch (err) { console.error(err); }
+    };
+
     const fetchInbox = async () => {
         try {
             const res = await api.get('/inbox');
@@ -75,8 +84,10 @@ const TrackPage = () => {
 
         fetchOrder();
         fetchInbox();
+        fetchPayments();
         const interval = setInterval(() => {
             fetchOrder();
+            fetchPayments();
             if (activeTab === 'chat' && !selectedChat) fetchInbox();
         }, 12000);
 
@@ -161,18 +172,39 @@ const TrackPage = () => {
             {/* TAB: TRACKING */}
             {activeTab === 'tracking' && (
                 <div style={{ animation: 'fadeIn 0.3s ease', display: 'flex', flexDirection: 'column' }}>
+                    {paymentRequests.length > 0 && (
+                        <div style={{ padding: '20px 20px 0' }}>
+                            <div style={{ color: "var(--text-primary)", fontWeight: 800, fontSize: 16, marginBottom: 12 }}>⏳ To'lov so'rovlari</div>
+                            {paymentRequests.map(pr => (
+                                <div key={pr.id} style={{ background: 'var(--card-bg)', borderRadius: 16, padding: 14, border: '1px solid var(--brand-accent2)', marginBottom: 12 }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+                                        <div style={{ fontWeight: 700, color: 'var(--text-primary)' }}>Deposit so'rovi</div>
+                                        <div style={{ color: 'var(--brand-accent2)', fontWeight: 800 }}>₩{pr.amount?.toLocaleString()}</div>
+                                    </div>
+                                    {pr.imageUrl && (
+                                        <img src={pr.imageUrl} alt="screenshot" style={{ width: '100%', borderRadius: 12, marginBottom: 10, maxHeight: 150, objectFit: 'contain', background: '#000' }} />
+                                    )}
+                                    <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>Kutilmoqda... Admin tasdiqlashi bilan hamyoningiz to'ldiriladi.</div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+
                     {!activeOrder ? (
                         <div style={{ padding: 20, textAlign: 'center', paddingTop: 60, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                            <div style={{ position: 'relative', width: 160, height: 160, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 24 }}>
-                                <div style={{ position: 'absolute', width: '100%', height: '100%', borderRadius: '50%', border: '2px solid rgba(255,107,53,0.1)', animation: 'pulse-ring 2s ease infinite' }} />
-                                <div style={{ position: 'absolute', width: '70%', height: '70%', borderRadius: '50%', border: '2px solid rgba(255,107,53,0.3)', animation: 'pulse-ring 2s ease infinite 0.5s' }} />
-                                <div style={{ zIndex: 10, background: 'var(--card-bg)', padding: 20, borderRadius: '50%', boxShadow: '0 8px 32px rgba(255,107,53,0.2)' }}>
-                                    <div style={{ fontSize: 48 }}>📍</div>
-                                </div>
-                            </div>
-                            <style>{`@keyframes pulse-ring { 0% { transform: scale(0.3); opacity: 1; } 80%,100% { transform: scale(1.1); opacity: 0; } }`}</style>
-                            <h3 style={{ color: "var(--text-primary)", fontFamily: "'Fraunces', serif", fontSize: 22, marginBottom: 8 }}>{t('live_tracking')}</h3>
-                            <p style={{ color: "var(--text-secondary)", fontSize: 14, maxWidth: 250, lineHeight: 1.5 }}>{t('no_active_order')}</p>
+                            {paymentRequests.length === 0 && (
+                                <>
+                                    <div style={{ position: 'relative', width: 160, height: 160, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 24 }}>
+                                        <div style={{ position: 'absolute', width: '100%', height: '100%', borderRadius: '50%', border: '2px solid rgba(255,107,53,0.1)', animation: 'pulse-ring 2s ease infinite' }} />
+                                        <div style={{ position: 'absolute', width: '70%', height: '70%', borderRadius: '50%', border: '2px solid rgba(255,107,53,0.3)', animation: 'pulse-ring 2s ease infinite 0.5s' }} />
+                                        <div style={{ zIndex: 10, background: 'var(--card-bg)', padding: 20, borderRadius: '50%', boxShadow: '0 8px 32px rgba(255,107,53,0.2)' }}>
+                                            <div style={{ fontSize: 48 }}>📍</div>
+                                        </div>
+                                    </div>
+                                    <h3 style={{ color: "var(--text-primary)", fontFamily: "'Fraunces', serif", fontSize: 22, marginBottom: 8 }}>{t('live_tracking')}</h3>
+                                    <p style={{ color: "var(--text-secondary)", fontSize: 14, maxWidth: 250, lineHeight: 1.5 }}>{t('no_active_order')}</p>
+                                </>
+                            )}
                         </div>
                     ) : (
                         <div style={{ paddingTop: 16 }}>

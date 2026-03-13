@@ -5,7 +5,7 @@ import { useAppStore } from '../store/useAppStore';
 import api from '../utils/api';
 
 const CartPage = () => {
-    const { t } = useTranslation();
+    const { t, lang } = useTranslation();
     const { user, cart, removeFromCart, clearCart, updateQuantity } = useAppStore();
     const navigate = useNavigate();
 
@@ -69,11 +69,9 @@ const CartPage = () => {
         setIsProcessing(true);
         try {
             const items = cart.map(item => {
-                const nameObj = item.product?.name || {};
-                const pName = nameObj[lang] || nameObj.uz || nameObj.en || 'Item';
                 return {
                     productId: item.product?._id || item.product?.id,
-                    productName: pName,
+                    productName: item.product?.productName || 'Taom',
                     quantity: item.quantity || 1,
                     price: item.product?.price || item.priceAtTime || 0,
                     extras: item.extras || []

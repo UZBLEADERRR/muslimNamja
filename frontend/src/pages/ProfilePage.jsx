@@ -394,10 +394,16 @@ const ProfilePage = () => {
                                     {p.type === 'spend' ? '-' : '+'}₩{p.amount?.toLocaleString()}
                                 </span>
                             </div>
-                            <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 4 }}>
+                            <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 8 }}>
                                 {p.description || (p.type ? 'P2P O\'tkazma' : 'Hamyon to\'ldirish')}
                             </div>
+                            {p.imageUrl && (
+                                <div style={{ marginBottom: 10, borderRadius: 12, overflow: 'hidden', border: '1px solid var(--card-border)' }}>
+                                    <img src={p.imageUrl} alt="receipt" style={{ width: '100%', maxHeight: 200, objectFit: 'contain', background: '#000' }} />
+                                </div>
+                            )}
                             <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)' }}>{new Date(p.createdAt).toLocaleString()}</div>
+
                         </div>
                     ))}
                     {activeTab === 'payments' && history.paymentRequests.length === 0 && (
