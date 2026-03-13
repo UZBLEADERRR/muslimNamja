@@ -90,8 +90,8 @@ const AdminPage = () => {
             ]);
             if (cardRes.data) { let v = cardRes.data; if (typeof v === 'string' && v.startsWith('"')) v = JSON.parse(v); setBankCard(v); }
             if (storeRes.data !== null) setIsStoreOpen(storeRes.data === 'true');
-            if (spotRes.data) { try { setMeetupSpots(typeof spotRes.data === 'string' ? JSON.parse(spotRes.data) : (spotRes.data.value ? JSON.parse(spotRes.data.value) : [])); } catch (e) { } }
-            if (pickupRes.data) { try { setPickupSpots(typeof pickupRes.data === 'string' ? JSON.parse(pickupRes.data) : (pickupRes.data.value ? JSON.parse(pickupRes.data.value) : [])); } catch (e) { } }
+            if (spotRes.data) setMeetupSpots(typeof spotRes.data === 'string' ? JSON.parse(spotRes.data) : spotRes.data);
+            if (pickupRes.data) setPickupSpots(typeof pickupRes.data === 'string' ? JSON.parse(pickupRes.data) : pickupRes.data);
             if (adRes.data) { try { setAdBanners(typeof adRes.data === 'string' ? JSON.parse(adRes.data) : adRes.data); } catch (e) { } }
         } catch (err) { console.error('Admin fetch error:', err); }
         finally { setLoading(false); }

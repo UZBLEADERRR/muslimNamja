@@ -547,7 +547,16 @@ const adminController = {
             res.json({ answer });
         } catch (error) {
             console.error('AI Analyst error:', error);
-            res.status(500).json({ error: 'AI tahlilida xatolik' });
+            
+            // Handle leaked API key specifically
+            if (error.status === 403 || error.message?.includes('403') || error.message?.includes('leaked')) {
+                return res.status(403).json({ 
+                    error: 'Gemini API kaliti bloklangan (leaked). Iltimos, serverdagi .env fayliga yangi kalit kiriting.',
+                    isLeaked: true 
+                });
+            }
+
+            res.status(500).json({ error: 'AI tahlilida xatolik yuz berdi' });
         }
     },
 
@@ -676,15 +685,28 @@ const adminController = {
     async setSetting(req, res) {
         try {
             const { key, value } = req.body;
+            let valToSave = value;
+            
+            // If value is a string and looks like JSON array/object, 
+            // try to parse it to avoid double-stringification in JSONB
+            if (typeof value === 'string' && (value.startsWith('[') || value.startsWith('{'))) {
+                try {
+                    valToSave = JSON.parse(value);
+                } catch (e) {
+                    // Keep as string if not valid JSON
+                }
+            }
+
             let setting = await SystemSetting.findOne({ where: { key } });
             if (setting) {
-                setting.value = value;
+                setting.value = valToSave;
                 await setting.save();
             } else {
-                setting = await SystemSetting.create({ key, value });
+                setting = await SystemSetting.create({ key, value: valToSave });
             }
             res.json(setting);
         } catch (err) {
+            console.error('Set Setting Error:', err);
             res.status(500).json({ error: 'Failed to save setting' });
         }
     },
@@ -755,7 +777,7 @@ const adminController = {
             for (const u of users) {
                 if (u.telegramId) {
                     try {
-                        await bot.sendMessage(u.telegramId, `📢 <b>E'lon:</b>\n\n${message}`, { parse_mode: 'HTML' });
+                        await bot.sendMessage(u.telegramId, `📢 <b>E'lon:</b>\n\n${message}`, { parse_mode: 'HTML' }).catch(() => { });
                         sent++;
                     } catch (e) { /* skip blocked users */ }
                 }

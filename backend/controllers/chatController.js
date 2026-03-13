@@ -72,9 +72,11 @@ const chatController = {
                         if (replyUser?.telegramId) {
                             const bot = getBot();
                             const senderName = sender?.nickname || sender?.firstName || 'Kimdir';
-                            await bot.sendMessage(replyUser.telegramId, `💬 ${senderName} sizga community chatda javob yozdi:\n"${text.trim().substring(0, 100)}"`, {
-                                reply_markup: { inline_keyboard: [[{ text: '💬 Javobni ko\'rish', web_app: { url: process.env.WEBAPP_URL + '?tab=community' } }]] }
-                            });
+                            if (replyUser && replyUser.telegramId && replyUser.id !== senderId) {
+                                await bot.sendMessage(replyUser.telegramId, `💬 ${senderName} sizga community chatda javob yozdi:\n"${text.trim().substring(0, 100)}"`, {
+                                    parse_mode: 'HTML'
+                                }).catch(() => { });
+                            }
                         }
                     }
                 } catch (e) { console.error('Reply notification error:', e.message); }

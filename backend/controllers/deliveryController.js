@@ -185,7 +185,7 @@ const deliveryController = {
                 await bot.sendMessage(customer.telegramId, `🔴 <b>Kuryer (${driver.firstName}) sizga qo'ng'iroq qilmoqda!</b>\n\nIltimos, ilovaga kirib xat yoki lokatsiyani tekshiring.`, {
                     parse_mode: 'HTML',
                     reply_markup: inlineKeyboard
-                });
+                }).catch(() => { });
                 return res.json({ message: 'Notification sent to user!' });
             } else {
                 return res.status(500).json({ error: 'Bot is not configured' });

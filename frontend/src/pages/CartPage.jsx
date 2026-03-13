@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from '../i18n';
 import { useAppStore } from '../store/useAppStore';
 import api from '../utils/api';
+import { RESTAURANT_ADDRESS } from '../utils/constants';
 
 const CartPage = () => {
     const { t, lang } = useTranslation();
@@ -16,6 +17,7 @@ const CartPage = () => {
     const [deliveryType, setDeliveryType] = useState('home');
     const [meetupLocation, setMeetupLocation] = useState('');
     const [availableMeetupSpots, setAvailableMeetupSpots] = useState([]);
+    const [availablePickupSpots, setAvailablePickupSpots] = useState([]);
 
     const distance = user?.distanceFromRestaurant || 0;
     const isTooFar = distance > 2;
@@ -30,11 +32,17 @@ const CartPage = () => {
     useEffect(() => {
         const fetchSettings = async () => {
             try {
-                const res = await api.get('/users/settings/meetupSpots');
-                if (res.data?.value) {
-                    setAvailableMeetupSpots(JSON.parse(res.data.value));
+                const [meetRes, pickRes] = await Promise.all([
+                    api.get('/users/settings/meetupSpots'),
+                    api.get('/users/settings/pickupSpots')
+                ]);
+                if (meetRes.data?.value) {
+                    setAvailableMeetupSpots(JSON.parse(meetRes.data.value));
                 }
-            } catch (err) { console.error("Failed to load meetup spots", err); }
+                if (pickRes.data?.value) {
+                    setAvailablePickupSpots(JSON.parse(pickRes.data.value));
+                }
+            } catch (err) { console.error("Failed to load spots", err); }
         };
         fetchSettings();
     }, []);
@@ -207,6 +215,13 @@ const CartPage = () => {
                         ) : (
                             <div style={{ fontSize: 12, color: '#E74C3C' }}>Joylar hozircha kiritilmagan. Admin bilan bog'laning.</div>
                         )}
+                    </div>
+                )}
+
+                {deliveryType === 'pickup' && (
+                    <div style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)', borderRadius: 16, padding: '14px', marginTop: 8 }}>
+                        <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 4 }}>🏠 {t('pickup_address')}:</div>
+                        <div style={{ color: 'var(--text-primary)', fontWeight: 700, fontSize: 13 }}>{RESTAURANT_ADDRESS}</div>
                     </div>
                 )}
             </div>

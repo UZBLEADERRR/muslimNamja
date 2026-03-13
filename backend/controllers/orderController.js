@@ -103,8 +103,8 @@ ${orderDetails}
             };
 
             if (bot) {
-                if (adminId) bot.sendMessage(adminId, message, { parse_mode: 'HTML', reply_markup: inlineKeyboard });
-                if (channelId) bot.sendMessage(channelId, message, { parse_mode: 'HTML', reply_markup: inlineKeyboard });
+                if (adminId) bot.sendMessage(adminId, message, { parse_mode: 'HTML', reply_markup: inlineKeyboard }).catch(() => { });
+                if (channelId) bot.sendMessage(channelId, message, { parse_mode: 'HTML', reply_markup: inlineKeyboard }).catch(() => { });
             }
 
             res.status(201).json({ message: 'Order placed successfully', order });
@@ -330,7 +330,7 @@ ${orderDetails}
             const bot = getBot();
             const adminId = process.env.ADMIN_CHAT_ID;
             if (bot && adminId) {
-                bot.sendMessage(adminId, `✅ <b>Buyurtma yakunlandi!</b> (#${order.id.toString().slice(0, 8)})\n\nMijoz tasdiqladi. Baho: ${rating ? '⭐'.repeat(rating) : 'yoq'}\nHaydovchiga to'landi: ${order.deliveryManEarning} ₩`, { parse_mode: 'HTML' });
+                bot.sendMessage(adminId, `✅ <b>Buyurtma yakunlandi!</b> (#${order.id.toString().slice(0, 8)})\n\nMijoz tasdiqladi. Baho: ${rating ? '⭐'.repeat(rating) : 'yoq'}\nHaydovchiga to'landi: ${order.deliveryManEarning} ₩`, { parse_mode: 'HTML' }).catch(() => { });
             }
 
             res.json({ message: 'Delivery confirmed and chat closed', order });
@@ -352,15 +352,16 @@ ${orderDetails}
             if (bot && order.user?.telegramId) {
                 const miniAppUrl = process.env.MINI_APP_URL || 'https://muslimnamja-production.up.railway.app';
                 await bot.sendMessage(order.user.telegramId,
-                    `🎉 Kuryer yaqinlashdi! Taomingiz tez orada yetib keladi.\n\n📍 Kuryer 300m ichida!`,
+                    `🛵 <b>Buyurtma tayyor!</b> (#${order.id.toString().slice(0, 8)})\n\nKuryer uni tez orada olib ketadi. Tracking orqali kuzatib boring.`,
                     {
+                        parse_mode: 'HTML',
                         reply_markup: {
                             inline_keyboard: [[
                                 { text: '📍 Kuzatish', web_app: { url: `${miniAppUrl}?startapp=tracking` } }
                             ]]
                         }
                     }
-                ).catch(console.error);
+                ).catch(() => { });
             }
 
             res.json({ success: true });

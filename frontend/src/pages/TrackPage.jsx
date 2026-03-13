@@ -3,7 +3,8 @@ import { useLocation } from 'react-router-dom';
 import { useTranslation } from '../i18n';
 import { useAppStore } from '../store/useAppStore';
 import api from '../utils/api';
-import { CheckCircle, MapPin, Navigation } from 'lucide-react';
+import { CheckCircle, MapPin, Navigation, Package, Store, MapPinned } from 'lucide-react';
+import { RESTAURANT_ADDRESS, RESTAURANT_COORD } from '../utils/constants';
 import { io } from 'socket.io-client';
 import { MapContainer, TileLayer, Marker, Popup, Polyline } from 'react-leaflet';
 import L from 'leaflet';
@@ -45,7 +46,8 @@ const TrackPage = () => {
         }
     }, [urlTab]);
 
-    const [activeOrder, setActiveOrder] = useState(null);
+    const [activeOrders, setActiveOrders] = useState([]);
+    const [selectedOrderId, setSelectedOrderId] = useState(null);
     const [driverLocation, setDriverLocation] = useState(null);
     const [loading, setLoading] = useState(true);
     const [paymentRequests, setPaymentRequests] = useState([]);
@@ -58,8 +60,11 @@ const TrackPage = () => {
         try {
             const res = await api.get('/orders/my');
             const orders = res.data || [];
-            const active = orders.find(o => o.status !== 'completed' && o.status !== 'cancelled');
-            setActiveOrder(active || null);
+            const actives = orders.filter(o => o.status !== 'completed' && o.status !== 'cancelled');
+            setActiveOrders(actives);
+            if (actives.length > 0 && !selectedOrderId) {
+                setSelectedOrderId(actives[0].id);
+            }
         } catch (err) { console.error(err); }
         finally { setLoading(false); }
     };
@@ -78,6 +83,8 @@ const TrackPage = () => {
             setInbox(res.data || []);
         } catch (err) { console.error('Inbox fetch error:', err); }
     };
+
+    const activeOrder = activeOrders.find(o => o.id === selectedOrderId) || activeOrders[0];
 
     useEffect(() => {
         if (!user) { setLoading(false); return; }
@@ -99,6 +106,7 @@ const TrackPage = () => {
             api.get(`/orders/${activeOrder.id}/location`)
                 .then(res => { if (res.data) setDriverLocation(res.data); })
                 .catch(() => null);
+                
             // Also try tracking endpoint
             api.get(`/orders/${activeOrder.id}/tracking`)
                 .then(res => { if (res.data?.driverLocation) setDriverLocation(res.data.driverLocation); })
@@ -116,6 +124,7 @@ const TrackPage = () => {
     }, [user, activeTab, selectedChat, activeOrder?.id]);
 
     const confirmDelivery = async () => {
+        if (!activeOrder) return;
         if (!window.confirm("Rostdan ham taomni qabul qildingizmi?")) return;
         try {
             await api.post(`/orders/${activeOrder.id}/confirm-delivery`);
@@ -194,7 +203,7 @@ const TrackPage = () => {
                         </div>
                     )}
 
-                    {!activeOrder ? (
+                    {activeOrders.length === 0 ? (
                         <div style={{ padding: 20, textAlign: 'center', paddingTop: 60, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                             {paymentRequests.length === 0 && (
                                 <>
@@ -210,44 +219,110 @@ const TrackPage = () => {
                                 </>
                             )}
                         </div>
-                    ) : (
-                        <div style={{ paddingTop: 16 }}>
-                            <div style={{ padding: '0 20px', marginBottom: 16 }}>
-                                <h2 style={{ color: "var(--text-primary)", fontFamily: "'Fraunces', serif", fontSize: 22, fontWeight: 900, margin: '0 0 4px' }}>{t('live_tracking')} 📍</h2>
-                                <p style={{ color: "var(--text-secondary)", fontSize: 12, margin: 0 }}>#{activeOrder.id?.toString().slice(0, 8)} · ₩{(activeOrder.totalAmount || 0).toLocaleString()}</p>
-                            </div>
+                    ) : (() => {
+                        const activeOrder = activeOrders.find(o => o.id === selectedOrderId) || activeOrders[0];
+                        
+                        const isNearby = () => {
+                            if (!driverLocation || !user?.location) return false;
+                            const d = haversineDistance(driverLocation, user.location);
+                            return d < 0.3; // 300 meters
+                        };
 
-                            {/* Driver Nearby Alert */}
-                            {isNearby() && (
-                                <div style={{ margin: '0 20px 12px', padding: '12px 16px', background: 'rgba(39,174,96,0.1)', border: '1px solid rgba(39,174,96,0.3)', borderRadius: 14, display: 'flex', alignItems: 'center', gap: 10, animation: 'fadeIn 0.5s ease' }}>
-                                    <span style={{ fontSize: 24 }}>🎉</span>
-                                    <div>
-                                        <div style={{ color: '#27AE60', fontWeight: 800, fontSize: 14 }}>{t('driver_nearby')}</div>
-                                        <div style={{ color: 'var(--text-secondary)', fontSize: 11 }}>Kuryer tez orada yetib keladi!</div>
+                        const estimateTime = () => {
+                            if (!driverLocation || !user?.location) return null;
+                            const d = haversineDistance(driverLocation, user.location);
+                            const mins = Math.ceil((d / 20) * 60) + 2; // assuming 20km/h avg speed
+                            return `${mins} min`;
+                        };
+
+                        const getDestinationAddress = () => {
+                            if (activeOrder.deliveryType === 'pickup') return RESTAURANT_ADDRESS;
+                            if (activeOrder.deliveryType === 'meetup') return activeOrder.meetupLocation || 'Meetup joyi';
+                            return user?.address || 'Manzil ko\'rsatilmagan';
+                        };
+
+                        const getDestinationCoord = () => {
+                            if (activeOrder.deliveryType === 'pickup') return RESTAURANT_COORD;
+                            return user?.location || RESTAURANT_COORD;
+                        };
+
+                        return (
+                            <div style={{ paddingTop: 16 }}>
+                                {/* Multi-Order Tabs */}
+                                {activeOrders.length > 1 && (
+                                    <div style={{ display: 'flex', gap: 10, overflowX: 'auto', padding: '0 20px', marginBottom: 20, paddingBottom: 8 }} className="hide-scrollbar">
+                                        {activeOrders.map((o, idx) => (
+                                            <button 
+                                                key={o.id}
+                                                onClick={() => setSelectedOrderId(o.id)}
+                                                style={{ 
+                                                    flexShrink: 0, padding: '10px 16px', borderRadius: 14, border: 'none', 
+                                                    background: selectedOrderId === o.id ? 'var(--brand-accent)' : 'var(--card-bg)',
+                                                    color: selectedOrderId === o.id ? '#fff' : 'var(--text-secondary)',
+                                                    fontWeight: 700, fontSize: 13, cursor: 'pointer', boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
+                                                    border: selectedOrderId === o.id ? 'none' : '1px solid var(--card-border)',
+                                                    display: 'flex', alignItems: 'center', gap: 6
+                                                }}
+                                            >
+                                                <Package size={16} /> 
+                                                {idx + 1}-buyurtma
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
+
+                                <div style={{ padding: '0 20px', marginBottom: 16 }}>
+                                    <h2 style={{ color: "var(--text-primary)", fontFamily: "'Fraunces', serif", fontSize: 22, fontWeight: 900, margin: '0 0 4px' }}>{t('live_tracking')} 📍</h2>
+                                    <p style={{ color: "var(--text-secondary)", fontSize: 12, margin: 0 }}>#{activeOrder.id?.toString().slice(0, 8)} · ₩{(activeOrder.totalAmount || 0).toLocaleString()} · {t(activeOrder.deliveryType)}</p>
+                                </div>
+
+                                {/* Destination Address - Boradigan Manzil */}
+                                <div style={{ margin: '0 20px 20px', padding: 16, background: 'var(--card-bg)', borderRadius: 20, border: '1px solid var(--card-border)', boxShadow: '0 8px 24px rgba(0,0,0,0.04)' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 10 }}>
+                                        <div style={{ width: 40, height: 40, borderRadius: 12, background: 'var(--brand-accent2)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff' }}>
+                                            {activeOrder.deliveryType === 'pickup' ? <Store size={20} /> : <MapPinned size={20} />}
+                                        </div>
+                                        <div>
+                                            <div style={{ fontSize: 11, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: 0.5 }}>Boradigan manzil</div>
+                                            <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--text-primary)', marginTop: 2 }}>{getDestinationAddress()}</div>
+                                        </div>
+                                    </div>
+                                    <div style={{ fontSize: 11, color: 'var(--text-secondary)', paddingLeft: 52 }}>
+                                        {activeOrder.deliveryType === 'pickup' ? "Iltimos, tayyor bo'lgach ushbu manzildan olib keting." : "Kuryer ushbu manzilga yetkazib beradi."}
                                     </div>
                                 </div>
-                            )}
 
-                            {/* ETA Banner */}
-                            {estimateTime() && ['delivering', 'delivered_awaiting_review'].includes(activeOrder.status) && (
-                                <div style={{ margin: '0 20px 12px', padding: '14px 18px', background: 'linear-gradient(135deg, var(--brand-accent), #FF3CAC)', borderRadius: 16, color: '#fff', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                    <div>
-                                        <div style={{ fontSize: 11, opacity: 0.9 }}>{t('estimated_time')}</div>
-                                        <div style={{ fontSize: 24, fontWeight: 900, fontFamily: "'Fraunces', serif" }}>{estimateTime()}</div>
+                                {/* Driver Nearby Alert */}
+                                {isNearby() && (
+                                    <div style={{ margin: '0 20px 12px', padding: '12px 16px', background: 'rgba(39,174,96,0.1)', border: '1px solid rgba(39,174,96,0.3)', borderRadius: 14, display: 'flex', alignItems: 'center', gap: 10, animation: 'fadeIn 0.5s ease' }}>
+                                        <span style={{ fontSize: 24 }}>🎉</span>
+                                        <div>
+                                            <div style={{ color: '#27AE60', fontWeight: 800, fontSize: 14 }}>{t('driver_nearby')}</div>
+                                            <div style={{ color: 'var(--text-secondary)', fontSize: 11 }}>Kuryer tez orada yetib keladi!</div>
+                                        </div>
                                     </div>
-                                    <div style={{ fontSize: 40 }}>🛵</div>
-                                </div>
-                            )}
+                                )}
 
-                            {/* Live Map — shows for ALL active order stages */}
-                            {user?.location && (
-                                <div style={{ margin: '0 20px 16px', height: 250, borderRadius: 20, overflow: 'hidden', border: '1px solid var(--card-border)', background: '#eee' }}>
-                                    <MapContainer center={driverLocation ? [driverLocation.lat, driverLocation.lng] : [user.location.lat, user.location.lng]} zoom={15} style={{ height: '100%', width: '100%' }} zoomControl={false}>
-                                        <TileLayer url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png" />
-                                        
-                                        {/* Route line — only when driver location is available */}
-                                        {driverLocation && (
-                                            <Polyline positions={[
+                                {/* ETA Banner */}
+                                {estimateTime() && ['delivering', 'delivered_awaiting_review'].includes(activeOrder.status) && (
+                                    <div style={{ margin: '0 20px 12px', padding: '14px 18px', background: 'linear-gradient(135deg, var(--brand-accent), #FF3CAC)', borderRadius: 16, color: '#fff', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                        <div>
+                                            <div style={{ fontSize: 11, opacity: 0.9 }}>{t('estimated_time')}</div>
+                                            <div style={{ fontSize: 24, fontWeight: 900, fontFamily: "'Fraunces', serif" }}>{estimateTime()}</div>
+                                        </div>
+                                        <div style={{ fontSize: 40 }}>🛵</div>
+                                    </div>
+                                )}
+
+                                {/* Live Map — shows for ALL active order stages */}
+                                {user?.location && (
+                                    <div style={{ margin: '0 20px 16px', height: 250, borderRadius: 20, overflow: 'hidden', border: '1px solid var(--card-border)', background: '#eee' }}>
+                                        <MapContainer center={driverLocation ? [driverLocation.lat, driverLocation.lng] : [getDestinationCoord().lat, getDestinationCoord().lng]} zoom={15} style={{ height: '100%', width: '100%' }} zoomControl={false}>
+                                            <TileLayer url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png" />
+                                            
+                                            {/* Route line — only when driver location is available */}
+                                            {driverLocation && (
+                                                <Polyline positions={[
                                                 [driverLocation.lat, driverLocation.lng],
                                                 [user.location.lat, user.location.lng]
                                             ]} color="#e74c3c" weight={4} dashArray="8, 8" opacity={0.7} />
@@ -322,9 +397,10 @@ const TrackPage = () => {
                                         <span style={{ color: 'var(--text-secondary)' }}>₩{((item.price || 0) * item.quantity).toLocaleString()}</span>
                                     </div>
                                 ))}
+                                </div>
                             </div>
-                        </div>
-                    )}
+                        );
+                    })()}
                 </div>
             )}
 
