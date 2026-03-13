@@ -35,6 +35,8 @@ const Modal = ({ title, onClose, children }) => (
     </div>
 );
 
+const tg = window.Telegram?.WebApp;
+
 const ProfilePage = () => {
     const { t, lang } = useTranslation();
     const { user, logout, setLang, setUser, token } = useAppStore();

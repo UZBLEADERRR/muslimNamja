@@ -187,8 +187,8 @@ const DeliveryPage = () => {
                 <button onClick={() => setActiveTab('chat')} style={{ flex: 1, padding: '10px', borderRadius: 12, border: 'none', fontWeight: 700, fontSize: 13, cursor: 'pointer', transition: 'all 0.3s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, background: activeTab === 'chat' ? 'var(--brand-accent2)' : 'var(--bg-secondary)', color: activeTab === 'chat' ? '#fff' : 'var(--text-primary)', whiteSpace: 'nowrap' }}>
                     <MessageSquare size={16} /> Chatlar {inbox.length > 0 && `(${inbox.length})`}
                 </button>
-                <button onClick={() => setActiveTab('earnings')} style={{ flex: 1, padding: '10px', borderRadius: 12, border: 'none', fontWeight: 700, fontSize: 13, cursor: 'pointer', transition: 'all 0.3s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, background: activeTab === 'earnings' ? 'var(--brand-accent2)' : 'var(--bg-secondary)', color: activeTab === 'earnings' ? '#fff' : 'var(--text-primary)', whiteSpace: 'nowrap' }}>
-                    <Wallet size={16} /> Daromad
+                <button onClick={() => setActiveTab('earnings')} style={{ flex: 1, padding: '10px', borderRadius: 12, border: 'none', fontWeight: 700, fontSize: 13, cursor: 'pointer', transition: 'all 0.3s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, background: activeTab === 'earnings' ? 'var(--brand-accent2)' : 'var(--bg-secondary)', color: activeTab === 'earnings' ? '#fff' : 'var(--text-primary)', whiteSpace: 'nowrap', position: 'relative' }}>
+                    <Wallet size={16} /> Orderlar {orders.length > 0 && <span style={{ position: 'absolute', top: -5, right: -5, background: 'var(--brand-accent)', color: '#fff', fontSize: 10, width: 18, height: 18, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid var(--card-bg)' }}>{orders.length}</span>}
                 </button>
             </div>
 

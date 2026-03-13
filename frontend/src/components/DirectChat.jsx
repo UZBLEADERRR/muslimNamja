@@ -8,7 +8,7 @@ import VideoCallModal from './VideoCallModal';
 const SOCKET_URL = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace('/api', '') : 'http://localhost:5000';
 
 const DirectChat = ({ conversation, onBack }) => {
-    const { user } = useAppStore();
+    const { user, setActiveCall } = useAppStore();
     const [messages, setMessages] = useState([]);
     const [newMessage, setNewMessage] = useState('');
     const [imageFile, setImageFile] = useState(null);

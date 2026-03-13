@@ -341,16 +341,16 @@ const MenuPage = () => {
                             {/* Add to Cart Button — Fixed at bottom of the modal */}
                             <div style={{ 
                                 position: 'fixed', 
-                                bottom: 0, 
+                                bottom: 90, 
                                 left: '50%',
                                 transform: 'translateX(-50%)',
                                 width: '100%',
                                 maxWidth: 430,
-                                padding: '16px 20px 32px', 
-                                background: 'rgba(5, 10, 20, 0.8)', // Dark overlay color
+                                padding: '16px 20px 20px', 
+                                background: 'rgba(5, 10, 20, 0.9)', // Darker overlay for better visibility
                                 backdropFilter: 'blur(20px)',
                                 borderTop: '1px solid var(--card-border)',
-                                zIndex: 20
+                                zIndex: 100 // High z-index to stay above other page content but below toast/modal
                             }}>
                                 <button
                                     onClick={() => handleAddToCart(selectedFood, selectedExtras, qty)}

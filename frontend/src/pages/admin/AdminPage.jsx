@@ -82,9 +82,9 @@ const AdminPage = () => {
             ]);
             if (cardRes.data) { let v = cardRes.data; if (typeof v === 'string' && v.startsWith('"')) v = JSON.parse(v); setBankCard(v); }
             if (storeRes.data !== null) setIsStoreOpen(storeRes.data === 'true');
-            if (spotRes.data?.value) { try { setMeetupSpots(JSON.parse(spotRes.data.value)); } catch (e) { } }
-            if (pickupRes.data?.value) { try { setPickupSpots(JSON.parse(pickupRes.data.value)); } catch (e) { } }
-            if (adRes.data) { try { setAdBanners(JSON.parse(adRes.data)); } catch (e) { } }
+            if (spotRes.data) { try { setMeetupSpots(typeof spotRes.data === 'string' ? JSON.parse(spotRes.data) : (spotRes.data.value ? JSON.parse(spotRes.data.value) : [])); } catch (e) { } }
+            if (pickupRes.data) { try { setPickupSpots(typeof pickupRes.data === 'string' ? JSON.parse(pickupRes.data) : (pickupRes.data.value ? JSON.parse(pickupRes.data.value) : [])); } catch (e) { } }
+            if (adRes.data) { try { setAdBanners(typeof adRes.data === 'string' ? JSON.parse(adRes.data) : adRes.data); } catch (e) { } }
         } catch (err) { console.error('Admin fetch error:', err); }
         finally { setLoading(false); }
     };
@@ -299,8 +299,8 @@ const AdminPage = () => {
                             </div>
                         </div>
 
-                        {/* 3. Distribution & AI Analyst */}
-                        <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: 12, marginBottom: 16 }}>
+                        {/* 3. Distribution */}
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 12, marginBottom: 16 }}>
                             <div style={cardStyle}>
                                 <div style={{ ...sectionTitle, fontSize: 13 }}>🛒 Buyurtma turi</div>
                                 {(() => {
@@ -327,15 +327,10 @@ const AdminPage = () => {
                                     );
                                 })()}
                             </div>
-                            
-                            <div style={{ ...cardStyle, background: `linear-gradient(135deg, ${colors.purple}15, ${colors.card})`, border: `1px solid ${colors.purple}30` }}>
-                                <div style={{ ...sectionTitle, fontSize: 13, color: colors.purple }}>🤖 AI Analyst</div>
-                                <AiAnalyst />
-                            </div>
                         </div>
 
                         {/* 4. Demographics & Locations */}
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 12 }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 12 }}>
                             <div style={cardStyle}>
                                 <div style={{ ...sectionTitle, fontSize: 13, textAlign: 'center' }}>👥 Demografiya</div>
                                 <div style={{ display: 'flex', justifyContent: 'center', gap: 16, marginTop: 10 }}>
@@ -431,7 +426,7 @@ const AdminPage = () => {
                                             <button onClick={() => handleUpdateOrderStatus(order.id, 'preparing')} style={{ ...btnPrimary, padding: '8px 14px', fontSize: 12, flex: 1 }}>🧑‍🍳 Tayyorlash</button>
                                         )}
                                         {order.status === 'preparing' && (
-                                            <button onClick={() => handleUpdateOrderStatus(order.id, 'delivering')} style={{ ...btnSuccess, padding: '8px 14px', fontSize: 12, flex: 1 }}>🛵 Tayyor - Kuryerga</button>
+                                            <button onClick={() => handleUpdateOrderStatus(order.id, 'ready_for_pickup')} style={{ ...btnSuccess, padding: '8px 14px', fontSize: 12, flex: 1 }}>📦 Tayyor - Kuryer kutish</button>
                                         )}
                                     </div>
                                 </div>
@@ -445,11 +440,18 @@ const AdminPage = () => {
                     <div style={{ animation: 'fadeIn 0.3s ease' }}>
                         <div style={{ ...cardStyle, background: `linear-gradient(135deg, ${colors.danger}10, ${colors.card})` }}>
                             <div style={sectionTitle}>💸 Yangi harajat kiritish</div>
-                            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-                                <input placeholder="Nima uchun? (masalan: Go'sht)" value={expenseNote} onChange={e => setExpenseNote(e.target.value)} style={{ ...inputStyle, flex: 2, minWidth: 150 }} />
-                                <input type="number" placeholder="Summa ₩" value={expenseAmount} onChange={e => setExpenseAmount(e.target.value)} style={{ ...inputStyle, flex: 1, minWidth: 100 }} />
-                                <button onClick={handleAddExpense} disabled={addingExpense} style={{ ...btnPrimary, flexShrink: 0 }}>{addingExpense ? '...' : 'Qo\'shish'}</button>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                                <input placeholder="Nima uchun? (masalan: Go'sht)" value={expenseNote} onChange={e => setExpenseNote(e.target.value)} style={{ ...inputStyle, padding: '16px', fontSize: '16px' }} />
+                                <div style={{ display: 'flex', gap: 10 }}>
+                                    <input type="number" placeholder="Summa ₩" value={expenseAmount} onChange={e => setExpenseAmount(e.target.value)} style={{ ...inputStyle, flex: 1, padding: '16px', fontSize: '16px' }} />
+                                    <button onClick={handleAddExpense} disabled={addingExpense} style={{ ...btnPrimary, flexShrink: 0, padding: '0 24px' }}>{addingExpense ? '...' : 'Qo\'shish'}</button>
+                                </div>
                             </div>
+                        </div>
+
+                        <div style={{ ...cardStyle, background: `linear-gradient(135deg, ${colors.purple}15, ${colors.card})`, border: `1px solid ${colors.purple}30`, marginTop: 16 }}>
+                            <div style={{ ...sectionTitle, color: colors.purple }}>🤖 AI Analyst (Harajatlar bo'yicha maslahat)</div>
+                            <AiAnalyst />
                         </div>
 
                         <div style={{ ...cardStyle, padding: 0, overflow: 'hidden', marginTop: 16 }}>
@@ -719,9 +721,9 @@ const AdminPage = () => {
                                 </div>
                                 {/* Role change */}
                                 <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
-                                    {['user', 'driver', 'admin'].map(r => (
+                                    {['user', 'delivery', 'admin'].map(r => (
                                         <button key={r} onClick={() => handleRoleChange(selectedUser.id, r)} style={{ ...chipStyle(selectedUser.role === r), flex: 1, textAlign: 'center' }}>
-                                            {r === 'user' ? '👤' : r === 'driver' ? '🛵' : '🛡️'} {r}
+                                            {r === 'user' ? '👤' : r === 'delivery' ? '🛵' : '🛡️'} {r}
                                         </button>
                                     ))}
                                 </div>

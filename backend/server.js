@@ -174,6 +174,27 @@ app.set('io', io);
 server.listen(PORT, () => {
     console.log(`Server is running with Socket.IO on port ${PORT}`);
 });
+
+// Chat Cleanup Job: Delele messages older than 3 days
+setInterval(async () => {
+    try {
+        const ChatMessage = require('./models/ChatMessage');
+        const { Op } = require('sequelize');
+        const threeDaysAgo = new Date();
+        threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
+
+        const deletedCount = await ChatMessage.destroy({
+            where: {
+                createdAt: { [Op.lt]: threeDaysAgo }
+            }
+        });
+        if (deletedCount > 0) {
+            console.log(`[Cleanup] Deleted ${deletedCount} messages older than 3 days.`);
+        }
+    } catch (err) {
+        console.error('[Cleanup] Error:', err);
+    }
+}, 3600000); // Every hour
 // Graceful shutdown — stop bot polling before exit
 const shutdown = () => {
     console.log('Shutting down gracefully...');
