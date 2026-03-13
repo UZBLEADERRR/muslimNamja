@@ -342,10 +342,14 @@ const MenuPage = () => {
                             <div style={{ 
                                 position: 'fixed', 
                                 bottom: 0, 
-                                left: 0, 
-                                right: 0, 
-                                padding: '16px 20px 30px', 
-                                background: 'linear-gradient(to top, var(--bg-primary) 80%, transparent)',
+                                left: '50%',
+                                transform: 'translateX(-50%)',
+                                width: '100%',
+                                maxWidth: 430,
+                                padding: '16px 20px 32px', 
+                                background: 'rgba(5, 10, 20, 0.8)', // Dark overlay color
+                                backdropFilter: 'blur(20px)',
+                                borderTop: '1px solid var(--card-border)',
                                 zIndex: 20
                             }}>
                                 <button

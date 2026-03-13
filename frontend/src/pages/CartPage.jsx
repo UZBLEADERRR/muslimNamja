@@ -21,11 +21,11 @@ const CartPage = () => {
     const isTooFar = distance > 2;
 
     useEffect(() => {
-        // If too far, auto-select pickup
-        if (isTooFar && deliveryType === 'home') {
+        // If too far, auto-select pickup and hide home delivery
+        if (distance > 2 && deliveryType === 'home') {
             setDeliveryType('pickup');
         }
-    }, [isTooFar, deliveryType]);
+    }, [distance, deliveryType]);
 
     useEffect(() => {
         const fetchSettings = async () => {
@@ -43,11 +43,11 @@ const CartPage = () => {
 
     let deliveryFee = 0;
     if (deliveryType === 'home') {
-        deliveryFee = 1000; // Fixed fee for home delivery
+        deliveryFee = distance <= 1 ? 1000 : 2000;
     } else if (deliveryType === 'pickup') {
-        deliveryFee = -1000; // Discount for pickup
+        deliveryFee = -1000;
     } else if (deliveryType === 'meetup') {
-        deliveryFee = 0; // Free for meetup
+        deliveryFee = 0;
     }
 
     const total = subtotal + deliveryFee;
@@ -175,8 +175,8 @@ const CartPage = () => {
                 <div style={{ display: 'flex', gap: 8, marginBottom: deliveryType === 'meetup' ? 12 : 0 }}>
                     {[
                         { id: 'pickup', icon: '🚶', label: t('pickup'), extra: t('pickup_discount'), disabled: false },
-                        { id: 'meetup', icon: '📍', label: t('meetup'), extra: t('meetup_fee'), disabled: isTooFar },
-                        { id: 'home', icon: '🛵', label: t('home_delivery'), extra: distance > 1 ? t('paid_zone') : t('free_zone'), disabled: isTooFar }
+                        { id: 'meetup', icon: '📍', label: t('meetup'), extra: 'Bepul', disabled: false },
+                        { id: 'home', icon: '🛵', label: t('home_delivery'), extra: distance <= 1 ? '₩1,000' : '₩2,000', disabled: distance > 2 }
                     ].map(m => (
                         <button key={m.id} onClick={() => !m.disabled && setDeliveryType(m.id)} style={{
                             flex: 1, padding: '10px 4px', borderRadius: 14, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4,
@@ -236,7 +236,7 @@ const CartPage = () => {
                 {!canAfford && (
                     <div style={{ textAlign: 'right' }}>
                         <div style={{ color: '#E74C3C', fontSize: 11, fontWeight: 700, marginBottom: 4 }}>{t('insufficient_balance')}</div>
-                        <button onClick={() => navigate('/profile')} style={{ background: '#E74C3C', color: '#fff', border: 'none', borderRadius: 10, padding: '6px 14px', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
+                        <button onClick={() => navigate('/profile?action=topup')} style={{ background: '#E74C3C', color: '#fff', border: 'none', borderRadius: 10, padding: '6px 14px', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
                             {t('top_up')}
                         </button>
                     </div>

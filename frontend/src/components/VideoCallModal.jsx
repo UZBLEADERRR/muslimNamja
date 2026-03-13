@@ -142,9 +142,9 @@ const VideoCallModal = ({
         };
     }, []);
 
-    // Listen for answer if we are the caller
+    // Listen for answer or termination if we are the caller/receiver
     useEffect(() => {
-        if (!socket || isReceiving) return;
+        if (!socket) return;
         
         const handleAnswer = (data) => {
             if (peerRef.current && !peerRef.current.destroyed) {
@@ -152,8 +152,29 @@ const VideoCallModal = ({
             }
         };
 
+        const handleCallRejected = () => {
+            setCallStatus('ended');
+            setTimeout(onEndCall, 1500);
+        };
+
+        const handleCallCancelled = () => {
+            setCallStatus('ended');
+            setTimeout(onEndCall, 1000);
+        };
+
         socket.on('webrtc-answer', handleAnswer);
-        return () => socket.off('webrtc-answer', handleAnswer);
+        socket.on('call-accepted', () => setCallStatus('connected'));
+        socket.on('call-rejected', handleCallRejected);
+        socket.on('call-cancelled', handleCallCancelled);
+        socket.on('call-ended', () => handleEndCall());
+
+        return () => {
+            socket.off('webrtc-answer', handleAnswer);
+            socket.off('call-accepted');
+            socket.off('call-rejected', handleCallRejected);
+            socket.off('call-cancelled', handleCallCancelled);
+            socket.off('call-ended');
+        };
     }, [socket, isReceiving]);
 
     const toggleMute = () => {
@@ -177,6 +198,14 @@ const VideoCallModal = ({
     };
 
     const handleEndCall = () => {
+        if (socket) {
+            if (callStatus === 'ringing') {
+                socket.emit('cancel-call', { room: roomName });
+            } else {
+                socket.emit('hangup-call', { room: roomName });
+            }
+        }
+        
         if (streamRef.current) {
             streamRef.current.getTracks().forEach(track => track.stop());
         }

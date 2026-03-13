@@ -96,6 +96,12 @@ const ProfilePage = () => {
                 if (typeof val === 'string' && val.startsWith('"')) val = JSON.parse(val);
                 setAdminCard(val || '');
                 setLoading(false);
+
+                // Check for ?action=topup from CartPage
+                const params = new URLSearchParams(window.location.search);
+                if (params.get('action') === 'topup') {
+                    setShowTopUp(true);
+                }
             });
         }
     }, [user]);
@@ -127,6 +133,24 @@ const ProfilePage = () => {
             clearInterval(interval);
         };
     }, [user?.id]);
+
+    // Handle Telegram Back Button specifically for modals
+    useEffect(() => {
+        if (!tg) return;
+        const activeModal = showEdit || showTopUp || showSettings;
+        if (activeModal) {
+            tg.BackButton?.show();
+            const handleBack = () => {
+                setShowEdit(false);
+                setShowTopUp(false);
+                setShowSettings(false);
+            };
+            tg.onEvent('backButtonClicked', handleBack);
+            return () => tg.offEvent('backButtonClicked', handleBack);
+        } else {
+            tg.BackButton?.hide();
+        }
+    }, [showEdit, showTopUp, showSettings]);
 
     // Approximate center for Sejong University (Seoul Campus area)
     const STORE_LOCATION = { lat: 37.5503, lng: 127.0731 };
@@ -447,7 +471,18 @@ const ProfilePage = () => {
                         </div>
                         <div>
                             <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 4 }}>Skrinshot yuklash</div>
-                            <input type="file" accept="image/*" onChange={e => setScreenshot(e.target.files?.[0])} style={{ color: 'var(--text-primary)', fontSize: 13, padding: 8, width: '100%', background: 'var(--bg-secondary)', borderRadius: 12 }} />
+                            <label style={{
+                                display: 'flex', alignItems: 'center', gap: 10, padding: '12px 16px', 
+                                background: 'var(--bg-secondary)', borderRadius: 12, border: '2px dashed var(--card-border)',
+                                cursor: 'pointer', transition: 'all 0.2s', borderStyle: screenshot ? 'solid' : 'dashed',
+                                borderColor: screenshot ? 'var(--brand-accent2)' : 'var(--card-border)'
+                            }}>
+                                <span style={{ fontSize: 20 }}>{screenshot ? '✅' : '📷'}</span>
+                                <span style={{ fontSize: 13, color: 'var(--text-primary)', fontWeight: 600 }}>
+                                    {screenshot ? screenshot.name : 'To\'lov skrinshotini tanlang'}
+                                </span>
+                                <input type="file" accept="image/*" onChange={e => setScreenshot(e.target.files?.[0])} style={{ display: 'none' }} />
+                            </label>
                         </div>
                         <button onClick={handleTopUp} disabled={uploading || !screenshot} style={{ ...btnStyle, background: 'var(--brand-accent2)', marginTop: 10, opacity: (!screenshot || uploading) ? 0.5 : 1 }}>
                             {uploading ? '⏳ Jo\'natilmoqda...' : 'Yuborish'}

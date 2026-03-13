@@ -178,7 +178,7 @@ const AdminPage = () => {
     const tabs = [
         { id: 'analytics', icon: '📊', label: 'Tahlil' },
         { id: 'orders', icon: '📋', label: 'Orderlar' },
-        { id: 'revenue', icon: '💰', label: 'Daromad' },
+        { id: 'expenses', icon: '💰', label: 'Harajatlar' },
         { id: 'payments', icon: '💳', label: 'To\'lovlar' },
         { id: 'products', icon: '🍽', label: 'Mahsulot' },
         { id: 'settings', icon: '⚙️', label: 'Sozlama' },
@@ -240,23 +240,26 @@ const AdminPage = () => {
                 {loading && <div style={{ textAlign: 'center', padding: 30, color: colors.subtext }}>⏳ Yuklanmoqda...</div>}
 
                 {/* =================== ANALYTICS TAB =================== */}
-                {activeTab === 'analytics' && !loading && (
-                    <div style={{ animation: 'fadeIn 0.3s ease' }}>
-                        
+                {activeTab === 'analytics' && expandedStats && (
+                    <div className="animate-fade-in">
                         {/* 1. Historical Financials */}
-                        <div style={sectionTitle}>💰 Moliyaviy Holat (Tarixdan beri)</div>
-                        <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+                        <div style={sectionTitle}>💰 Moliyaviy Holat (Sof Foyda Tahlili)</div>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, marginBottom: 16 }}>
                             <div style={kpiCard(colors.profit)}>
                                 <div style={subText}>Jami Deposit</div>
-                                <div style={{ ...bigNum, color: colors.profit, fontSize: 18 }}>₩{(expandedStats?.financials?.totalDeposited || 0).toLocaleString()}</div>
+                                <div style={{ ...bigNum, color: colors.profit, fontSize: 16 }}>₩{(expandedStats?.financials?.totalDeposited || 0).toLocaleString()}</div>
                             </div>
                             <div style={kpiCard(colors.accent)}>
-                                <div style={subText}>Jami Savdo</div>
-                                <div style={{ ...bigNum, color: colors.accent, fontSize: 18 }}>₩{(expandedStats?.financials?.totalSpent || 0).toLocaleString()}</div>
+                                <div style={subText}>Sof Foyda</div>
+                                <div style={{ ...bigNum, color: colors.accent, fontSize: 16 }}>₩{(expandedStats?.financials?.netProfit || 0).toLocaleString()}</div>
+                            </div>
+                            <div style={kpiCard(colors.danger)}>
+                                <div style={subText}>Harajatlar</div>
+                                <div style={{ ...bigNum, color: colors.danger, fontSize: 16 }}>₩{(expandedStats?.financials?.kitchenExpenses || 0).toLocaleString()}</div>
                             </div>
                             <div style={kpiCard(colors.warning)}>
-                                <div style={subText}>Hamyonlar qoldig'i</div>
-                                <div style={{ ...bigNum, color: colors.warning, fontSize: 18 }}>₩{(expandedStats?.financials?.currentWalletPool || 0).toLocaleString()}</div>
+                                <div style={subText}>Hamyonlar Pool</div>
+                                <div style={{ ...bigNum, color: colors.warning, fontSize: 16 }}>₩{(expandedStats?.financials?.currentWalletPool || 0).toLocaleString()}</div>
                             </div>
                         </div>
 
@@ -276,27 +279,17 @@ const AdminPage = () => {
                                 </div>
                             </div>
 
-                            {/* Chart Area */}
-                            <div style={{ height: 180, display: 'flex', alignItems: 'flex-end', gap: 4, marginBottom: 10, padding: '0 10px' }}>
-                                {(() => {
-                                    const data = expandedStats?.flow || [];
-                                    const maxVal = Math.max(1, ...data.map(d => d.revenue));
-                                    return data.map((d, i) => (
-                                        <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, height: '100%' }}>
-                                            <div style={{ flex: 1, width: '100%', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
-                                                <div style={{ 
-                                                    width: '100%', 
-                                                    height: `${(d.revenue / maxVal) * 100}%`, 
-                                                    background: `linear-gradient(to top, ${colors.accent}, ${colors.profit})`, 
-                                                    borderRadius: '4px 4px 0 0',
-                                                    minHeight: d.revenue > 0 ? 4 : 0,
-                                                    boxShadow: d.revenue > 0 ? '0 0 10px rgba(0,212,255,0.2)' : 'none'
-                                                }} />
-                                            </div>
-                                            <span style={{ fontSize: 8, color: colors.subtext, whiteSpace: 'nowrap', transform: timeframe === 'yearly' || timeframe === 'monthly' ? 'rotate(-45deg)' : 'none', marginTop: 4 }}>{d.time}</span>
-                                        </div>
-                                    ));
-                                })()}
+                            <div style={{ height: 160, display: 'flex', alignItems: 'flex-end', gap: 4, padding: '0 10px' }}>
+                                {(expandedStats?.flow || []).map((d, i) => (
+                                    <div key={i} title={`${d.label}: ₩${d.revenue}`} style={{ 
+                                        flex: 1, 
+                                        height: `${Math.max(5, (d.revenue / (Math.max(1, ...expandedStats.flow.map(x => x.revenue)))) * 100)}%`, 
+                                        background: `linear-gradient(to top, ${colors.accent}, ${colors.profit})`, 
+                                        borderRadius: '4px 4px 0 0',
+                                        minHeight: d.revenue > 0 ? 4 : 4,
+                                        opacity: d.revenue > 0 ? 1 : 0.2
+                                    }} />
+                                ))}
                             </div>
                             <div style={{ display: 'flex', justifyContent: 'center', gap: 16, marginTop: 10 }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
@@ -306,22 +299,22 @@ const AdminPage = () => {
                             </div>
                         </div>
 
-                        {/* 3. Distribution Charts */}
-                        <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
-                            <div style={{ ...cardStyle, flex: 1 }}>
+                        {/* 3. Distribution & AI Analyst */}
+                        <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: 12, marginBottom: 16 }}>
+                            <div style={cardStyle}>
                                 <div style={{ ...sectionTitle, fontSize: 13 }}>🛒 Buyurtma turi</div>
                                 {(() => {
                                     const dist = expandedStats?.distribution || { home: 0, meetup: 0, pickup: 0 };
                                     const total = Math.max(1, dist.home + dist.meetup + dist.pickup);
                                     return (
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                                             {[
                                                 { label: 'Uygacha (₩1000)', val: dist.home, color: colors.accent },
                                                 { label: 'Meet-up (Bepul)', val: dist.meetup, color: colors.purple },
                                                 { label: 'Pick-up (-₩1000)', val: dist.pickup, color: colors.warning }
                                             ].map((item, i) => (
                                                 <div key={i}>
-                                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: colors.text, marginBottom: 2 }}>
+                                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: colors.text, marginBottom: 4 }}>
                                                         <span>{item.label}</span>
                                                         <span>{Math.round((item.val/total)*100)}%</span>
                                                     </div>
@@ -334,51 +327,47 @@ const AdminPage = () => {
                                     );
                                 })()}
                             </div>
-                            <div style={{ ...cardStyle, flex: 1, textAlign: 'center' }}>
-                                <div style={{ ...sectionTitle, fontSize: 13 }}>👥 Demografiya</div>
-                                <div style={{ display: 'flex', justifyContent: 'center', gap: 20, marginTop: 10 }}>
-                                    <div>
-                                        <div style={{ fontSize: 24 }}>🧔</div>
-                                        <div style={{ ...mainText, color: colors.accent }}>{expandedStats?.demographics?.male || 0}</div>
-                                        <div style={subText}>Erkak</div>
-                                    </div>
-                                    <div>
-                                        <div style={{ fontSize: 24 }}>👩</div>
-                                        <div style={{ ...mainText, color: colors.pink }}>{expandedStats?.demographics?.female || 0}</div>
-                                        <div style={subText}>Ayol</div>
-                                    </div>
-                                </div>
+                            
+                            <div style={{ ...cardStyle, background: `linear-gradient(135deg, ${colors.purple}15, ${colors.card})`, border: `1px solid ${colors.purple}30` }}>
+                                <div style={{ ...sectionTitle, fontSize: 13, color: colors.purple }}>🤖 AI Analyst</div>
+                                <AiAnalyst />
                             </div>
                         </div>
 
-                        {/* 4. Top Locations per category */}
-                        <div style={cardStyle}>
-                            <div style={sectionTitle}>🔝 Top Manzillar</div>
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                                <div>
-                                    <div style={{ ...mainText, fontSize: 11, marginBottom: 8, color: colors.accent }}>🏠 Uygacha yetkazish</div>
-                                    {(expandedStats?.locations?.delivery || []).map((loc, i) => (
-                                        <div key={i} style={{ fontSize: 10, color: colors.subtext, marginBottom: 4 }}>
-                                            {i+1}. {loc.label.slice(0, 15)}... <span style={{ color: colors.text }}>({loc.count})</span>
-                                        </div>
-                                    ))}
-                                </div>
-                                <div>
-                                    <div style={{ ...mainText, fontSize: 11, marginBottom: 8, color: colors.purple }}>🤝 Meet-up nuqtalari</div>
-                                    {(expandedStats?.locations?.meetup || []).map((loc, i) => (
-                                        <div key={i} style={{ fontSize: 10, color: colors.subtext, marginBottom: 4 }}>
-                                            {i+1}. {loc.label} <span style={{ color: colors.text }}>({loc.count})</span>
-                                        </div>
-                                    ))}
+                        {/* 4. Demographics & Locations */}
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 12 }}>
+                            <div style={cardStyle}>
+                                <div style={{ ...sectionTitle, fontSize: 13, textAlign: 'center' }}>👥 Demografiya</div>
+                                <div style={{ display: 'flex', justifyContent: 'center', gap: 16, marginTop: 10 }}>
+                                    <div style={{ textAlign: 'center' }}>
+                                        <div style={{ fontSize: 20 }}>🧔</div>
+                                        <div style={{ ...mainText, fontSize: 14 }}>{expandedStats?.demographics?.male || 0}</div>
+                                        <div style={{ ...subText, fontSize: 8 }}>Erkak</div>
+                                    </div>
+                                    <div style={{ textAlign: 'center' }}>
+                                        <div style={{ fontSize: 20 }}>👩</div>
+                                        <div style={{ ...mainText, fontSize: 14, color: colors.pink }}>{expandedStats?.demographics?.female || 0}</div>
+                                        <div style={{ ...subText, fontSize: 8 }}>Ayol</div>
+                                    </div>
                                 </div>
                             </div>
-                            <div style={{ marginTop: 12, borderTop: `1px solid ${colors.border}`, paddingTop: 8 }}>
-                                <div style={{ ...mainText, fontSize: 11, marginBottom: 8, color: colors.warning }}>🚶 Pick-up (Olib ketish)</div>
-                                {(expandedStats?.locations?.pickup || []).map((loc, i) => (
-                                    <span key={i} style={{ fontSize: 10, color: colors.subtext, marginRight: 10 }}>
-                                        {loc.label} ({loc.count})
-                                    </span>
-                                ))}
+                            
+                            <div style={cardStyle}>
+                                <div style={{ ...sectionTitle, fontSize: 13 }}>🔝 Top Manzillar</div>
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                                    <div>
+                                        <div style={{ fontSize: 9, color: colors.accent, marginBottom: 4 }}>🏠 Delivery</div>
+                                        {(expandedStats?.locations?.delivery || []).slice(0, 3).map((loc, i) => (
+                                            <div key={i} style={{ fontSize: 9, color: colors.subtext, marginBottom: 2 }}>{i+1}. {loc.label.slice(0, 15)}.. ({loc.count})</div>
+                                        ))}
+                                    </div>
+                                    <div>
+                                        <div style={{ fontSize: 9, color: colors.purple, marginBottom: 4 }}>🤝 Meet-up</div>
+                                        {(expandedStats?.locations?.meetup || []).slice(0, 3).map((loc, i) => (
+                                            <div key={i} style={{ fontSize: 9, color: colors.subtext, marginBottom: 2 }}>{i+1}. {loc.label} ({loc.count})</div>
+                                        ))}
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -451,110 +440,47 @@ const AdminPage = () => {
                     </div>
                 )}
 
-                {/* =================== REVENUE TAB =================== */}
-                {activeTab === 'revenue' && !loading && (
+                {/* =================== EXPENSES TAB =================== */}
+                {activeTab === 'expenses' && !loading && (
                     <div style={{ animation: 'fadeIn 0.3s ease' }}>
-                        <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
-                            <div style={kpiCard(colors.profit)}>
-                                <div style={subText}>Umumiy Daromad</div>
-                                <div style={{ ...bigNum, color: colors.profit, fontSize: 22 }}>₩{totalRevenue.toLocaleString()}</div>
-                            </div>
-                            <div style={kpiCard(colors.accent)}>
-                                <div style={subText}>Yetkazish to'lovi</div>
-                                <div style={{ ...bigNum, color: colors.accent, fontSize: 22 }}>₩{totalDeliveryFees.toLocaleString()}</div>
-                            </div>
-                        </div>
-
-                        {/* Monthly Breakdown */}
-                        <div style={cardStyle}>
-                            <div style={sectionTitle}>📈 Oylik daromad</div>
-                            {(() => {
-                                const monthData = {};
-                                completedOrders.forEach(o => {
-                                    const d = new Date(o.createdAt);
-                                    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-                                    monthData[key] = (monthData[key] || 0) + (o.totalAmount || 0);
-                                });
-                                const sorted = Object.entries(monthData).sort((a, b) => b[0].localeCompare(a[0])).slice(0, 6);
-                                const maxVal = Math.max(1, ...sorted.map(([, v]) => v));
-                                return sorted.length === 0 ? <div style={subText}>Ma'lumot yo'q</div> : sorted.map(([month, amt], i) => (
-                                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
-                                        <span style={{ ...subText, width: 60, flexShrink: 0 }}>{month}</span>
-                                        <div style={{ flex: 1, height: 24, background: colors.surface, borderRadius: 8, overflow: 'hidden' }}>
-                                            <div style={{ width: `${(amt / maxVal) * 100}%`, height: '100%', background: `linear-gradient(90deg, ${colors.profit}, ${colors.accent})`, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', paddingRight: 6 }}>
-                                                <span style={{ fontSize: 10, color: '#000', fontWeight: 800 }}>₩{amt.toLocaleString()}</span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                ));
-                            })()}
-                        </div>
-
-                        {/* Driver Earnings */}
-                        <div style={cardStyle}>
-                            <div style={sectionTitle}>🛵 Kuryer maoshi (₩1,000/km)</div>
-                            <div style={subText}>Jami yetkazish masofasi × ₩1,000 = Kuryer maoshi</div>
-                            <div style={{ ...bigNum, color: colors.warning, fontSize: 20, marginTop: 8 }}>
-                                ₩{(completedOrders.reduce((s, o) => s + ((o.distance || 0) * 2), 0) * 1000).toLocaleString()}
-                            </div>
-                            <div style={{ ...subText, marginTop: 4 }}>({completedOrders.reduce((s, o) => s + ((o.distance || 0) * 2), 0).toFixed(1)} km umumiy)</div>
-                        </div>
-
-                        {/* Expense Input */}
-                        <div style={cardStyle}>
-                            <div style={sectionTitle}>💸 Yangi harajat qo'shish</div>
+                        <div style={{ ...cardStyle, background: `linear-gradient(135deg, ${colors.danger}10, ${colors.card})` }}>
+                            <div style={sectionTitle}>💸 Yangi harajat kiritish</div>
                             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-                                <input placeholder="Harajat sababi (masalan: Pomidor)" value={expenseNote} onChange={e => setExpenseNote(e.target.value)} style={{ ...inputStyle, flex: 2, minWidth: 150 }} />
+                                <input placeholder="Nima uchun? (masalan: Go'sht)" value={expenseNote} onChange={e => setExpenseNote(e.target.value)} style={{ ...inputStyle, flex: 2, minWidth: 150 }} />
                                 <input type="number" placeholder="Summa ₩" value={expenseAmount} onChange={e => setExpenseAmount(e.target.value)} style={{ ...inputStyle, flex: 1, minWidth: 100 }} />
-                                <button onClick={handleAddExpense} disabled={addingExpense} style={{ ...btnPrimary, flexShrink: 0 }}>{addingExpense ? 'Qo\'shilmoqda...' : 'Qo\'shish'}</button>
+                                <button onClick={handleAddExpense} disabled={addingExpense} style={{ ...btnPrimary, flexShrink: 0 }}>{addingExpense ? '...' : 'Qo\'shish'}</button>
                             </div>
-                            
-                            {dashStats?.recentExpenses?.length > 0 && (
-                                <div style={{ marginTop: 16 }}>
-                                    <div style={{ fontSize: 13, fontWeight: 700, color: colors.subtext, marginBottom: 8 }}>So'nggi harajatlar:</div>
-                                    {dashStats.recentExpenses.map((exp, i) => (
-                                        <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, padding: '4px 0', borderBottom: `1px solid ${colors.border}` }}>
-                                            <span style={{ color: colors.text }}>{exp.description}</span>
-                                            <span style={{ color: colors.danger, fontWeight: 700 }}>- ₩{exp.amount.toLocaleString()}</span>
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
                         </div>
 
-                        {/* Net Profit & Predictions */}
-                        <div style={{ ...cardStyle, background: `linear-gradient(135deg, ${colors.profit}20, ${colors.card})`, border: `1px solid ${colors.profit}30` }}>
-                            <div style={sectionTitle}>💎 Hisobotlar va Sof Foyda</div>
-                            
-                            {/* Deductions breakdown */}
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 16 }}>
-                                <div>
-                                    <div style={{ fontSize: 13, color: colors.subtext }}>Kuryerlarga ajratilgan</div>
-                                    <div style={{ fontSize: 16, fontWeight: 800, color: colors.warning }}>
-                                        - ₩{completedOrders.reduce((s, o) => s + ((o.distance || 0) * 2 * 1000), 0).toLocaleString()}
-                                    </div>
-                                </div>
-                                <div style={{ textAlign: 'right' }}>
-                                    <div style={{ fontSize: 13, color: colors.subtext }}>Boshqa harajatlar</div>
-                                    <div style={{ fontSize: 16, fontWeight: 800, color: colors.danger }}>
-                                        - ₩{totalExpenses.toLocaleString()}
-                                    </div>
-                                </div>
+                        <div style={{ ...cardStyle, padding: 0, overflow: 'hidden', marginTop: 16 }}>
+                            <div style={{ padding: '16px', borderBottom: `1px solid ${colors.border}`, display: 'flex', justifyContent: 'space-between' }}>
+                                <div style={sectionTitle}>📊 Harajatlar jadvallari</div>
+                                <div style={{ ...bigNum, fontSize: 16, color: colors.danger }}>- ₩{(dashStats?.recentExpenses || []).reduce((s, e) => s + e.amount, 0).toLocaleString()}</div>
                             </div>
-
-                            <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: `1px solid ${colors.profit}30`, paddingTop: 10 }}>
-                                <div>
-                                    <div style={{ ...subText, color: colors.text, fontWeight: 700 }}>Umumiy Sof Foyda</div>
-                                    <div style={{ ...bigNum, color: colors.profit, fontSize: 22 }}>
-                                        ₩{(totalRevenue - completedOrders.reduce((s, o) => s + ((o.distance || 0) * 2 * 1000), 0) - totalExpenses).toLocaleString()}
-                                    </div>
-                                </div>
-                                <div style={{ textAlign: 'right' }}>
-                                    <div style={subText}>Bu oy uchun daromad (Bashorat) 🔮</div>
-                                    <div style={{ ...bigNum, color: colors.accent, fontSize: 20 }}>
-                                        ~ ₩{Math.round(predictedMonthlyRevenue).toLocaleString()}
-                                    </div>
-                                </div>
+                            <div style={{ overflowX: 'auto' }}>
+                                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: 12 }}>
+                                    <thead style={{ background: colors.surface, color: colors.subtext }}>
+                                        <tr>
+                                            <th style={{ padding: '12px' }}>Sana</th>
+                                            <th style={{ padding: '12px' }}>Tavsif</th>
+                                            <th style={{ padding: '12px' }}>Tur</th>
+                                            <th style={{ padding: '12px', textAlign: 'right' }}>Summa</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {(dashStats?.recentExpenses || []).map((exp, i) => (
+                                            <tr key={i} style={{ borderBottom: `1px solid ${colors.border}` }}>
+                                                <td style={{ padding: '12px', color: colors.subtext }}>{new Date(exp.createdAt).toLocaleDateString()}</td>
+                                                <td style={{ padding: '12px', fontWeight: 600 }}>{exp.description}</td>
+                                                <td style={{ padding: '12px' }}><span style={{ padding: '2px 6px', borderRadius: 4, background: 'rgba(255,69,96,0.1)', color: '#FF4560', fontSize: 9 }}>Oshxona</span></td>
+                                                <td style={{ padding: '12px', textAlign: 'right', color: colors.danger, fontWeight: 700 }}>- ₩{exp.amount.toLocaleString()}</td>
+                                            </tr>
+                                        ))}
+                                        {(!dashStats?.recentExpenses || dashStats.recentExpenses.length === 0) && (
+                                            <tr><td colSpan="4" style={{ padding: '30px', textAlign: 'center', color: colors.subtext }}>Harajatlar topilmadi</td></tr>
+                                        )}
+                                    </tbody>
+                                </table>
                             </div>
                         </div>
                     </div>
@@ -867,6 +793,36 @@ const AdminPage = () => {
 
             {/* Animations CSS */}
             <style>{`@keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }`}</style>
+        </div>
+    );
+};
+
+const AiAnalyst = () => {
+    const [q, setQ] = useState('');
+    const [ans, setAns] = useState('');
+    const [loading, setLoading] = useState(false);
+
+    const ask = async () => {
+        if (!q) return;
+        setLoading(true);
+        try {
+            const res = await api.post('/admin/ai-analyst', { question: q });
+            setAns(res.data.answer);
+        } catch (e) {
+            setAns('Xatolik yuz berdi :(');
+        }
+        setLoading(false);
+    };
+
+    return (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, height: '100%' }}>
+            <div style={{ flex: 1, background: 'rgba(0,0,0,0.2)', borderRadius: 10, padding: 10, fontSize: 12, color: 'rgba(255,255,255,0.8)', overflowY: 'auto', maxHeight: 80 }}>
+                {loading ? 'AI tahlil qilmoqda...' : ans || 'Savdo tendentsiyalari va bashoratlar haqida so\'rang.'}
+            </div>
+            <div style={{ display: 'flex', gap: 6 }}>
+                <input value={q} onChange={e => setQ(e.target.value)} placeholder="Masalan: Kelasi hafta nima ko'p sotiladi?" style={{ flex: 1, padding: '8px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.05)', color: '#fff', fontSize: 11 }} />
+                <button onClick={ask} disabled={loading} style={{ padding: '8px', borderRadius: 8, border: 'none', background: 'var(--brand-accent)', color: '#fff', fontSize: 11, cursor: 'pointer' }}>Ask</button>
+            </div>
         </div>
     );
 };

@@ -79,6 +79,12 @@ export const useAppStore = create((set) => ({
     // App Config
     isLocationBlocked: false,
     setLocationBlocked: (isBlocked) => set({ isLocationBlocked: isBlocked }),
+
+    // Global Call State
+    incomingCall: null,
+    activeCall: null,
+    setIncomingCall: (call) => set({ incomingCall: call }),
+    setActiveCall: (call) => set({ activeCall: call }),
 }));
 
 // Initialize theme on load

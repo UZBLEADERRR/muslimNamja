@@ -102,8 +102,6 @@ const DirectChat = ({ conversation, onBack }) => {
         }
     };
 
-    const [activeCall, setActiveCall] = useState(null); // { isReceiving, callerName, signalData, roomName, targetId }
-
     const handleCall = () => {
         // We act as initiator
         const roomName = conversation.type === 'order' 
@@ -118,6 +116,16 @@ const DirectChat = ({ conversation, onBack }) => {
                 ? conversation.orderData?.deliveryManId 
                 : conversation.orderData?.userId;
         }
+
+        // Global Signaling: Ring the user first
+        if (socketRef.current?.connected) {
+            socketRef.current.emit('ring-user', {
+                targetId: actualTargetUserId,
+                callerName: user.firstName,
+                callerAvatar: user.profilePhoto, // Assuming this exists
+                room: roomName
+            });
+        }
         
         setActiveCall({
             isReceiving: false,
@@ -131,17 +139,6 @@ const DirectChat = ({ conversation, onBack }) => {
     return (
         <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: 'var(--bg-primary)' }}>
 
-            {activeCall && (
-                <VideoCallModal 
-                    socket={socketRef.current}
-                    roomName={activeCall.roomName}
-                    isReceiving={activeCall.isReceiving}
-                    callerName={activeCall.callerName}
-                    signalData={activeCall.signalData}
-                    targetId={activeCall.targetId}
-                    onEndCall={() => setActiveCall(null)}
-                />
-            )}
             {/* Header */}
             <div style={{ padding: '12px 16px', background: 'var(--card-bg)', borderBottom: '1px solid var(--card-border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>

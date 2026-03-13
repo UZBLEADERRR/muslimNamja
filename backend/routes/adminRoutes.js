@@ -40,6 +40,9 @@ router.get('/stats', adminController.getFullStats);
 // Manual Expenses
 router.post('/expenses', adminController.addExpense);
 
+// AI Analyst
+router.post('/ai-analyst', adminController.askAnalyst);
+
 // AI Inventory Manager
 router.get('/ai-inventory', adminController.getAiInventoryAnalysis);
 

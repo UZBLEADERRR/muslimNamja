@@ -176,7 +176,7 @@ const adminController = {
     async getAllUsers(req, res) {
         try {
             const users = await User.findAll({
-                attributes: ['id', 'firstName', 'lastName', 'username', 'phone', 'address', 'gender', 'role', 'walletBalance', 'distanceFromRestaurant', 'createdAt'],
+                attributes: ['id', 'firstName', 'lastName', 'username', 'phone', 'address', 'gender', 'role', 'walletBalance', 'distanceFromRestaurant', 'createdAt', 'lastActivity', 'telegramId'],
                 order: [['createdAt', 'DESC']]
             });
             res.json({ users, total: users.length });
@@ -342,26 +342,46 @@ const adminController = {
             const users = await User.findAll({ attributes: ['id', 'firstName', 'lastName', 'username', 'walletBalance', 'gender', 'createdAt', 'address'] });
 
             // 1. Wallet Stats
-            const currentTotalWalletBalance = users.reduce((sum, u) => sum + (u.walletBalance || 0), 0);
+            const totalWalletBalance = users.reduce((sum, u) => sum + (u.walletBalance || 0), 0);
             
             // Total deposits (since start)
-            const allApprovedDeposits = await PaymentRequest.sum('amount', { where: { status: 'approved' } }) || 0;
+            const totalDepositedApproved = await PaymentRequest.sum('amount', { where: { status: 'approved' } }) || 0;
 
             // 2. Orders Statistics
-            const allOrders = await Order.findAll({ attributes: ['createdAt', 'totalAmount', 'userId', 'deliveryType', 'meetupLocation', 'status'] });
+            const allOrders = await Order.findAll({ attributes: ['createdAt', 'totalAmount', 'userId', 'deliveryType', 'meetupLocation', 'status', 'deliveryFee', 'distance'] });
             
             // Total spent (since start)
-            const totalSpentSinceStart = allOrders
+            const totalSpentByUsers = allOrders
                 .filter(o => o.status === 'completed')
                 .reduce((sum, o) => sum + (o.totalAmount || 0), 0);
 
             // Distribution by type (Home vs Meetup vs Pickup)
-            const deliveryTypeCounts = { home: 0, meetup: 0, pickup: 0 };
+            // Orders by type
+            const dist = { home: 0, meetup: 0, pickup: 0 };
+            let totalRevenue = 0;
+            let totalDeliveryFees = 0;
+            
             allOrders.forEach(o => {
-                if (deliveryTypeCounts[o.deliveryType] !== undefined) deliveryTypeCounts[o.deliveryType]++;
+                if (o.deliveryType === 'home') dist.home++;
+                else if (o.deliveryType === 'meetup') dist.meetup++;
+                else if (o.deliveryType === 'pickup') dist.pickup++;
+                
+                if (o.status === 'completed') {
+                    totalRevenue += (o.totalAmount || 0);
+                    totalDeliveryFees += (o.deliveryFee || 0);
+                }
             });
 
-            // 3. Timeframe Logic for Hourly/Daily/Monthly peaks
+            // Kitchen Expenses
+            const kitchenExpenses = await Expense.sum('amount') || 0;
+            
+            // Driver Costs (Delivery fees collected are given to drivers, plus extra distance costs if any)
+            // For simplicity: Drivers get the deliveryFee + distance-based earning
+            const driverCosts = allOrders.filter(o => o.status === 'completed').reduce((s, o) => s + (o.deliveryFee || 0) + ((o.distance || 0) * 1000), 0);
+
+            const netProfit = totalRevenue - kitchenExpenses - driverCosts;
+
+            // Flow Data (Time-series)
             const now = new Date();
             let periodStart = new Date(now);
             if (period === 'daily') periodStart.setHours(now.getHours() - 24);

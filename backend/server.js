@@ -107,13 +107,31 @@ io.on('connection', (socket) => {
     socket.on('webrtc-answer', data => socket.to(data.room).emit('webrtc-answer', data));
     socket.on('webrtc-ice-candidate', data => socket.to(data.room).emit('webrtc-ice-candidate', data));
 
+    // Call State Signaling
+    socket.on('accept-call', data => {
+        socket.to(data.room).emit('call-accepted', data);
+    });
+
+    socket.on('reject-call', data => {
+        socket.to(data.room).emit('call-rejected', data);
+    });
+
+    socket.on('cancel-call', data => {
+        socket.to(data.room).emit('call-cancelled', data);
+    });
+
+    socket.on('hangup-call', data => {
+        socket.to(data.room).emit('call-ended', data);
+    });
+
     // Global Ring User (for incoming calls outside chat)
     socket.on('ring-user', async (data) => {
-        const { targetId, callerName, room } = data;
+        const { targetId, room } = data;
         io.to(`user_${targetId}`).emit('incoming-call', data);
 
-        // Bot Fallback Logic: If not answered in 15s, send TG message
+        // Bot Fallback Logic
         setTimeout(async () => {
+            // ... (keep bot fallback as is)
             try {
                 // We need to check if the user is still 'ringing' (not busy/answered)
                 // For simplicity, we'll send a message if they are offline or didn't answer in time
