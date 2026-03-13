@@ -42,6 +42,8 @@ router.post('/expenses', adminController.addExpense);
 
 // AI Analyst
 router.post('/ai-analyst', adminController.askAnalyst);
+router.post('/ai-parse-expenses', adminController.parseExpensesAI);
+router.post('/bulk-expenses', adminController.bulkCreateExpenses);
 
 // AI Inventory Manager
 router.get('/ai-inventory', adminController.getAiInventoryAnalysis);

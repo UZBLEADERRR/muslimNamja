@@ -118,13 +118,6 @@ const deliveryController = {
 
             await order.save();
 
-            // Add earning to driver's wallet (assuming it happens immediately, but typically after review. We will do it now).
-            const driver = await User.findByPk(deliveryManId);
-            if (driver) {
-                driver.walletBalance = (driver.walletBalance || 0) + earning;
-                await driver.save();
-            }
-
             res.json({ message: 'Order delivered, awaiting user review', order, earning });
         } catch (error) {
             res.status(500).json({ error: 'Failed to complete order' });

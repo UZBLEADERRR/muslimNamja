@@ -72,6 +72,8 @@ const ProfilePage = () => {
     // Avatar
     const avatarRef = useRef(null);
     const [uploadingAvatar, setUploadingAvatar] = useState(false);
+    const [refreshingBalance, setRefreshingBalance] = useState(false);
+
 
     // Tabs
     const [activeTab, setActiveTab] = useState('orders');
@@ -321,12 +323,23 @@ const ProfilePage = () => {
                             <div style={{ color: "var(--text-secondary)", fontSize: 11, fontWeight: 700, textTransform: 'uppercase' }}>Hamyon ({t('wallet')})</div>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                                 <div style={{ color: "var(--text-primary)", fontWeight: 900, fontSize: 20, fontFamily: "'Fraunces', serif" }}>₩{(user.walletBalance || 0).toLocaleString()}</div>
-                                <button onClick={async () => {
-                                    try {
-                                        const res = await api.get('/users/me');
-                                        setUser({ ...user, walletBalance: res.data.walletBalance }, token);
-                                    } catch (e) { }
-                                }} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 14 }}>🔄</button>
+                                <button 
+                                    disabled={refreshingBalance}
+                                    onClick={async () => {
+                                        setRefreshingBalance(true);
+                                        try {
+                                            const res = await api.get('/users/me');
+                                            setUser({ ...user, walletBalance: res.data.walletBalance }, token);
+                                        } catch (e) { }
+                                        setTimeout(() => setRefreshingBalance(false), 600);
+                                    }} 
+                                    style={{ 
+                                        background: 'none', border: 'none', cursor: 'pointer', fontSize: 14,
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                        animation: refreshingBalance ? 'spin 0.6s linear infinite' : 'none'
+                                    }}
+                                >🔄</button>
+                                <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
                             </div>
                         </div>
                     </div>

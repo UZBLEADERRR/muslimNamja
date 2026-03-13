@@ -54,6 +54,14 @@ const AdminPage = () => {
     // Admin Inbox Start Chat
     const [startChatUser, setStartChatUser] = useState(null);
 
+    // AI Expense / Calendar State
+    const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+    const [aiRawText, setAiRawText] = useState('');
+    const [parsedPreview, setParsedPreview] = useState([]);
+    const [parseLoading, setParseLoading] = useState(false);
+    const [showAiInput, setShowAiInput] = useState(false);
+
+
     const fetchData = async () => {
         setLoading(true);
         try {
@@ -138,6 +146,33 @@ const AdminPage = () => {
     const handlePaymentAction = async (id, action) => {
         try { await api.put(`/admin/payment-requests/${id}`, { action }); alert(`To'lov ${action === 'approve' ? 'tasdiqlandi' : 'rad etildi'}!`); fetchData(); } catch { alert("Xatolik"); }
     };
+
+    const handleAiParse = async () => {
+        if (!aiRawText.trim()) return;
+        setParseLoading(true);
+        try {
+            const res = await api.post('/admin/ai-parse-expenses', { text: aiRawText });
+            setParsedPreview(res.data);
+        } catch (e) {
+            alert("AI tahlilida xatolik yuz berdi");
+        }
+        setParseLoading(false);
+    };
+
+    const handleSaveBulkExpenses = async () => {
+        if (parsedPreview.length === 0) return;
+        setLoading(true);
+        try {
+            await api.post('/admin/bulk-expenses', { expenses: parsedPreview });
+            setParsedPreview([]);
+            setAiRawText('');
+            setShowAiInput(false);
+            fetchData();
+        } catch (e) {
+            alert("Saqlashda xatolik");
+        }
+        setLoading(false);
+    };
     const handleBalanceChange = async (userId, amount) => {
         try { await api.post(`/admin/users/${userId}/balance`, { amount: parseFloat(amount) }); alert('Balans yangilandi!'); fetchData(); setTopUpAmount(''); } catch { alert("Xatolik"); }
     };
@@ -206,9 +241,11 @@ const AdminPage = () => {
 
     // Revenue calculations
     const completedOrders = allOrders.filter(o => o.status === 'completed');
-    const totalRevenue = completedOrders.reduce((s, o) => s + (o.totalAmount || 0), 0);
-    const totalDeliveryFees = completedOrders.reduce((s, o) => s + (o.deliveryFee || 0), 0);
-    const totalExpenses = (dashStats?.recentExpenses || []).reduce((s, e) => s + (e.amount || 0), 0);
+    const totalRevenue = expandedStats?.totalRevenue || completedOrders.reduce((s, o) => s + (o.totalAmount || 0), 0);
+    const totalDeliveryFees = expandedStats?.totalDeliveryPay || completedOrders.reduce((s, o) => s + (o.deliveryFee || 0), 0);
+    const totalExpenses = expandedStats?.manualExpensesTotal || (dashStats?.recentExpenses || []).reduce((s, e) => s + (e.amount || 0), 0);
+    const netProfit = expandedStats?.netProfit || (totalRevenue - totalExpenses - totalDeliveryFees);
+
 
     // Monthly Prediction Logic
     const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
@@ -266,7 +303,7 @@ const AdminPage = () => {
                             <div style={kpiCard(colors.accent)}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                     <div style={subText}>Sof Foyda</div>
-                                    <div style={{ ...bigNum, color: colors.accent, fontSize: 18 }}>₩{(expandedStats?.financials?.netProfit || 0).toLocaleString()}</div>
+                                    <div style={{ ...bigNum, color: colors.accent, fontSize: 18 }}>₩{(netProfit || 0).toLocaleString()}</div>
                                 </div>
                             </div>
                             <div style={kpiCard(colors.warning)}>
@@ -278,7 +315,7 @@ const AdminPage = () => {
                             <div style={kpiCard(colors.danger)}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                     <div style={subText}>Oshxona Harajatlari</div>
-                                    <div style={{ ...bigNum, color: colors.danger, fontSize: 18 }}>₩{(expandedStats?.financials?.kitchenExpenses || 0).toLocaleString()}</div>
+                                    <div style={{ ...bigNum, color: colors.danger, fontSize: 18 }}>₩{(totalExpenses || 0).toLocaleString()}</div>
                                 </div>
                             </div>
                             <div style={kpiCard(colors.purple)}>
@@ -503,42 +540,118 @@ const AdminPage = () => {
                             </div>
                         </div>
 
-                        <div style={{ ...cardStyle, background: `linear-gradient(135deg, ${colors.purple}15, ${colors.card})`, border: `1px solid ${colors.purple}30`, marginTop: 16 }}>
-                            <div style={{ ...sectionTitle, color: colors.purple }}>🤖 AI Analyst (Harajatlar bo'yicha maslahat)</div>
-                            <AiAnalyst />
+                        {/* AI & Manual Expense Entry Toggle Section */}
+                        <div style={{ display: 'flex', gap: 10, marginBottom: 16 }}>
+                            <button onClick={() => setShowAiInput(false)} style={chipStyle(!showAiInput)}>✍️ Manual</button>
+                            <button onClick={() => setShowAiInput(true)} style={chipStyle(showAiInput)}>🤖 AI Parse</button>
+                        </div>
+
+                        {showAiInput ? (
+                            <div style={{ ...cardStyle, background: `linear-gradient(135deg, ${colors.purple}15, ${colors.card})`, border: `1px solid ${colors.purple}40` }}>
+                                <div style={sectionTitle}>🤖 AI Xarajatlarni yuklash</div>
+                                <div style={{ ...subText, marginBottom: 12 }}>Xarajatlar ro'yxatini (masalan: Go'sht 15000, Guruch 2kg 12000) pastga nusxalab tashlang. AI ularni jadvalga aylantirib beradi.</div>
+                                <textarea 
+                                    value={aiRawText} 
+                                    onChange={e => setAiRawText(e.target.value)}
+                                    placeholder="Masalan:&#10;Go'sht 2kg 30000&#10;Yog' 5L 15000&#10;Pishloq 12000" 
+                                    style={{ ...inputStyle, height: 120, resize: 'none', marginBottom: 12 }}
+                                />
+                                {parsedPreview.length > 0 && (
+                                    <div style={{ marginBottom: 12, background: 'rgba(0,0,0,0.2)', borderRadius: 12, padding: 10 }}>
+                                        <div style={{ fontWeight: 800, fontSize: 13, marginBottom: 8, color: colors.profit }}>Dastlabki ko'rish:</div>
+                                        {parsedPreview.map((p, i) => (
+                                            <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, padding: '4px 0', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                                                <span>{p.description} ({p.date})</span>
+                                                <span style={{ fontWeight: 700 }}>₩{p.amount?.toLocaleString()}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                                <div style={{ display: 'flex', gap: 8 }}>
+                                    <button onClick={handleAiParse} disabled={parseLoading || !aiRawText} style={{ ...btnPrimary, background: colors.purple, flex: 1 }}>{parseLoading ? 'AI tahlil qilmoqda...' : '🤖 AI Tahlil'}</button>
+                                    {parsedPreview.length > 0 && (
+                                        <button onClick={handleSaveBulkExpenses} style={{ ...btnSuccess, flex: 1 }}>✅ Hammasini saqlash</button>
+                                    )}
+                                </div>
+                            </div>
+                        ) : (
+                            <div style={cardStyle}>
+                                <div style={sectionTitle}>💰 Harajat qo'shish (Manual)</div>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                                    <input placeholder="Nima uchun? (Tavsif)" value={expenseNote} onChange={e => setExpenseNote(e.target.value)} style={inputStyle} />
+                                    <div style={{ display: 'flex', gap: 8 }}>
+                                        <input type="number" placeholder="Summa ₩" value={expenseAmount} onChange={e => setExpenseAmount(e.target.value)} style={{ ...inputStyle, flex: 1, padding: '16px', fontSize: '16px' }} />
+                                        <button onClick={handleAddExpense} disabled={addingExpense} style={{ ...btnPrimary, flexShrink: 0, padding: '0 24px' }}>{addingExpense ? '...' : 'Qo\'shish'}</button>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Calendar-like interface for date selection */}
+                        <div style={{ marginBottom: 16 }}>
+                            <div style={sectionTitle}>📅 Sana bo'yicha saralash</div>
+                            <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 8 }} className="hide-scrollbar">
+                                {[-3,-2,-1,0,1,2,3].map(offset => {
+                                    const d = new Date();
+                                    d.setDate(d.getDate() + offset);
+                                    const iso = d.toISOString().split('T')[0];
+                                    const labels = ['Yak', 'Dush', 'Sesh', 'Chor', 'Pay', 'Jum', 'Shan'];
+                                    return (
+                                        <button key={iso} onClick={() => setSelectedDate(iso)} style={{
+                                            minWidth: 60, padding: '10px 4px', borderRadius: 12, border: 'none',
+                                            background: selectedDate === iso ? colors.accent : colors.surface,
+                                            color: selectedDate === iso ? '#fff' : colors.subtext,
+                                            display: 'flex', flexDirection: 'column', alignItems: 'center', transition: 'all 0.2s'
+                                        }}>
+                                            <span style={{ fontSize: 10, marginBottom: 4 }}>{labels[d.getDay()]}</span>
+                                            <span style={{ fontSize: 16, fontWeight: 900 }}>{d.getDate()}</span>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </div>
+
+                        <div style={{ ...cardStyle, background: `linear-gradient(135deg, ${colors.purple}20, ${colors.card})`, border: `1px solid ${colors.purple}40`, marginTop: 16, padding: 20 }}>
+                            <div style={{ ...sectionTitle, color: colors.purple, fontSize: 18, marginBottom: 16, display: 'flex', alignItems: 'center', gap: 10 }}>
+                                <span style={{ fontSize: 24 }}>🤖</span> AI Moliyaviy maslahatchi
+                            </div>
+                            <div style={{ height: 250 }}>
+                                <AiAnalyst stats={{ revenue: totalRevenue, expenses: totalExpenses, net: netProfit }} />
+                            </div>
                         </div>
 
                         <div style={{ ...cardStyle, padding: 0, overflow: 'hidden', marginTop: 16 }}>
-                            <div style={{ padding: '16px', borderBottom: `1px solid ${colors.border}`, display: 'flex', justifyContent: 'space-between' }}>
-                                <div style={sectionTitle}>📊 Harajatlar jadvallari</div>
-                                <div style={{ ...bigNum, fontSize: 16, color: colors.danger }}>- ₩{(dashStats?.recentExpenses || []).reduce((s, e) => s + e.amount, 0).toLocaleString()}</div>
+                            <div style={{ padding: '16px', borderBottom: `1px solid ${colors.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <div style={sectionTitle}>📊 {selectedDate} dagi harajatlar</div>
+                                <div style={{ ...bigNum, fontSize: 16, color: colors.danger }}>
+                                    - ₩{(dashStats?.recentExpenses || []).filter(e => e.date?.split('T')[0] === selectedDate || e.createdAt?.split('T')[0] === selectedDate).reduce((s, e) => s + e.amount, 0).toLocaleString()}
+                                </div>
                             </div>
                             <div style={{ overflowX: 'auto' }}>
                                 <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: 12 }}>
                                     <thead style={{ background: colors.surface, color: colors.subtext }}>
                                         <tr>
-                                            <th style={{ padding: '12px' }}>Sana</th>
                                             <th style={{ padding: '12px' }}>Tavsif</th>
                                             <th style={{ padding: '12px' }}>Tur</th>
                                             <th style={{ padding: '12px', textAlign: 'right' }}>Summa</th>
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {(dashStats?.recentExpenses || []).map((exp, i) => (
+                                        {(dashStats?.recentExpenses || []).filter(e => e.date?.split('T')[0] === selectedDate || e.createdAt?.split('T')[0] === selectedDate).map((exp, i) => (
                                             <tr key={i} style={{ borderBottom: `1px solid ${colors.border}` }}>
-                                                <td style={{ padding: '12px', color: colors.subtext }}>{new Date(exp.createdAt).toLocaleDateString()}</td>
                                                 <td style={{ padding: '12px', fontWeight: 600 }}>{exp.description}</td>
                                                 <td style={{ padding: '12px' }}><span style={{ padding: '2px 6px', borderRadius: 4, background: 'rgba(255,69,96,0.1)', color: '#FF4560', fontSize: 9 }}>Oshxona</span></td>
                                                 <td style={{ padding: '12px', textAlign: 'right', color: colors.danger, fontWeight: 700 }}>- ₩{exp.amount.toLocaleString()}</td>
                                             </tr>
                                         ))}
-                                        {(!dashStats?.recentExpenses || dashStats.recentExpenses.length === 0) && (
-                                            <tr><td colSpan="4" style={{ padding: '30px', textAlign: 'center', color: colors.subtext }}>Harajatlar topilmadi</td></tr>
+                                        {(!dashStats?.recentExpenses || dashStats.recentExpenses.filter(e => e.date?.split('T')[0] === selectedDate || e.createdAt?.split('T')[0] === selectedDate).length === 0) && (
+                                            <tr><td colSpan="3" style={{ padding: '30px', textAlign: 'center', color: colors.subtext }}>{selectedDate} uchun harajatlar yo'q</td></tr>
                                         )}
                                     </tbody>
                                 </table>
                             </div>
                         </div>
+
                     </div>
                 )}
 
@@ -853,7 +966,7 @@ const AdminPage = () => {
     );
 };
 
-const AiAnalyst = () => {
+const AiAnalyst = ({ stats }) => {
     const [q, setQ] = useState('');
     const [ans, setAns] = useState('');
     const [loading, setLoading] = useState(false);
@@ -862,7 +975,7 @@ const AiAnalyst = () => {
         if (!q) return;
         setLoading(true);
         try {
-            const res = await api.post('/admin/ai-analyst', { question: q });
+            const res = await api.post('/admin/ai-analyst', { question: q, context: stats });
             setAns(res.data.answer);
         } catch (e) {
             setAns('Xatolik yuz berdi :(');
@@ -871,14 +984,23 @@ const AiAnalyst = () => {
     };
 
     return (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, height: '100%' }}>
-            <div style={{ flex: 1, background: 'rgba(0,0,0,0.2)', borderRadius: 10, padding: 10, fontSize: 12, color: 'rgba(255,255,255,0.8)', overflowY: 'auto', maxHeight: 80 }}>
-                {loading ? 'AI tahlil qilmoqda...' : ans || 'Savdo tendentsiyalari va bashoratlar haqida so\'rang.'}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12, height: '100%' }}>
+            <div style={{ flex: 1, background: 'rgba(0,0,0,0.3)', borderRadius: 16, padding: 16, fontSize: 13, color: 'rgba(255,255,255,0.9)', overflowY: 'auto', lineHeight: 1.6, border: '1px solid rgba(255,255,255,0.05)' }}>
+                {loading ? (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <div className="spinner" style={{ width: 14, height: 14, border: '2px solid rgba(168,85,247,0.3)', borderTopColor: '#A855F7', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
+                        <span>AI tahlil qilmoqda...</span>
+                    </div>
+                ) : ans || 'Savdo tendentsiyalari va bashoratlar haqida so\'rang. Men sizga daromad va xarajatlar tahlili boyicha yordam beraman.'}
             </div>
-            <div style={{ display: 'flex', gap: 6 }}>
-                <input value={q} onChange={e => setQ(e.target.value)} placeholder="Masalan: Kelasi hafta nima ko'p sotiladi?" style={{ flex: 1, padding: '8px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.05)', color: '#fff', fontSize: 11 }} />
-                <button onClick={ask} disabled={loading} style={{ padding: '8px', borderRadius: 8, border: 'none', background: 'var(--brand-accent)', color: '#fff', fontSize: 11, cursor: 'pointer' }}>Ask</button>
+            <div style={{ display: 'flex', gap: 8, background: 'rgba(255,255,255,0.05)', padding: 6, borderRadius: 14, border: '1px solid rgba(255,255,255,0.1)' }}>
+                <input value={q} onChange={e => setQ(e.target.value)} onKeyPress={e => e.key === 'Enter' && ask()} placeholder="Savolingizni yozing..." style={{ flex: 1, padding: '10px 14px', borderRadius: 10, border: 'none', background: 'transparent', color: '#fff', fontSize: 13, outline: 'none' }} />
+                <button onClick={ask} disabled={loading} style={{ padding: '0 16px', borderRadius: 10, border: 'none', background: 'var(--brand-accent)', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Ask</button>
             </div>
+            <style>{`
+                @keyframes spin { to { transform: rotate(360deg); } }
+                .hide-scrollbar::-webkit-scrollbar { display: none; }
+            `}</style>
         </div>
     );
 };

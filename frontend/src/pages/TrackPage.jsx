@@ -157,7 +157,7 @@ const TrackPage = () => {
     }
 
     return (
-        <div className="animate-slide-up" style={{ display: 'flex', flexDirection: 'column', height: '100%', paddingBottom: 80, background: 'var(--bg-primary)' }}>
+        <div className="animate-slide-up hide-scrollbar" style={{ display: 'flex', flexDirection: 'column', height: '100vh', overflowY: 'auto', paddingBottom: 100, background: 'var(--bg-primary)' }}>
             
             {/* Top Toggle Bars */}
             <div style={{ padding: '16px 20px', background: 'var(--card-bg)', borderBottom: '1px solid var(--card-border)', display: 'flex', gap: 10, position: 'sticky', top: 0, zIndex: 50 }}>
@@ -182,7 +182,11 @@ const TrackPage = () => {
                                         <div style={{ color: 'var(--brand-accent2)', fontWeight: 800 }}>₩{pr.amount?.toLocaleString()}</div>
                                     </div>
                                     {pr.imageUrl && (
-                                        <img src={pr.imageUrl} alt="screenshot" style={{ width: '100%', borderRadius: 12, marginBottom: 10, maxHeight: 150, objectFit: 'contain', background: '#000' }} />
+                                        <img 
+                                            src={pr.imageUrl.startsWith('http') ? pr.imageUrl : `${SOCKET_URL}${pr.imageUrl}`} 
+                                            alt="screenshot" 
+                                            style={{ width: '100%', borderRadius: 20, marginBottom: 12, maxHeight: 400, objectFit: 'contain', background: '#000', border: '1px solid rgba(255,255,255,0.1)' }} 
+                                        />
                                     )}
                                     <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>Kutilmoqda... Admin tasdiqlashi bilan hamyoningiz to'ldiriladi.</div>
                                 </div>

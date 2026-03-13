@@ -396,9 +396,7 @@ const adminController = {
             // Kitchen Expenses
             const kitchenExpenses = await Expense.sum('amount') || 0;
             
-            // Driver Costs (Delivery fees collected are given to drivers, plus extra distance costs if any)
-            // For simplicity: Drivers get the deliveryFee + distance-based earning
-            const driverCosts = allOrders.filter(o => o.status === 'completed').reduce((s, o) => s + (o.deliveryFee || 0) + ((o.distance || 0) * 1000), 0);
+            const driverCosts = allOrders.filter(o => o.status === 'completed').reduce((s, o) => s + (o.deliveryManEarning || 0), 0);
 
             const netProfit = totalRevenue - kitchenExpenses - driverCosts;
 
@@ -528,7 +526,7 @@ const adminController = {
 
     async askAnalyst(req, res) {
         try {
-            const { message, context } = req.body;
+            const { question, context } = req.body;
             const { GoogleGenerativeAI } = require('@google/generative-ai');
             const apiKey = process.env.AI_API_KEY;
 
@@ -539,17 +537,64 @@ const adminController = {
 
             const prompt = `Siz 'Muslim Namja' restorani admini uchun moliyaviy tahlilchisiz. 
             Mavjud ma'lumotlar: ${JSON.stringify(context)}
-            Foydalanuvchi savoli: ${message}
+            Foydalanuvchi savoli: ${question}
             
             Faqat ma'lumotlarga asoslanib javob bering. Javobingiz do'stona va professional bo'lsin. 
             Agar ma'lumot yetarli bo'lmasa, buni ayting.`;
 
             const result = await model.generateContent(prompt);
-            const response = await result.response.text();
-            res.json({ response });
+            const answer = await result.response.text();
+            res.json({ answer });
         } catch (error) {
             console.error('AI Analyst error:', error);
             res.status(500).json({ error: 'AI tahlilida xatolik' });
+        }
+    },
+
+    // --- AI Expense Parsing ---
+    async parseExpensesAI(req, res) {
+        try {
+            const { text } = req.body;
+            if (!text) return res.status(400).json({ error: 'Matn bo\'sh' });
+
+            const { GoogleGenerativeAI } = require('@google/generative-ai');
+            const apiKey = process.env.AI_API_KEY;
+            if (!apiKey) return res.status(400).json({ error: 'AI API Key not configured' });
+
+            const genAI = new GoogleGenerativeAI(apiKey);
+            const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+
+            const prompt = `Convert the following list of expenses into a JSON array of objects.
+            Each object must have: "description", "amount" (number only), "category", and "date" (YYYY-MM-DD).
+            Identify prices accurately. Default category to 'other' if unknown.
+            List:
+            ${text}
+            
+            Respond ONLY with the JSON array, no markdown.`;
+
+            const result = await model.generateContent(prompt);
+            let rawLines = result.response.text().trim();
+            if (rawLines.startsWith('```')) {
+                rawLines = rawLines.replace(/^```(json)?\n?/, '').replace(/\n?```$/, '');
+            }
+            const expenses = JSON.parse(rawLines);
+            res.json(expenses);
+        } catch (error) {
+            console.error('AI Parse error:', error);
+            res.status(500).json({ error: 'AI parsingda xatolik' });
+        }
+    },
+
+    async bulkCreateExpenses(req, res) {
+        try {
+            const { expenses } = req.body;
+            if (!expenses || !Array.isArray(expenses)) return res.status(400).json({ error: 'Expenses array required' });
+            
+            const created = await Expense.bulkCreate(expenses);
+            res.json({ success: true, count: created.length });
+        } catch (error) {
+            console.error(error);
+            res.status(500).json({ error: 'Failed to bulk create expenses' });
         }
     },
 

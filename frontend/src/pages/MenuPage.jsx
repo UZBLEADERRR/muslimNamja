@@ -350,7 +350,7 @@ const MenuPage = () => {
                                 background: 'var(--bg-primary)',
                                 backdropFilter: 'blur(20px)',
                                 borderTop: '1px solid var(--card-border)',
-                                zIndex: 100 // High z-index to stay above other page content but below toast/modal
+                                zIndex: 1000 
                             }}>
                                 <button
                                     onClick={() => handleAddToCart(selectedFood, selectedExtras, qty)}
