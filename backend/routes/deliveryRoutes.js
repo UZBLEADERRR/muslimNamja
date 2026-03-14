@@ -18,6 +18,9 @@ router.get('/stats', deliveryController.getStats);
 // Accept an order
 router.post('/orders/:orderId/accept', deliveryController.acceptOrder);
 
+// Update status (e.g., preparing, ready_for_pickup)
+router.put('/orders/:orderId/status', deliveryController.updateOrderStatus);
+
 const multer = require('multer');
 const upload = multer({ dest: 'uploads/' });
 

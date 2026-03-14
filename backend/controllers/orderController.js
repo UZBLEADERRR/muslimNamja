@@ -98,6 +98,21 @@ ${orderDetails}
             if (bot) {
                 if (adminId) bot.sendMessage(adminId, message, { parse_mode: 'HTML', reply_markup: inlineKeyboard }).catch(() => { });
                 if (channelId) bot.sendMessage(channelId, message, { parse_mode: 'HTML', reply_markup: inlineKeyboard }).catch(() => { });
+                
+                // Notify all delivery men
+                try {
+                    const deliveryMen = await User.findAll({ where: { role: 'delivery' } });
+                    deliveryMen.forEach(dm => {
+                        if (dm.telegramId) {
+                            bot.sendMessage(dm.telegramId, `🚚 <b>Yangi buyurtma mavjud!</b>\n\nManzil: ${user?.address}\nMasofa: ${distance} km\nSumma: ₩${totalAmount.toLocaleString()}\n\nIlovaga kirib qabul qilishingiz mumkin.`, { 
+                                parse_mode: 'HTML',
+                                reply_markup: {
+                                    inline_keyboard: [[{ text: "🛵 Buyurtmalarni ko'rish", url: `https://t.me/muslim_namja_bot/app?startapp=delivery` }]]
+                                }
+                            }).catch(() => {});
+                        }
+                    });
+                } catch (e) { console.error('Bot delivery notify error:', e); }
             }
 
             res.status(201).json({ message: 'Order placed successfully', order });

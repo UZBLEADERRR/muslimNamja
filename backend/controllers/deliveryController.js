@@ -14,7 +14,7 @@ const deliveryController = {
         try {
             const orders = await Order.findAll({
                 where: { 
-                    status: { [Op.in]: ['accepted', 'preparing', 'ready_for_pickup'] }, 
+                    status: { [Op.in]: ['pending', 'accepted', 'preparing', 'ready_for_pickup'] }, 
                     deliveryManId: null 
                 }
             });
@@ -94,6 +94,24 @@ const deliveryController = {
             res.json({ message: 'Order accepted', order: orders[0] });
         } catch (error) {
             res.status(500).json({ error: 'Failed to accept order' });
+        }
+    },
+
+    async updateOrderStatus(req, res) {
+        try {
+            const { orderId } = req.params;
+            const { status } = req.body;
+            const deliveryManId = req.user.userId;
+
+            const order = await Order.findOne({ where: { id: orderId, deliveryManId } });
+            if (!order) return res.status(404).json({ error: 'Buyurtma topilmadi yoki sizda ruxsat yo\'q' });
+
+            order.status = status;
+            await order.save();
+
+            res.json({ message: 'Status yangilandi', order });
+        } catch (error) {
+            res.status(500).json({ error: 'Statusni yangilashda xatolik' });
         }
     },
 
