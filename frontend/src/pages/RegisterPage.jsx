@@ -17,8 +17,16 @@ const RegisterPage = () => {
     const [error, setError] = useState('');
 
     useEffect(() => {
-        if (!tempTgUser) {
+        // If we have no temp user and we aren't at least trying to authenticate (Authenticator in App.jsx)
+        // give it a small grace period or check session storage
+        const isRegistering = sessionStorage.getItem('is_registering');
+        
+        if (!tempTgUser && !isRegistering) {
             navigate('/');
+        }
+        
+        if (tempTgUser) {
+            sessionStorage.setItem('is_registering', 'true');
         }
     }, [tempTgUser, navigate]);
 
@@ -71,6 +79,7 @@ const RegisterPage = () => {
                 location
             });
 
+            sessionStorage.removeItem('is_registering');
             setUser(response.data.user, response.data.token);
             navigate('/');
         } catch (err) {
@@ -81,62 +90,71 @@ const RegisterPage = () => {
         }
     };
 
+    // If we're reloading and Authenticator hasn't filled tempTgUser yet, show a loader or wait
+    if (!tempTgUser && sessionStorage.getItem('is_registering')) {
+        return (
+            <div style={{ display: 'flex', height: '80vh', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)' }}>
+                <Loader className="animate-spin" size={32} />
+            </div>
+        );
+    }
+
     if (!tempTgUser) return null;
 
     return (
         <div className="animate-fade-in" style={{ padding: '20px' }}>
-            <div className="glass" style={{ padding: '24px', borderRadius: '24px', textAlign: 'center' }}>
-                <h2 style={{ marginBottom: '8px', color: 'var(--text-primary)' }}>Xush kelibsiz!</h2>
+            <div className="glass" style={{ padding: '24px', borderRadius: '32px', textAlign: 'center', boxShadow: '0 10px 40px rgba(0,0,0,0.1)' }}>
+                <div style={{ fontSize: 40, marginBottom: 16 }}>🍱</div>
+                <h2 style={{ marginBottom: '8px', color: 'var(--text-primary)', fontFamily: "'Fraunces', serif", fontSize: 24, fontWeight: 900 }}>Xush kelibsiz!</h2>
                 <p style={{ color: 'var(--text-secondary)', fontSize: '14px', marginBottom: '24px' }}>
                     Iltimos, buyurtma berishdan oldin ro'yxatdan o'ting.
                 </p>
 
                 <form onSubmit={handleRegister} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                     <div style={{ position: 'relative' }}>
-                        <Phone size={18} color="var(--brand-primary)" style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)' }} />
+                        <Phone size={18} color="var(--brand-accent)" style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)' }} />
                         <input
                             type="tel"
                             placeholder="Telefon raqami (masalan: +8210...)"
                             value={phone}
                             onChange={(e) => setPhone(e.target.value)}
                             style={{
-                                width: '100%', padding: '12px 12px 12px 40px', borderRadius: '12px',
-                                border: '1px solid var(--border-color)', background: 'var(--bg-secondary)',
-                                color: 'var(--text-primary)', outline: 'none'
+                                width: '100%', padding: '14px 14px 14px 44px', borderRadius: '16px',
+                                border: '1px solid var(--card-border)', background: 'var(--bg-secondary)',
+                                color: 'var(--text-primary)', outline: 'none', fontSize: 15
                             }}
                             required
                         />
                     </div>
 
                     <div style={{ position: 'relative' }}>
-                        <Home size={18} color="var(--brand-primary)" style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)' }} />
+                        <Home size={18} color="var(--brand-accent)" style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)' }} />
                         <input
                             type="text"
                             placeholder="To'liq manzil (uy raqami, ko'cha...)"
                             value={address}
                             onChange={(e) => setAddress(e.target.value)}
                             style={{
-                                width: '100%', padding: '12px 12px 12px 40px', borderRadius: '12px',
-                                border: '1px solid var(--border-color)', background: 'var(--bg-secondary)',
-                                color: 'var(--text-primary)', outline: 'none'
+                                width: '100%', padding: '14px 14px 14px 44px', borderRadius: '16px',
+                                border: '1px solid var(--card-border)', background: 'var(--bg-secondary)',
+                                color: 'var(--text-primary)', outline: 'none', fontSize: 15
                             }}
                             required
                         />
                     </div>
 
-
-
                     <button
                         type="button"
                         onClick={handleGetLocation}
                         disabled={gettingLocation}
-                        className="glass"
                         style={{
                             display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
-                            padding: '12px', borderRadius: '12px', border: '1px solid var(--brand-primary)',
-                            color: location ? 'var(--brand-primary)' : 'var(--text-primary)',
-                            background: location ? 'rgba(255, 64, 129, 0.1)' : 'transparent',
-                            cursor: 'pointer', fontWeight: 600
+                            padding: '14px', borderRadius: '16px', border: 'none',
+                            color: '#fff',
+                            background: location ? 'linear-gradient(135deg, #27AE60, #2ECC71)' : 'var(--bg-secondary)',
+                            color: location ? '#fff' : 'var(--text-secondary)',
+                            boxShadow: location ? '0 4px 12px rgba(39, 174, 96, 0.3)' : 'none',
+                            cursor: 'pointer', fontWeight: 600, transition: 'all 0.3s'
                         }}
                     >
                         {gettingLocation ? <Loader className="animate-spin" size={18} /> : <MapPin size={18} />}
@@ -151,12 +169,14 @@ const RegisterPage = () => {
                         type="submit"
                         disabled={loading || !location}
                         style={{
-                            marginTop: '12px', padding: '14px', borderRadius: '12px',
-                            background: 'var(--brand-primary)', color: 'white',
-                            border: 'none', fontWeight: 700, fontSize: '16px',
+                            marginTop: '12px', padding: '16px', borderRadius: '18px',
+                            background: (loading || !location) ? '#95a5a6' : 'linear-gradient(135deg, var(--brand-accent), #FF3CAC)',
+                            color: 'white', border: 'none', fontWeight: 800, fontSize: '17px',
                             cursor: (loading || !location) ? 'not-allowed' : 'pointer',
                             opacity: (loading || !location) ? 0.6 : 1,
-                            boxShadow: '0 4px 14px 0 rgba(255, 64, 129, 0.39)'
+                            boxShadow: (loading || !location) ? 'none' : '0 8px 24px rgba(255, 107, 53, 0.4)',
+                            transition: 'all 0.3s transform',
+                            transform: loading ? 'scale(0.98)' : 'none'
                         }}
                     >
                         {loading ? 'Yuborilmoqda...' : 'Ro\'yxatdan o\'tish'}
