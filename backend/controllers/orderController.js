@@ -276,6 +276,9 @@ ${orderDetails}
             if (!order) return res.status(404).json({ error: 'Buyurtma topilmadi (Order not found)' });
 
             if (order.status !== 'delivering') {
+                if (order.status === 'delivered_awaiting_review' || order.status === 'completed') {
+                    return res.status(200).json({ message: 'Rasm allaqachon yuklangan.', order });
+                }
                 console.warn(`[UploadPhoto] Order ${id} is in status ${order.status}, not 'delivering'.`);
                 return res.status(400).json({ error: `Buyurtma holati noto'g'ri: ${order.status}. Avval 'Olib ketish'ni tasdiqlang.` });
             }

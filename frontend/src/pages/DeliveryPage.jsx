@@ -170,6 +170,7 @@ const DeliveryPage = () => {
             await api.post(`/orders/${orderId}/delivery-photo`, formData, {
                 headers: { 'Content-Type': 'multipart/form-data' }
             });
+            await fetchActiveOrders(); // Refresh to hide the button immediately
             setPhotoSent(true);
             alert("Rasm yuborildi! Mijoz tasdiqlashini kuting.");
         } catch (err) { 
