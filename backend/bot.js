@@ -23,10 +23,8 @@ function setupBot(botToken, appUrl) {
     console.log('Telegram Bot Polling started!');
 
     const getWelcomeMessage = (name) => `
-Assalomu alaykum, <b>${name}</b>! 🍱
-<b>Muslim Namja</b> botiga xush kelibsiz.
-
-Iltimos, ilovaga kiring va ro'yxatdan o'ting.
+<b>${name}</b>, Muslim Namja botiga xush kelibsiz! 🍱
+Pastdagi tugma orqali buyurtma berishingiz mumkin.
 `;
 
     const getAppKeyboard = (appUrl) => ({
@@ -67,16 +65,16 @@ Iltimos, ilovaga kiring va ro'yxatdan o'ting.
         }
     });
 
-    // Graceful 409 handling — restart polling after delay
+    // Handle polling errors gracefully
     bot.on('polling_error', (error) => {
         const msg = error.message || '';
-        if (msg.includes('409')) {
-            console.warn('Bot 409 Conflict detected. Restarting polling in 3s...');
+        if (msg.includes('409') || msg.includes('Conflict')) {
+            const backoff = Math.floor(Math.random() * 5000) + 2000;
+            console.warn(`Bot 409 Conflict. Restarting in ${backoff}ms...`);
             bot.stopPolling().then(() => {
                 setTimeout(() => {
-                    bot.startPolling();
-                    console.log('Bot polling restarted after 409.');
-                }, 3000);
+                    bot.startPolling().catch(err => console.error('Restart failed:', err));
+                }, backoff);
             });
         } else if (msg.includes('401')) {
             console.error('CRITICAL: Telegram Bot Token is invalid. Stopping polling.');

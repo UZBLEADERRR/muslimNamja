@@ -63,6 +63,12 @@ const AdminPage = () => {
     const [editingExpenseId, setEditingExpenseId] = useState(null);
     const [editingExpenseValue, setEditingExpenseValue] = useState('');
 
+    const getTimeElapsed = (date) => {
+        const diff = Math.floor((new Date() - new Date(date)) / 60000);
+        if (diff < 1) return 'Hozirgina';
+        return `${diff} daq avval`;
+    };
+
     const fetchData = async () => {
         setLoading(true);
         try {
@@ -380,7 +386,10 @@ const AdminPage = () => {
                     {orders.orders?.slice(0, 15).map((order) => (
                         <div key={order.id} style={{ padding: '14px 16px', borderRadius: '16px', background: 'var(--card-bg)', border: '1px solid var(--card-border)', boxShadow: 'var(--shadow-main)' }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-                                <span style={{ color: 'var(--text-primary)', fontWeight: 700, fontSize: 13 }}>Order #{(order.id || '').toString().slice(0, 8)}</span>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                    <span style={{ color: 'var(--text-primary)', fontWeight: 700, fontSize: 13 }}>Order #{(order.id || '').toString().slice(0, 8)}</span>
+                                    <span style={{ color: 'var(--text-secondary)', fontSize: 11 }}> • {getTimeElapsed(order.createdAt)}</span>
+                                </div>
                                 <span style={{ color: order.status === 'completed' ? '#27AE60' : 'var(--brand-accent)', fontSize: 12, fontWeight: 800, textTransform: 'uppercase' }}>{order.status}</span>
                             </div>
                             <div style={{ color: 'var(--text-secondary)', fontSize: 12, marginBottom: 12 }}>
@@ -388,7 +397,6 @@ const AdminPage = () => {
                                 {order.items?.map((item, idx) => (
                                     <div key={idx} style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 2 }}>
                                         {item.productName || 'Item'} x{item.quantity}
-                                        {item.extras?.length > 0 && <span style={{ color: 'var(--brand-accent)', marginLeft: 4 }}>+{item.extras.map(e => e.name).join(', ')}</span>}
                                     </div>
                                 ))}
                             </div>
@@ -598,6 +606,7 @@ const AdminPage = () => {
                         <StatCard label="Tushum (Daromad)" value={`₩${(profitData.totalRevenue || 0).toLocaleString()}`} color="#27AE60" />
                         <StatCard label="Masalliq Xarajati" value={`₩${(profitData.totalIngredientCost || 0).toLocaleString()}`} color="#E74C3C" />
                         <StatCard label="Haydovchilar Haqi" value={`₩${(profitData.totalDeliveryPay || 0).toLocaleString()}`} color="#E74C3C" />
+                        <StatCard label="Yetkazishdan Foyda" value={`₩${(profitData.deliveryProfit || 0).toLocaleString()}`} color="var(--brand-accent2)" />
                         <StatCard label="Sof Foyda" value={`₩${(profitData.netProfit || 0).toLocaleString()}`} color="var(--brand-accent)" />
                     </div>
 

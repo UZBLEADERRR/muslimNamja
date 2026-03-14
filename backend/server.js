@@ -163,6 +163,15 @@ io.on('connection', (socket) => {
         io.to(data.room).emit('location-updated', data.location);
     });
 
+    socket.on('customer-location', data => {
+        // Relay to whoever is in the room (driver)
+        const orderId = data.room.replace('order_', '');
+        io.to(data.room).emit('customer-location-updated', { 
+            orderId, 
+            location: data.location 
+        });
+    });
+
     socket.on('disconnect', () => {
         console.log('Socket disconnected:', socket.id);
     });

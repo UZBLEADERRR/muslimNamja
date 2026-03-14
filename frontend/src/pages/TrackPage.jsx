@@ -111,6 +111,25 @@ const TrackPage = () => {
             api.get(`/orders/${activeOrder.id}/tracking`)
                 .then(res => { if (res.data?.driverLocation) setDriverLocation(res.data.driverLocation); })
                 .catch(() => null);
+
+            // Share CUSTOMER'S live location with driver
+            if (navigator.geolocation) {
+                const watchId = navigator.geolocation.watchPosition(
+                    (pos) => {
+                        const coords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+                        socket.emit('customer-location', { 
+                            room: `order_${activeOrder.id}`, 
+                            location: coords 
+                        });
+                    },
+                    (err) => console.error("Customer location error:", err),
+                    { enableHighAccuracy: true, maximumAge: 10000, timeout: 5000 }
+                );
+                return () => {
+                    navigator.geolocation.clearWatch(watchId);
+                    socket.disconnect();
+                };
+            }
         }
         
         socket.on('location-updated', (loc) => {
@@ -118,7 +137,6 @@ const TrackPage = () => {
         });
 
         return () => {
-            clearInterval(interval);
             socket.disconnect();
         };
     }, [user, activeTab, selectedChat, activeOrder?.id]);
@@ -219,188 +237,153 @@ const TrackPage = () => {
                                 </>
                             )}
                         </div>
-                    ) : (() => {
-                        const activeOrder = activeOrders.find(o => o.id === selectedOrderId) || activeOrders[0];
-                        
-                        const isNearby = () => {
-                            if (!driverLocation || !user?.location) return false;
-                            const d = haversineDistance(driverLocation, user.location);
-                            return d < 0.3; // 300 meters
-                        };
+                    ) : (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 30, paddingBottom: 40 }}>
+                            {activeOrders.map((order, idx) => {
+                                const isNearby = () => {
+                                    if (!driverLocation || !user?.location) return false;
+                                    const d = haversineDistance(driverLocation, user.location);
+                                    return d < 0.3; // 300 meters
+                                };
 
-                        const estimateTime = () => {
-                            if (!driverLocation || !user?.location) return null;
-                            const d = haversineDistance(driverLocation, user.location);
-                            const mins = Math.ceil((d / 20) * 60) + 2; // assuming 20km/h avg speed
-                            return `${mins} min`;
-                        };
+                                const estimateTime = () => {
+                                    if (!driverLocation || !user?.location) return null;
+                                    const d = haversineDistance(driverLocation, user.location);
+                                    const mins = Math.ceil((d / 20) * 60) + 2; 
+                                    return `${mins} min`;
+                                };
 
-                        const getDestinationAddress = () => {
-                            if (activeOrder.deliveryType === 'pickup') return RESTAURANT_ADDRESS;
-                            if (activeOrder.deliveryType === 'meetup') return activeOrder.meetupLocation || 'Meetup joyi';
-                            return user?.address || 'Manzil ko\'rsatilmagan';
-                        };
+                                const getDestinationAddress = () => {
+                                    if (order.deliveryType === 'pickup') return RESTAURANT_ADDRESS;
+                                    if (order.deliveryType === 'meetup') return order.meetupLocation || 'Meetup joyi';
+                                    return user?.address || 'Manzil ko\'rsatilmagan';
+                                };
 
-                        const getDestinationCoord = () => {
-                            if (activeOrder.deliveryType === 'pickup') return RESTAURANT_COORD;
-                            return user?.location || RESTAURANT_COORD;
-                        };
+                                const getDestinationCoord = () => {
+                                    if (order.deliveryType === 'pickup') return RESTAURANT_COORD;
+                                    return user?.location || RESTAURANT_COORD;
+                                };
 
-                        return (
-                            <div style={{ paddingTop: 16 }}>
-                                {/* Multi-Order Tabs */}
-                                {activeOrders.length > 1 && (
-                                    <div style={{ display: 'flex', gap: 10, overflowX: 'auto', padding: '0 20px', marginBottom: 20, paddingBottom: 8 }} className="hide-scrollbar">
-                                        {activeOrders.map((o, idx) => (
-                                            <button 
-                                                key={o.id}
-                                                onClick={() => setSelectedOrderId(o.id)}
-                                                style={{ 
-                                                    flexShrink: 0, padding: '10px 16px', borderRadius: 14, border: 'none', 
-                                                    background: selectedOrderId === o.id ? 'var(--brand-accent)' : 'var(--card-bg)',
-                                                    color: selectedOrderId === o.id ? '#fff' : 'var(--text-secondary)',
-                                                    fontWeight: 700, fontSize: 13, cursor: 'pointer', boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
-                                                    border: selectedOrderId === o.id ? 'none' : '1px solid var(--card-border)',
-                                                    display: 'flex', alignItems: 'center', gap: 6
-                                                }}
-                                            >
-                                                <Package size={16} /> 
-                                                {idx + 1}-buyurtma
-                                            </button>
-                                        ))}
-                                    </div>
-                                )}
-
-                                <div style={{ padding: '0 20px', marginBottom: 16 }}>
-                                    <h2 style={{ color: "var(--text-primary)", fontFamily: "'Fraunces', serif", fontSize: 22, fontWeight: 900, margin: '0 0 4px' }}>{t('live_tracking')} 📍</h2>
-                                    <p style={{ color: "var(--text-secondary)", fontSize: 12, margin: 0 }}>#{activeOrder.id?.toString().slice(0, 8)} · ₩{(activeOrder.totalAmount || 0).toLocaleString()} · {t(activeOrder.deliveryType)}</p>
-                                </div>
-
-                                {/* Destination Address - Boradigan Manzil */}
-                                <div style={{ margin: '0 20px 20px', padding: 16, background: 'var(--card-bg)', borderRadius: 20, border: '1px solid var(--card-border)', boxShadow: '0 8px 24px rgba(0,0,0,0.04)' }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 10 }}>
-                                        <div style={{ width: 40, height: 40, borderRadius: 12, background: 'var(--brand-accent2)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff' }}>
-                                            {activeOrder.deliveryType === 'pickup' ? <Store size={20} /> : <MapPinned size={20} />}
+                                return (
+                                    <div key={order.id} style={{ display: 'flex', flexDirection: 'column', borderBottom: idx < activeOrders.length - 1 ? '8px solid var(--bg-secondary)' : 'none', paddingBottom: 20 }}>
+                                        <div style={{ padding: '20px 20px 16px' }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                                                <h2 style={{ color: "var(--text-primary)", fontFamily: "'Fraunces', serif", fontSize: 22, fontWeight: 900, margin: 0 }}>{t('live_tracking')} {idx + 1} 📍</h2>
+                                                <span style={{ background: 'var(--brand-accent)', color: '#fff', padding: '4px 10px', borderRadius: 10, fontSize: 10, fontWeight: 800 }}>Faol</span>
+                                            </div>
+                                            <p style={{ color: "var(--text-secondary)", fontSize: 12, margin: 0 }}>#{order.id?.toString().slice(0, 8)} · ₩{(order.totalAmount || 0).toLocaleString()} · {t(order.deliveryType)}</p>
                                         </div>
-                                        <div>
-                                            <div style={{ fontSize: 11, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: 0.5 }}>Boradigan manzil</div>
-                                            <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--text-primary)', marginTop: 2 }}>{getDestinationAddress()}</div>
-                                        </div>
-                                    </div>
-                                    <div style={{ fontSize: 11, color: 'var(--text-secondary)', paddingLeft: 52 }}>
-                                        {activeOrder.deliveryType === 'pickup' ? "Iltimos, tayyor bo'lgach ushbu manzildan olib keting." : "Kuryer ushbu manzilga yetkazib beradi."}
-                                    </div>
-                                </div>
 
-                                {/* Driver Nearby Alert */}
-                                {isNearby() && (
-                                    <div style={{ margin: '0 20px 12px', padding: '12px 16px', background: 'rgba(39,174,96,0.1)', border: '1px solid rgba(39,174,96,0.3)', borderRadius: 14, display: 'flex', alignItems: 'center', gap: 10, animation: 'fadeIn 0.5s ease' }}>
-                                        <span style={{ fontSize: 24 }}>🎉</span>
-                                        <div>
-                                            <div style={{ color: '#27AE60', fontWeight: 800, fontSize: 14 }}>{t('driver_nearby')}</div>
-                                            <div style={{ color: 'var(--text-secondary)', fontSize: 11 }}>Kuryer tez orada yetib keladi!</div>
-                                        </div>
-                                    </div>
-                                )}
-
-                                {/* ETA Banner */}
-                                {estimateTime() && ['delivering', 'delivered_awaiting_review'].includes(activeOrder.status) && (
-                                    <div style={{ margin: '0 20px 12px', padding: '14px 18px', background: 'linear-gradient(135deg, var(--brand-accent), #FF3CAC)', borderRadius: 16, color: '#fff', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                        <div>
-                                            <div style={{ fontSize: 11, opacity: 0.9 }}>{t('estimated_time')}</div>
-                                            <div style={{ fontSize: 24, fontWeight: 900, fontFamily: "'Fraunces', serif" }}>{estimateTime()}</div>
-                                        </div>
-                                        <div style={{ fontSize: 40 }}>🛵</div>
-                                    </div>
-                                )}
-
-                                {/* Live Map — shows for ALL active order stages */}
-                                {user?.location && (
-                                    <div style={{ margin: '0 20px 16px', height: 250, borderRadius: 20, overflow: 'hidden', border: '1px solid var(--card-border)', background: '#eee' }}>
-                                        <MapContainer center={driverLocation ? [driverLocation.lat, driverLocation.lng] : [getDestinationCoord().lat, getDestinationCoord().lng]} zoom={15} style={{ height: '100%', width: '100%' }} zoomControl={false}>
-                                            <TileLayer url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png" />
-                                            
-                                            {/* Route line — only when driver location is available */}
-                                            {driverLocation && (
-                                                <Polyline positions={[
-                                                [driverLocation.lat, driverLocation.lng],
-                                                [user.location.lat, user.location.lng]
-                                            ]} color="#e74c3c" weight={4} dashArray="8, 8" opacity={0.7} />
-                                        )}
-
-                                        {/* Driver marker — only when driver location is available */}
-                                        {driverLocation && (
-                                            <Marker position={[driverLocation.lat, driverLocation.lng]} icon={
-                                                new L.DivIcon({ className: 'courier-icon', html: '<div style="font-size:20px; background:#fff; border-radius:50%; width:30px; height:30px; display:flex; align-items:center; justify-content:center; box-shadow:0 4px 12px rgba(0,0,0,0.2); border: 2px solid #27AE60;">🛵</div>', iconSize: [30, 30] })
-                                            }>
-                                                <Popup>Kuryer</Popup>
-                                            </Marker>
-                                        )}
-
-                                        {/* User home marker — always shown */}
-                                        <Marker position={[user.location.lat, user.location.lng]} icon={
-                                            new L.DivIcon({ className: 'home-icon', html: '<div style="font-size:20px; background:#fff; border-radius:50%; width:30px; height:30px; display:flex; align-items:center; justify-content:center; box-shadow:0 4px 12px rgba(0,0,0,0.2); border: 2px solid #FF3CAC;">🏠</div>', iconSize: [30, 30] })
-                                        }>
-                                            <Popup>Sizning manzilingiz</Popup>
-                                        </Marker>
-                                    </MapContainer>
-
-                                    {/* Map status overlay */}
-                                    {!driverLocation && (
-                                        <div style={{ position: 'relative', marginTop: -40, textAlign: 'center', zIndex: 400 }}>
-                                            <span style={{ background: 'rgba(0,0,0,0.7)', color: '#fff', padding: '4px 12px', borderRadius: 12, fontSize: 11, fontWeight: 600 }}>
-                                                📍 Kuryer joylashuvi hali aniqlanmagan
-                                            </span>
-                                        </div>
-                                    )}
-                                </div>
-                            )}
-
-                            {/* Progress Steps */}
-                            <div style={{ margin: '0 20px 16px', background: 'var(--card-bg)', borderRadius: 20, padding: '16px 20px', border: '1px solid var(--card-border)' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', marginBottom: 16 }}>
-                                    {steps.map((s, i) => {
-                                        const currentStep = getStatusStep(activeOrder.status);
-                                        const done = i < currentStep;
-                                        const active = i === currentStep - 1 || (currentStep === 0 && i === 0);
-                                        return (
-                                            <React.Fragment key={i}>
-                                                <div style={{ width: 32, height: 32, borderRadius: '50%', flexShrink: 0, background: done ? 'var(--brand-accent)' : active ? 'rgba(255,107,53,0.2)' : 'var(--bg-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, color: done ? '#fff' : 'inherit', border: active ? '2px solid var(--brand-accent)' : 'none' }}>
-                                                    {done ? '✓' : s.icon}
+                                        {/* Destination Address */}
+                                        <div style={{ margin: '0 20px 20px', padding: 16, background: 'var(--card-bg)', borderRadius: 20, border: '1px solid var(--card-border)', boxShadow: '0 8px 24px rgba(0,0,0,0.04)' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 10 }}>
+                                                <div style={{ width: 40, height: 40, borderRadius: 12, background: 'var(--brand-accent2)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff' }}>
+                                                    {order.deliveryType === 'pickup' ? <Store size={20} /> : <MapPinned size={20} />}
                                                 </div>
-                                                {i < steps.length - 1 && <div style={{ flex: 1, height: 3, background: done ? 'var(--brand-accent)' : 'var(--bg-secondary)' }} />}
-                                            </React.Fragment>
-                                        );
-                                    })}
-                                </div>
-                                <div style={{ textAlign: 'center' }}>
-                                    <div style={{ fontWeight: 800, color: 'var(--text-primary)', fontSize: 15 }}>{steps[Math.min(getStatusStep(activeOrder.status) - 1, steps.length - 1)]?.label || t('preparing')}</div>
-                                    <div style={{ color: 'var(--brand-accent)', fontSize: 12, marginTop: 4 }}>{t('in_progress')}</div>
-                                </div>
-                            </div>
+                                                <div style={{ flex: 1 }}>
+                                                    <div style={{ fontSize: 11, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: 0.5 }}>{order.deliveryType === 'pickup' ? "Olib ketish manzili" : "Yetkazish manzili"}</div>
+                                                    <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--text-primary)', marginTop: 2 }}>{getDestinationAddress()}</div>
+                                                </div>
+                                            </div>
+                                            <div style={{ fontSize: 11, color: 'var(--text-secondary)', paddingLeft: 52 }}>
+                                                {order.deliveryType === 'pickup' ? "Iltimos, tayyor bo'lgach ushbu manzildan olib keting." : "Kuryer ushbu manzilga yetkazib beradi."}
+                                            </div>
+                                        </div>
 
-                            {/* Confirm Delivery Button */}
-                            {activeOrder.status === 'delivered_awaiting_review' && (
-                                <div style={{ margin: '0 20px 16px' }}>
-                                    <button onClick={confirmDelivery} style={{ width: '100%', padding: '16px', borderRadius: 16, border: 'none', background: '#27AE60', color: '#fff', fontWeight: 800, fontSize: 16, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, boxShadow: '0 4px 15px rgba(39,174,96,0.3)' }}>
-                                        <CheckCircle size={20} /> {t('confirm_received')} (Yoqimli ishtaha!)
-                                    </button>
-                                </div>
-                            )}
+                                        {/* ETA / Nearby */}
+                                        {isNearby() && (
+                                            <div style={{ margin: '0 20px 12px', padding: '12px 16px', background: 'rgba(39,174,96,0.1)', border: '1px solid rgba(39,174,96,0.3)', borderRadius: 14, display: 'flex', alignItems: 'center', gap: 10 }}>
+                                                <span style={{ fontSize: 24 }}>🎉</span>
+                                                <div>
+                                                    <div style={{ color: '#27AE60', fontWeight: 800, fontSize: 14 }}>{t('driver_nearby')}</div>
+                                                    <div style={{ color: 'var(--text-secondary)', fontSize: 11 }}>Kuryer tez orada yetib keladi!</div>
+                                                </div>
+                                            </div>
+                                        )}
 
-                            {/* Items */}
-                            <div style={{ margin: '0 20px 16px', background: 'var(--card-bg)', borderRadius: 16, padding: 14, border: '1px solid var(--card-border)' }}>
-                                <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 8 }}>🛍 {t('items')} ({activeOrder.items?.length})</div>
-                                {activeOrder.items?.map((item, i) => (
-                                    <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: 13, color: 'var(--text-primary)' }}>
-                                        <span>{item.productName || 'Item'} × {item.quantity}</span>
-                                        <span style={{ color: 'var(--text-secondary)' }}>₩{((item.price || 0) * item.quantity).toLocaleString()}</span>
+                                        {estimateTime() && ['delivering', 'delivered_awaiting_review'].includes(order.status) && (
+                                            <div style={{ margin: '0 20px 12px', padding: '14px 18px', background: 'linear-gradient(135deg, var(--brand-accent), #FF3CAC)', borderRadius: 16, color: '#fff', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                <div>
+                                                    <div style={{ fontSize: 11, opacity: 0.9 }}>{t('estimated_time')}</div>
+                                                    <div style={{ fontSize: 24, fontWeight: 900, fontFamily: "'Fraunces', serif" }}>{estimateTime()}</div>
+                                                </div>
+                                                <div style={{ fontSize: 40 }}>🛵</div>
+                                            </div>
+                                        )}
+
+                                        {/* Map */}
+                                        {user?.location && (
+                                            <div style={{ margin: '0 20px 16px', height: 250, borderRadius: 20, overflow: 'hidden', border: '1px solid var(--card-border)', background: '#eee' }}>
+                                                <MapContainer center={driverLocation && idx === 0 ? [driverLocation.lat, driverLocation.lng] : [getDestinationCoord().lat, getDestinationCoord().lng]} zoom={15} style={{ height: '100%', width: '100%' }} zoomControl={false} dragging={false} touchZoom={false} scrollWheelZoom={false}>
+                                                    <TileLayer url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png" />
+                                                    
+                                                    {driverLocation && idx === 0 && (
+                                                        <Polyline positions={[
+                                                            [driverLocation.lat, driverLocation.lng],
+                                                            [getDestinationCoord().lat, getDestinationCoord().lng]
+                                                        ]} color="#e74c3c" weight={4} dashArray="8, 8" opacity={0.7} />
+                                                    )}
+
+                                                    {driverLocation && idx === 0 && (
+                                                        <Marker position={[driverLocation.lat, driverLocation.lng]} icon={
+                                                            new L.DivIcon({ className: 'courier-icon', html: '<div style="font-size:20px; background:#fff; border-radius:50%; width:30px; height:30px; display:flex; align-items:center; justify-content:center; box-shadow:0 4px 12px rgba(0,0,0,0.2); border: 2px solid #27AE60;">🛵</div>', iconSize: [30, 30] })
+                                                        } />
+                                                    )}
+
+                                                    <Marker position={[getDestinationCoord().lat, getDestinationCoord().lng]} icon={
+                                                        new L.DivIcon({ className: 'home-icon', html: `<div style="font-size:20px; background:#fff; border-radius:50%; width:30px; height:30px; display:flex; align-items:center; justify-content:center; box-shadow:0 4px 12px rgba(0,0,0,0.2); border: 2px solid ${order.deliveryType === 'pickup' ? 'var(--brand-accent2)' : '#FF3CAC'};">${order.deliveryType === 'pickup' ? '🍱' : '🏠'}</div>`, iconSize: [30, 30] })
+                                                    } />
+                                                </MapContainer>
+                                            </div>
+                                        )}
+
+                                        {/* Progress Steps */}
+                                        <div style={{ margin: '0 20px 16px', background: 'var(--card-bg)', borderRadius: 20, padding: '16px 20px', border: '1px solid var(--card-border)' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', marginBottom: 16 }}>
+                                                {steps.map((s, i) => {
+                                                    const currentStep = getStatusStep(order.status);
+                                                    const done = i < currentStep;
+                                                    const active = i === currentStep - 1 || (currentStep === 0 && i === 0);
+                                                    return (
+                                                        <React.Fragment key={i}>
+                                                            <div style={{ width: 32, height: 32, borderRadius: '50%', flexShrink: 0, background: done ? 'var(--brand-accent)' : active ? 'rgba(255,107,53,0.2)' : 'var(--bg-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, color: done ? '#fff' : 'inherit', border: active ? '2px solid var(--brand-accent)' : 'none' }}>
+                                                                {done ? '✓' : s.icon}
+                                                            </div>
+                                                            {i < steps.length - 1 && <div style={{ flex: 1, height: 3, background: done ? 'var(--brand-accent)' : 'var(--bg-secondary)' }} />}
+                                                        </React.Fragment>
+                                                    );
+                                                })}
+                                            </div>
+                                            <div style={{ textAlign: 'center' }}>
+                                                <div style={{ fontWeight: 800, color: 'var(--text-primary)', fontSize: 15 }}>{steps[Math.min(getStatusStep(order.status) - 1, steps.length - 1)]?.label || t('preparing')}</div>
+                                                <div style={{ color: 'var(--brand-accent)', fontSize: 12, marginTop: 4 }}>{t('in_progress')}</div>
+                                            </div>
+                                        </div>
+
+                                        {/* Confirm Delivery Button */}
+                                        {order.status === 'delivered_awaiting_review' && (
+                                            <div style={{ margin: '0 20px 16px' }}>
+                                                <button onClick={() => confirmDelivery(order.id)} style={{ width: '100%', padding: '16px', borderRadius: 16, border: 'none', background: '#27AE60', color: '#fff', fontWeight: 800, fontSize: 16, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, boxShadow: '0 4px 15px rgba(39,174,96,0.3)' }}>
+                                                    <CheckCircle size={20} /> {t('confirm_received')} (Yoqimli ishtaha!)
+                                                </button>
+                                            </div>
+                                        )}
+
+                                        {/* Items */}
+                                        <div style={{ margin: '0 20px 0', background: 'var(--card-bg)', borderRadius: 16, padding: 14, border: '1px solid var(--card-border)' }}>
+                                            <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 8 }}>🛍 {t('items')} ({order.items?.length})</div>
+                                            {order.items?.map((item, i) => (
+                                                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: 13, color: 'var(--text-primary)' }}>
+                                                    <span>{item.productName || 'Item'} × {item.quantity}</span>
+                                                    <span style={{ color: 'var(--text-secondary)' }}>₩{((item.price || 0) * item.quantity).toLocaleString()}</span>
+                                                </div>
+                                            ))}
+                                        </div>
                                     </div>
-                                ))}
-                                </div>
-                            </div>
-                        );
-                    })()}
+                                );
+                            })}
+                        </div>
+                    )}
                 </div>
             )}
 

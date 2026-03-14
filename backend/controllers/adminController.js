@@ -398,6 +398,7 @@ const adminController = {
             
             const driverCosts = allOrders.filter(o => o.status === 'completed').reduce((s, o) => s + (o.deliveryManEarning || 0), 0);
 
+            const totalDeliveryProfit = totalDeliveryFees - driverCosts;
             const netProfit = totalRevenue - kitchenExpenses - driverCosts;
 
             // Flow Data (Time-series)
@@ -481,7 +482,11 @@ const adminController = {
                     totalDeposited: totalDepositedApproved,
                     totalSpent: totalSpentByUsers,
                     currentWalletPool: totalWalletBalance,
-                    totalDeliveryFees
+                    totalDeliveryFees,
+                    driverCosts,
+                    kitchenExpenses,
+                    deliveryProfit: totalDeliveryProfit,
+                    netProfit
                 },
                 flow: flowData,
                 distribution: dist,

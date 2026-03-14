@@ -37,13 +37,18 @@ const DeliveryPage = () => {
     const [activeTab, setActiveTab] = useState('map');
 
     const [orders, setOrders] = useState([]);
-    const [activeOrder, setActiveOrder] = useState(null);
+    const [activeOrders, setActiveOrders] = useState([]);
+    const [workMode, setWorkMode] = useState('active'); // active, searching
     const [stats, setStats] = useState({});
     const [myLocation, setMyLocation] = useState(null);
+    const [customerLiveLocations, setCustomerLiveLocations] = useState({}); // { orderId: {lat, lng} }
     const [loading, setLoading] = useState(true);
 
-    // Track Trip Total Distance
-    const [totalTripKm, setTotalTripKm] = useState(0);
+    const getTimeElapsed = (date) => {
+        const diff = Math.floor((new Date() - new Date(date)) / 60000);
+        if (diff < 1) return 'Hozirgina';
+        return `${diff} daq avval`;
+    };
 
     // Inbox state
     const [inbox, setInbox] = useState([]);
@@ -64,10 +69,12 @@ const DeliveryPage = () => {
             ]);
 
             const activeOrds = Array.isArray(activeRes.data) ? activeRes.data : [activeRes.data].filter(Boolean);
-            const myActive = activeOrds.find(o => o.deliveryManId === user.id && ['accepted', 'preparing', 'ready_for_pickup', 'delivering', 'delivered_awaiting_review'].includes(o.status));
+            setActiveOrders(activeOrds);
             
-            setActiveOrder(myActive || null);
-            setPhotoSent(myActive?.status === 'delivered_awaiting_review');
+            if (activeOrds.length > 0) {
+                const head = activeOrds[0];
+                setPhotoSent(head.status === 'delivered_awaiting_review');
+            }
             
             const availableOrds = Array.isArray(availableRes.data) ? availableRes.data : [];
             setOrders(availableOrds);
@@ -91,7 +98,7 @@ const DeliveryPage = () => {
 
     // Track Location
     useEffect(() => {
-        if (!navigator.geolocation || !activeOrder) return;
+        if (!navigator.geolocation || activeOrders.length === 0) return;
         
         const socket = io(SOCKET_URL, { transports: ['websocket', 'polling'] });
         let watchId;
@@ -99,17 +106,29 @@ const DeliveryPage = () => {
         const updateLoc = (pos) => {
             const newLoc = { lat: pos.coords.latitude, lng: pos.coords.longitude };
             setMyLocation(prev => {
-                if (prev) {
-                    const distMoved = haversineDistance(prev, newLoc);
-                    if (distMoved > 0.05) setTotalTripKm(curr => curr + distMoved);
+                // We'll skip totalTripKm logic for now to simplify or keep it if needed
+                activeOrders.forEach(o => {
+                    socket.emit('driver-location', { room: `order_${o.id}`, location: newLoc });
+                });
+                if (activeOrders[0]) {
+                    api.post('/delivery/location', { lat: newLoc.lat, lng: newLoc.lng, orderId: activeOrders[0].id }).catch(() => null);
                 }
-                
-                socket.emit('driver-location', { room: `order_${activeOrder.id}`, location: newLoc });
-                api.post('/delivery/location', { lat: newLoc.lat, lng: newLoc.lng, orderId: activeOrder.id }).catch(() => null);
-                
                 return newLoc;
             });
         };
+
+        activeOrders.forEach(o => {
+            socket.emit('join-room', `order_${o.id}`);
+        });
+
+        socket.on('customer-location-updated', (data) => {
+            if (data.orderId && data.location) {
+                setCustomerLiveLocations(prev => ({
+                    ...prev,
+                    [data.orderId]: data.location
+                }));
+            }
+        });
 
         navigator.geolocation.getCurrentPosition(updateLoc, console.error, { enableHighAccuracy: true });
         watchId = navigator.geolocation.watchPosition(updateLoc, console.error, { enableHighAccuracy: true, maximumAge: 10000, timeout: 5000 });
@@ -118,7 +137,7 @@ const DeliveryPage = () => {
             navigator.geolocation.clearWatch(watchId);
             socket.disconnect();
         };
-    }, [activeOrder?.id]);
+    }, [activeOrders.length]);
 
     const handleAccept = async (order) => {
         try {
@@ -131,9 +150,9 @@ const DeliveryPage = () => {
         }
     };
 
-    const handleUploadDeliveryPhoto = async (e) => {
+    const handleUploadDeliveryPhoto = async (e, orderId) => {
         const file = e.target.files[0];
-        if (!file || !activeOrder) return;
+        if (!file || !orderId) return;
 
         setUploadingPhoto(true);
         try {
@@ -149,20 +168,18 @@ const DeliveryPage = () => {
     };
 
     // Calculate Map Routing Line
-    const getRoutingPositions = () => {
+    const getRoutingPositions = (order) => {
         const positions = [];
         if (myLocation) positions.push([myLocation.lat, myLocation.lng]);
-        if (activeOrder && activeOrder.user?.location) {
-            // Can add restaurant in the middle if needed, but direct line to user is clearer 
-            // once order is picked up. Let's just draw direct to user for simplicity.
-            positions.push([activeOrder.user.location.lat, activeOrder.user.location.lng]);
+        if (order?.user?.location) {
+            positions.push([order.user.location.lat, order.user.location.lng]);
         }
         return positions;
     };
 
-    const estimateTime = () => {
-        if (!myLocation || !activeOrder?.user?.location) return null;
-        const dist = haversineDistance(myLocation, activeOrder.user.location);
+    const estimateTime = (order) => {
+        if (!myLocation || !order?.user?.location) return null;
+        const dist = haversineDistance(myLocation, order.user.location);
         const mins = Math.round(dist / 0.5 * 3);
         return mins < 1 ? '1' : `${mins}`;
     };
@@ -196,80 +213,100 @@ const DeliveryPage = () => {
             {activeTab === 'map' && (
                 <div style={{ flex: 1, display: 'flex', flexDirection: 'column', animation: 'fadeIn 0.3s ease' }}>
                     
-                    {!activeOrder ? (
+                    {activeOrders.length === 0 ? (
                          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 40, textAlign: 'center' }}>
                             <div style={{ background: 'var(--bg-secondary)', width: 100, height: 100, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 20 }}>
                                 <Truck size={48} color="var(--brand-accent2)" />
                             </div>
                             <h3 style={{ color: 'var(--text-primary)', fontSize: 20, marginBottom: 8 }}>Faol buyurtma yo'q</h3>
-                            <p style={{ color: 'var(--text-secondary)', fontSize: 14 }}>"Daromad" bo'limidan yangi buyurtmalarni qabul qilishingiz mumkin.</p>
+                            <p style={{ color: 'var(--text-secondary)', fontSize: 14 }}>"Buyurtmalar" bo'limidan yangi buyurtmalarni qabul qilishingiz mumkin.</p>
                             <button onClick={() => setActiveTab('earnings')} style={{ padding: '12px 24px', background: 'var(--brand-accent2)', color: '#fff', border: 'none', borderRadius: 12, fontWeight: 700, marginTop: 20, cursor: 'pointer' }}>
                                 Buyurtmalarni ko'rish
                             </button>
                         </div>
                     ) : (
-                        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '16px 20px' }}>
-                            {/* Active Order Card */}
-                            <div style={{ background: 'linear-gradient(135deg, var(--brand-accent), #FF3CAC)', color: 'white', padding: '16px', borderRadius: '18px', marginBottom: '16px', boxShadow: '0 8px 24px rgba(255,107,53,0.3)', flexShrink: 0 }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                                    <span style={{ background: 'rgba(255,255,255,0.2)', padding: '4px 12px', borderRadius: '16px', fontSize: '11px', fontWeight: 800 }}>Mijoz kutyapti</span>
-                                    <span style={{ fontWeight: 800, fontSize: 16 }}>₩{activeOrder.totalAmount?.toLocaleString()}</span>
-                                </div>
-                                <div style={{ fontSize: 13, opacity: 0.9 }}>👤 {activeOrder.user?.firstName} · 📞 {activeOrder.user?.phone}</div>
-                                <p style={{ margin: '6px 0 16px', fontSize: '15px', fontWeight: 800 }}>📍 {activeOrder.user?.address}</p>
-                                <div style={{ display: 'flex', gap: '8px' }}>
-                                    <a href={`tel:${activeOrder.user?.phone}`} style={{ flex: 1, background: 'rgba(255,255,255,0.2)', color: '#fff', textDecoration: 'none', padding: '12px', borderRadius: '14px', textAlign: 'center', fontWeight: 800, fontSize: '13px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-                                        <Phone size={16} /> Qo'ng'iroq
-                                    </a>
-                                    <a href={`https://map.kakao.com/link/to/${encodeURIComponent(activeOrder.user?.address || '')},${activeOrder.user?.location?.lat || 37.5503},${activeOrder.user?.location?.lng || 127.0731}`} target="_blank" rel="noopener noreferrer" style={{ flex: 1, background: '#FBEB00', color: '#000', textDecoration: 'none', padding: '12px', borderRadius: '14px', textAlign: 'center', fontWeight: 800, fontSize: '13px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-                                        <Navigation size={16} /> KakaoMap
-                                    </a>
-                                </div>
-                            </div>
+                        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '16px 20px', gap: 20, overflowY: 'auto' }} className="hide-scrollbar">
+                            <h2 style={{ fontSize: 22, fontWeight: 900, color: 'var(--text-primary)', fontFamily: "'Fraunces', serif" }}>Mening yo'nalishim 🗺️</h2>
+                            
+                            {activeOrders.map((activeOrder, idx) => (
+                                <div key={activeOrder.id} style={{ borderBottom: idx < activeOrders.length - 1 ? '1px dashed var(--card-border)' : 'none', paddingBottom: 20 }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+                                        <div style={{ background: 'var(--brand-accent)', color: '#fff', width: 28, height: 28, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: 14 }}>{idx + 1}</div>
+                                        <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--text-primary)' }}>Buyurtma #{activeOrder.id.toString().slice(0, 5)}</div>
+                                        <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginLeft: 'auto' }}>{getTimeElapsed(activeOrder.createdAt)}</div>
+                                    </div>
 
-                            {/* Map */}
-                            {myLocation && activeOrder.user?.location && (
-                                <div style={{ flex: 1, minHeight: 300, width: '100%', borderRadius: 20, overflow: 'hidden', border: '1px solid var(--card-border)', marginBottom: 16, position: 'relative' }}>
-                                    <MapContainer center={[myLocation.lat, myLocation.lng]} zoom={14} style={{ height: '100%', width: '100%' }} zoomControl={false}>
-                                        <TileLayer url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png" />
-                                        
-                                        {/* Polyline Route */}
-                                        <Polyline positions={getRoutingPositions()} color="#e74c3c" weight={5} dashArray="10, 10" opacity={0.8} />
+                                    {/* Active Order Card */}
+                                    <div style={{ background: 'linear-gradient(135deg, var(--brand-accent2), #11998E)', color: 'white', padding: '16px', borderRadius: '18px', marginBottom: '16px', boxShadow: '0 8px 24px rgba(78,205,196,0.3)' }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                                            <span style={{ background: 'rgba(255,255,255,0.2)', padding: '4px 12px', borderRadius: '16px', fontSize: '11px', fontWeight: 800 }}>{activeOrder.status === 'ready_for_pickup' ? 'Tayyor' : 'Yetkazishda'}</span>
+                                            <span style={{ fontWeight: 800, fontSize: 16 }}>₩{activeOrder.totalAmount?.toLocaleString()}</span>
+                                        </div>
+                                        <div style={{ fontSize: 13, opacity: 0.9 }}>👤 {activeOrder.user?.firstName} · 📞 {activeOrder.user?.phone}</div>
+                                        <p style={{ margin: '6px 0 16px', fontSize: '15px', fontWeight: 800 }}>📍 {activeOrder.user?.address}</p>
+                                        <div style={{ display: 'flex', gap: '8px' }}>
+                                            <a href={`tel:${activeOrder.user?.phone}`} style={{ flex: 1, background: 'rgba(255,255,255,0.2)', color: '#fff', textDecoration: 'none', padding: '12px', borderRadius: '14px', textAlign: 'center', fontWeight: 800, fontSize: '13px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                                                <Phone size={16} /> Qo'ng'iroq
+                                            </a>
+                                            <a href={`https://map.kakao.com/link/to/${encodeURIComponent(activeOrder.user?.address || '')},${activeOrder.user?.location?.lat || 37.5503},${activeOrder.user?.location?.lng || 127.0731}`} target="_blank" rel="noopener noreferrer" style={{ flex: 1, background: '#FBEB00', color: '#000', textDecoration: 'none', padding: '12px', borderRadius: '14px', textAlign: 'center', fontWeight: 800, fontSize: '13px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                                                <Navigation size={16} /> KakaoMap
+                                            </a>
+                                        </div>
+                                    </div>
 
-                                        <Marker position={[myLocation.lat, myLocation.lng]} icon={
-                                            new L.DivIcon({ className: 'courier-icon', html: '<div style="font-size:24px; background:#fff; border-radius:50%; width:36px; height:36px; display:flex; align-items:center; justify-content:center; box-shadow:0 4px 12px rgba(0,0,0,0.2); border: 3px solid #27AE60;">🛵</div>', iconSize: [36, 36] })
-                                        }>
-                                            <Popup>Mening Joylashuvim</Popup>
-                                        </Marker>
+                                    {/* Map */}
+                                    {myLocation && activeOrder.user?.location && (
+                                        <div style={{ height: 200, width: '100%', borderRadius: 20, overflow: 'hidden', border: '1px solid var(--card-border)', marginBottom: 16, position: 'relative' }}>
+                                            <MapContainer center={[myLocation.lat, myLocation.lng]} zoom={14} style={{ height: '100%', width: '100%' }} zoomControl={false}>
+                                                <TileLayer url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png" />
+                                                
+                                                {/* Polyline to fixed address */}
+                                                <Polyline positions={getRoutingPositions(activeOrder)} color="#e74c3c" weight={5} dashArray="10, 10" opacity={0.8} />
 
-                                        <Marker position={[activeOrder.user.location.lat, activeOrder.user.location.lng]} icon={
-                                            new L.DivIcon({ className: 'home-icon', html: '<div style="font-size:24px; background:#fff; border-radius:50%; width:36px; height:36px; display:flex; align-items:center; justify-content:center; box-shadow:0 4px 12px rgba(0,0,0,0.2); border: 3px solid #FF3CAC;">🏠</div>', iconSize: [36, 36] })
-                                        }>
-                                            <Popup>Mijoz Manzili</Popup>
-                                        </Marker>
-                                    </MapContainer>
+                                                {/* Courier */}
+                                                <Marker position={[myLocation.lat, myLocation.lng]} icon={
+                                                    new L.DivIcon({ className: 'courier-icon', html: '<div style="font-size:20px; background:#fff; border-radius:50%; width:30px; height:30px; display:flex; align-items:center; justify-content:center; box-shadow:0 4px 12px rgba(0,0,0,0.2); border: 2px solid #27AE60;">🛵</div>', iconSize: [30, 30] })
+                                                } />
 
-                                    {estimateTime() && (
-                                        <div style={{ position: 'absolute', top: 10, right: 10, zIndex: 400, background: 'rgba(255,255,255,0.9)', padding: '6px 12px', borderRadius: 12, fontWeight: 800, color: 'var(--brand-accent2)', fontSize: 13, boxShadow: '0 4px 10px rgba(0,0,0,0.1)' }}>
-                                            ⏱ ~{estimateTime()} min
+                                                {/* Fixed Home/Delivery Address */}
+                                                <Marker position={[activeOrder.user.location.lat, activeOrder.user.location.lng]} icon={
+                                                    new L.DivIcon({ className: 'home-icon', html: '<div style="font-size:20px; background:#fff; border-radius:50%; width:30px; height:30px; display:flex; align-items:center; justify-content:center; box-shadow:0 4px 12px rgba(0,0,0,0.2); border: 2px solid #FF3CAC;">🏠</div>', iconSize: [30, 30] })
+                                                } />
+
+                                                {/* Customer's LIVE Standing Position (if online) */}
+                                                {customerLiveLocations[activeOrder.id] && (
+                                                    <Marker position={[customerLiveLocations[activeOrder.id].lat, customerLiveLocations[activeOrder.id].lng]} icon={
+                                                        new L.DivIcon({ className: 'live-icon', html: '<div style="font-size:16px; background:#fff; border-radius:50%; width:26px; height:26px; display:flex; align-items:center; justify-content:center; box-shadow:0 4px 12px rgba(0,0,0,0.3); border: 2px solid #3498DB;">👤</div>', iconSize: [26, 26] })
+                                                    }>
+                                                        <Popup>Mijozning hozirgi turgan joyi</Popup>
+                                                    </Marker>
+                                                )}
+                                            </MapContainer>
+                                            {estimateTime(activeOrder) && (
+                                                <div style={{ position: 'absolute', top: 10, right: 10, zIndex: 400, background: 'rgba(255,255,255,0.9)', padding: '6px 10px', borderRadius: 10, fontWeight: 800, color: 'var(--brand-accent2)', fontSize: 11 }}>
+                                                    ⏱ ~{estimateTime(activeOrder)} min
+                                                </div>
+                                            )}
                                         </div>
                                     )}
-                                </div>
-                            )}
 
-                            {/* Photo Upload for Delivery Complete */}
-                            <div style={{ flexShrink: 0 }}>
-                                <input type="file" accept="image/*" capture="environment" ref={deliveryPhotoRef} onChange={handleUploadDeliveryPhoto} style={{ display: 'none' }} />
-                                {!photoSent ? (
-                                    <button onClick={() => deliveryPhotoRef.current?.click()} disabled={uploadingPhoto} style={{ width: '100%', padding: '16px', background: '#27AE60', color: '#fff', border: 'none', borderRadius: 16, fontWeight: 800, fontSize: 15, cursor: 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8, boxShadow: '0 4px 14px rgba(39,174,96,0.3)' }}>
-                                        {uploadingPhoto ? '⏳ Yuklanmoqda...' : <><Camera size={20} /> Yetib keldim, rasmga olish</>}
-                                    </button>
-                                ) : (
-                                    <div style={{ width: '100%', padding: '16px', textAlign: 'center', color: '#27AE60', fontWeight: 800, fontSize: 14, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 6, background: 'rgba(39,174,96,0.1)', borderRadius: 16, border: '1px solid rgba(39,174,96,0.3)' }}>
-                                        <CheckCircle size={18} /> Rasm yuborildi. Mijoz tasdiqlashi kutilmoqda.
+                                    {/* Status Actions */}
+                                    <div style={{ flexShrink: 0 }}>
+                                        {activeOrder.status === 'ready_for_pickup' ? (
+                                            <button onClick={() => api.post(`/delivery/orders/${activeOrder.id}/accept`).then(fetchData)} style={{ width: '100%', padding: '14px', background: 'var(--text-primary)', color: 'var(--bg-primary)', border: 'none', borderRadius: 16, fontWeight: 800, fontSize: 14 }}>Olib ketishni tasdiqlash ✅</button>
+                                        ) : activeOrder.status === 'delivering' ? (
+                                            <>
+                                                <input type="file" accept="image/*" capture="environment" id={`photo-${activeOrder.id}`} onChange={(e) => handleUploadDeliveryPhoto(e, activeOrder.id)} style={{ display: 'none' }} />
+                                                <button onClick={() => document.getElementById(`photo-${activeOrder.id}`).click()} style={{ width: '100%', padding: '14px', background: '#27AE60', color: '#fff', border: 'none', borderRadius: 16, fontWeight: 800, fontSize: 14, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8 }}>
+                                                    <Camera size={18} /> Yetib keldim, rasmga olish
+                                                </button>
+                                            </>
+                                        ) : (
+                                            <div style={{ width: '100%', padding: '14px', textAlign: 'center', color: '#27AE60', fontWeight: 800, fontSize: 13, background: 'rgba(39,174,96,0.1)', borderRadius: 14 }}>Kutilmoqda...</div>
+                                        )}
                                     </div>
-                                )}
-                            </div>
+                                </div>
+                            ))}
                         </div>
                     )}
                 </div>
@@ -364,56 +401,68 @@ const DeliveryPage = () => {
                         )}
                     </div>
 
-                    {/* Available Orders list */}
-                    <h3 style={{ marginBottom: 16, color: 'var(--text-primary)', fontSize: 18 }}>Yangi Buyurtmalar ({orders.length})</h3>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                        {orders.length === 0 ? (
-                            <div style={{ textAlign: 'center', padding: '40px', background: 'var(--card-bg)', borderRadius: 16 }}>
-                                <div style={{ fontSize: 40, marginBottom: 12 }}>📦</div>
-                                <p style={{ color: 'var(--text-secondary)', fontSize: 14 }}>Buyurtmalar mavjud emas</p>
-                            </div>
-                        ) : (
-                            orders.map(order => {
-                                const distFromRestaurant = order.distance || 0;
-                                const estimatedMins = Math.round(distFromRestaurant / 0.5 * 3);
-                                const estimatedEarning = Math.round(distFromRestaurant * 2 * 1000); // round trip estimation
-
-                                return (
-                                    <div key={order.id} style={{ padding: '16px', borderRadius: '18px', background: 'var(--card-bg)', border: '1px solid var(--card-border)', boxShadow: 'var(--shadow-main)' }}>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px', alignItems: 'center' }}>
-                                            <span style={{ fontWeight: 900, fontSize: '18px', color: 'var(--brand-accent)', fontFamily: "'Fraunces', serif" }}>
-                                                ₩{(order.totalAmount || 0).toLocaleString()}
-                                            </span>
-                                            <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                                                <span style={{ background: order.status === 'ready_for_pickup' ? 'rgba(39,174,96,0.15)' : 'rgba(255,165,0,0.15)', color: order.status === 'ready_for_pickup' ? '#27AE60' : '#FF8C00', padding: '4px 10px', borderRadius: 8, fontSize: 10, fontWeight: 800 }}>
-                                                    {order.status === 'ready_for_pickup' ? '✅ Tayyor' : '🍳 Tayyorlanmoqda'}
-                                                </span>
-                                                <span style={{ color: 'var(--brand-accent2)', background: 'rgba(78,205,196,0.1)', padding: '5px 10px', borderRadius: '10px', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', fontWeight: 700 }}>
-                                                    <MapPin size={12} /> {distFromRestaurant.toFixed(1)} km
-                                                </span>
-                                            </div>
-                                        </div>
-                                        <div style={{ fontSize: 13, color: 'var(--text-primary)', marginBottom: 6 }}>📍 {order.user?.address}</div>
-                                        {/* Show order items with extras */}
-                                        {order.items?.length > 0 && (
-                                            <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 8 }}>
-                                                {order.items.map((item, idx) => (
-                                                    <span key={idx}>{item.productName || item.product?.name || 'Item'} x{item.quantity}{item.extras?.length > 0 && ` (+${item.extras.map(e => e.name).join(', ')})`}{idx < order.items.length - 1 ? ', ' : ''}</span>
-                                                ))}
-                                            </div>
-                                        )}
-                                        <div style={{ display: 'flex', gap: 12, marginBottom: 12 }}>
-                                            <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>⏱ ~{estimatedMins} min</div>
-                                            <div style={{ fontSize: 12, color: '#27AE60', fontWeight: 800 }}>💰 ~₩{estimatedEarning.toLocaleString()}</div>
-                                        </div>
-                                        <button onClick={() => handleAccept(order)} disabled={order.status === 'preparing'} style={{ width: '100%', padding: '14px', borderRadius: '14px', border: 'none', background: order.status === 'preparing' ? 'var(--bg-secondary)' : 'var(--text-primary)', color: order.status === 'preparing' ? 'var(--text-secondary)' : 'var(--bg-primary)', fontWeight: 800, cursor: order.status === 'preparing' ? 'not-allowed' : 'pointer', fontSize: 15, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-                                            {order.status === 'preparing' ? '🍳 Tayyorlanmoqda...' : 'Qabul Qilish 🛵'}
-                                        </button>
-                                    </div>
-                                );
-                            })
-                        )}
+                    {/* Work Mode Toggle */}
+                    <div style={{ display: 'flex', background: 'var(--bg-secondary)', borderRadius: 16, padding: '4px', marginBottom: 20, border: '1px solid var(--card-border)' }}>
+                        <button onClick={() => setWorkMode('active')} style={{ flex: 1, padding: '10px', borderRadius: 14, border: 'none', background: workMode === 'active' ? 'var(--card-bg)' : 'transparent', color: workMode === 'active' ? 'var(--text-primary)' : 'var(--text-secondary)', fontWeight: 700, fontSize: 13, cursor: 'pointer', transition: 'all 0.2s', boxShadow: workMode === 'active' ? '0 4px 12px rgba(0,0,0,0.05)' : 'none' }}>Hozirgi</button>
+                        <button onClick={() => setWorkMode('searching')} style={{ flex: 1, padding: '10px', borderRadius: 14, border: 'none', background: workMode === 'searching' ? 'var(--card-bg)' : 'transparent', color: workMode === 'searching' ? 'var(--text-primary)' : 'var(--text-secondary)', fontWeight: 700, fontSize: 13, cursor: 'pointer', transition: 'all 0.2s', boxShadow: workMode === 'searching' ? '0 4px 12px rgba(0,0,0,0.05)' : 'none' }}>Qidirish 🔍</button>
                     </div>
+
+                    {workMode === 'active' ? (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                            {activeOrders.length === 0 ? (
+                                <div style={{ textAlign: 'center', padding: '40px', background: 'var(--card-bg)', borderRadius: 16 }}>
+                                    <p style={{ color: 'var(--text-secondary)', fontSize: 14 }}>Faol buyurtmalar yo'q</p>
+                                </div>
+                            ) : activeOrders.map((o, idx) => (
+                                <div key={o.id} style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)', borderRadius: 18, padding: 14 }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+                                        <div style={{ fontWeight: 800, color: 'var(--text-primary)' }}>{idx + 1}-buyurtma</div>
+                                        <div style={{ color: 'var(--brand-accent2)', fontWeight: 800 }}>₩{o.totalAmount?.toLocaleString()}</div>
+                                    </div>
+                                    <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{o.user?.address}</div>
+                                </div>
+                            ))}
+                        </div>
+                    ) : (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                            {orders.length === 0 ? (
+                                <div style={{ textAlign: 'center', padding: '40px', background: 'var(--card-bg)', borderRadius: 16 }}>
+                                    <div style={{ fontSize: 40, marginBottom: 12 }}>📦</div>
+                                    <p style={{ color: 'var(--text-secondary)', fontSize: 14 }}>Yangi buyurtmalar yo'q</p>
+                                </div>
+                            ) : (
+                                orders.map(order => {
+                                    const distFromRestaurant = order.distance || 0;
+                                    const estimatedMins = Math.round(distFromRestaurant / 0.5 * 3);
+                                    const estimatedEarning = Math.round(distFromRestaurant * 2 * 1000); 
+
+                                    return (
+                                        <div key={order.id} style={{ padding: '16px', borderRadius: '18px', background: 'var(--card-bg)', border: '1px solid var(--card-border)', boxShadow: 'var(--shadow-main)' }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px', alignItems: 'center' }}>
+                                                <span style={{ fontWeight: 900, fontSize: '18px', color: 'var(--brand-accent)', fontFamily: "'Fraunces', serif" }}>
+                                                    ₩{(order.totalAmount || 0).toLocaleString()}
+                                                </span>
+                                                <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                                                    <span style={{ background: order.status === 'ready_for_pickup' ? 'rgba(39,174,96,0.15)' : 'rgba(255,165,0,0.15)', color: order.status === 'ready_for_pickup' ? '#27AE60' : '#FF8C00', padding: '4px 10px', borderRadius: 8, fontSize: 10, fontWeight: 800 }}>
+                                                        {order.status === 'ready_for_pickup' ? '✅ Tayyor' : '🍳 Tayyorlanmoqda'}
+                                                    </span>
+                                                    <span style={{ color: 'var(--brand-accent2)', fontSize: 10 }}>{getTimeElapsed(order.createdAt)}</span>
+                                                </div>
+                                            </div>
+                                            <div style={{ fontSize: 13, color: 'var(--text-primary)', marginBottom: 6 }}>📍 {order.user?.address}</div>
+                                            <div style={{ display: 'flex', gap: 12, marginBottom: 12 }}>
+                                                <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>⏱ ~{estimatedMins} min</div>
+                                                <div style={{ fontSize: 12, color: '#27AE60', fontWeight: 800 }}>💰 ~₩{estimatedEarning.toLocaleString()}</div>
+                                            </div>
+                                            <button onClick={() => handleAccept(order)} style={{ width: '100%', padding: '14px', borderRadius: '14px', border: 'none', background: 'var(--brand-accent2)', color: '#fff', fontWeight: 800, fontSize: 15 }}>
+                                                Qabul Qilish 🛵
+                                            </button>
+                                        </div>
+                                    );
+                                })
+                            )}
+                        </div>
+                    )}
                 </div>
             )}
 

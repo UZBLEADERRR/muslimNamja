@@ -56,14 +56,7 @@ const orderController = {
             const adminId = process.env.ADMIN_CHAT_ID;
             const channelId = process.env.ORDERS_CHANNEL_ID;
 
-            const orderDetails = items.map(item => {
-                let line = `- ${item.productName || 'Taom'} x ${item.quantity}`;
-                if (item.extras && item.extras.length > 0) {
-                    const extraNames = item.extras.map(e => e.name).join(', ');
-                    line += ` (➕ ${extraNames})`;
-                }
-                return line;
-            }).join('\n');
+            const orderDetails = items.map(item => `- ${item.productName || 'Taom'} x ${item.quantity}`).join('\n');
             let deliveryText = `🚚 <b>Yetkazib berish (Uyga):</b> ${deliveryFee} ₩`;
             if (deliveryType === 'pickup') deliveryText = `🚶 <b>Olib ketish (Pick up)</b> (-1000 ₩ chegirma)`;
             if (deliveryType === 'meetup') deliveryText = `📍 <b>Uchrashuv hududi (Meet up):</b> ${meetupLocation}`;

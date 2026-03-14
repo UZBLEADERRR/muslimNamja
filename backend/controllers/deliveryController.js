@@ -41,11 +41,11 @@ const deliveryController = {
         try {
             const deliveryManId = req.user.userId;
             const orders = await Order.findAll({
-                where: { deliveryManId, status: { [Op.in]: ['ready_for_pickup', 'delivering', 'delivered_awaiting_review'] } },
-                order: [['distance', 'ASC']] // Smart routing: Nearest first
+                where: { deliveryManId, status: { [Op.in]: ['accepted', 'preparing', 'ready_for_pickup', 'delivering', 'delivered_awaiting_review'] } },
+                order: [['createdAt', 'ASC']] 
             });
 
-            if (!orders.length) return res.json(null);
+            if (!orders.length) return res.json([]);
 
             // Populate user details
             const populated = await Promise.all(orders.map(async (o) => {
@@ -84,9 +84,9 @@ const deliveryController = {
             const { orderId } = req.params;
             const deliveryManId = req.user.userId;
 
-            const [count, orders] = await Order.update(
-                { status: 'delivering', deliveryManId: deliveryManId },
-                { where: { id: orderId, status: { [Op.in]: ['accepted', 'preparing', 'ready_for_pickup'] }, deliveryManId: null }, returning: true }
+            const [count, updatedOrders] = await Order.update(
+                { deliveryManId: deliveryManId },
+                { where: { id: orderId, deliveryManId: null }, returning: true }
             );
 
             if (count === 0) return res.status(400).json({ error: 'Order not available' });

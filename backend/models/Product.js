@@ -38,10 +38,6 @@ const Product = sequelize.define('Product', {
         type: DataTypes.JSONB, // Array of { name, cost }
         defaultValue: []
     },
-    addons: {
-        type: DataTypes.JSONB, // Array of { name, price }
-        defaultValue: []
-    },
     ingredientCost: {
         type: DataTypes.INTEGER,
         defaultValue: 0

@@ -138,7 +138,7 @@ const translations = {
     uz: {
         home: 'Bosh sahifa', menu: 'Menyu', community: 'Jamiyat', cart: 'Savat', profile: 'Profil',
         delivery: 'Yetkazish', admin: 'Admin', tracking: 'Kuzatish',
-        greeting: 'Assalomu alaykum,', sub: 'Bugun nima yegingiz keladi?', search: 'Ovqat qidirish...',
+        greeting: 'Xush kelibsiz,', sub: 'Bugun nima yegingiz keladi?', search: 'Ovqat qidirish...',
         today: "Bugungi chegirma", claim_offer: 'Olish', claimed: '✓ Olindi!',
         add: '+ Qo\'shish', added: '✓ Qo\'shildi!', no_products: 'Hali mahsulot yo\'q. Admin menyu qo\'shishi kerak.',
         loading: 'Yuklanmoqda...', all: 'Barchasi', ovqat: 'Ovqatlar', ichimlik: 'Ichimliklar', shirinlik: 'Shirinliklar',
