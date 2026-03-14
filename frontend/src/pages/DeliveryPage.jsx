@@ -41,6 +41,7 @@ const DeliveryPage = () => {
     const [workMode, setWorkMode] = useState('active'); // active, searching
     const [stats, setStats] = useState({});
     const [myLocation, setMyLocation] = useState(null);
+    const [totalTripKm, setTotalTripKm] = useState(0);
     const [customerLiveLocations, setCustomerLiveLocations] = useState({}); // { orderId: {lat, lng} }
     const [loading, setLoading] = useState(true);
 
@@ -204,8 +205,11 @@ const DeliveryPage = () => {
                 <button onClick={() => setActiveTab('chat')} style={{ flex: 1, padding: '10px', borderRadius: 12, border: 'none', fontWeight: 700, fontSize: 13, cursor: 'pointer', transition: 'all 0.3s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, background: activeTab === 'chat' ? 'var(--brand-accent2)' : 'var(--bg-secondary)', color: activeTab === 'chat' ? '#fff' : 'var(--text-primary)', whiteSpace: 'nowrap' }}>
                     <MessageSquare size={16} /> Chatlar {inbox.length > 0 && `(${inbox.length})`}
                 </button>
-                <button onClick={() => setActiveTab('earnings')} style={{ flex: 1, padding: '10px', borderRadius: 12, border: 'none', fontWeight: 700, fontSize: 13, cursor: 'pointer', transition: 'all 0.3s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, background: activeTab === 'earnings' ? 'var(--brand-accent2)' : 'var(--bg-secondary)', color: activeTab === 'earnings' ? '#fff' : 'var(--text-primary)', whiteSpace: 'nowrap', position: 'relative' }}>
-                    <Wallet size={16} /> Orderlar {orders.length > 0 && <span style={{ position: 'absolute', top: -5, right: -5, background: 'var(--brand-accent)', color: '#fff', fontSize: 10, width: 18, height: 18, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid var(--card-bg)' }}>{orders.length}</span>}
+                <button onClick={() => setActiveTab('earnings')} style={{ flex: 1, padding: '10px', borderRadius: 12, border: 'none', fontWeight: 700, fontSize: 13, cursor: 'pointer', transition: 'all 0.3s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, background: activeTab === 'earnings' ? 'var(--brand-accent2)' : 'var(--bg-secondary)', color: activeTab === 'earnings' ? '#fff' : 'var(--text-primary)', whiteSpace: 'nowrap' }}>
+                    <Wallet size={16} /> Daromad
+                </button>
+                <button onClick={() => setActiveTab('orders')} style={{ flex: 1, padding: '10px', borderRadius: 12, border: 'none', fontWeight: 700, fontSize: 13, cursor: 'pointer', transition: 'all 0.3s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, background: activeTab === 'orders' ? 'var(--brand-accent2)' : 'var(--bg-secondary)', color: activeTab === 'orders' ? '#fff' : 'var(--text-primary)', whiteSpace: 'nowrap', position: 'relative' }}>
+                    <Truck size={16} /> Yangi{orders.length > 0 && <span style={{ position: 'absolute', top: -5, right: -5, background: 'var(--brand-accent)', color: '#fff', fontSize: 10, width: 18, height: 18, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid var(--card-bg)' }}>{orders.length}</span>}
                 </button>
             </div>
 
@@ -371,11 +375,9 @@ const DeliveryPage = () => {
                 </div>
             )}
 
-            {/* TAB: EARNINGS & ORDERS */}
+            {/* TAB: EARNINGS & ORDERS *            {/* TAB: EARNINGS & STATS */}
             {activeTab === 'earnings' && (
                 <div style={{ animation: 'fadeIn 0.3s ease', padding: '16px 20px', flex: 1, overflowY: 'auto' }}>
-                    
-                    {/* Stats */}
                     <div style={{ background: 'var(--card-bg)', borderRadius: 18, border: '1px solid var(--card-border)', padding: 16, marginBottom: 20 }}>
                         <h3 style={{ fontSize: 16, color: 'var(--text-primary)', marginBottom: 16 }}>📊 Daromad Statistikasi</h3>
                         <div style={{ display: 'flex', gap: 12 }}>
@@ -393,79 +395,78 @@ const DeliveryPage = () => {
                             </div>
                         </div>
 
-                        {activeOrder && (
+                        {activeOrders.length > 0 && (
                             <div style={{ marginTop: 12, borderTop: '1px dashed var(--card-border)', paddingTop: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                 <div style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 700 }}>Joriy sayohat ({totalTripKm.toFixed(1)} km)</div>
-                                <div style={{ fontSize: 16, color: 'var(--brand-accent)', fontWeight: 900 }}>+ ₩{tripEarnings.toLocaleString()}</div>
+                                <div style={{ fontSize: 16, color: 'var(--brand-accent)', fontWeight: 900 }}>+ ₩{(Math.round(totalTripKm * 1000)).toLocaleString()}</div>
                             </div>
                         )}
                     </div>
 
-                    {/* Work Mode Toggle */}
-                    <div style={{ display: 'flex', background: 'var(--bg-secondary)', borderRadius: 16, padding: '4px', marginBottom: 20, border: '1px solid var(--card-border)' }}>
-                        <button onClick={() => setWorkMode('active')} style={{ flex: 1, padding: '10px', borderRadius: 14, border: 'none', background: workMode === 'active' ? 'var(--card-bg)' : 'transparent', color: workMode === 'active' ? 'var(--text-primary)' : 'var(--text-secondary)', fontWeight: 700, fontSize: 13, cursor: 'pointer', transition: 'all 0.2s', boxShadow: workMode === 'active' ? '0 4px 12px rgba(0,0,0,0.05)' : 'none' }}>Hozirgi</button>
-                        <button onClick={() => setWorkMode('searching')} style={{ flex: 1, padding: '10px', borderRadius: 14, border: 'none', background: workMode === 'searching' ? 'var(--card-bg)' : 'transparent', color: workMode === 'searching' ? 'var(--text-primary)' : 'var(--text-secondary)', fontWeight: 700, fontSize: 13, cursor: 'pointer', transition: 'all 0.2s', boxShadow: workMode === 'searching' ? '0 4px 12px rgba(0,0,0,0.05)' : 'none' }}>Qidirish 🔍</button>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                        <h4 style={{ fontSize: 14, color: 'var(--text-primary)', fontWeight: 800 }}>Faol buyurtmalaringiz:</h4>
+                        {activeOrders.length === 0 ? (
+                            <div style={{ textAlign: 'center', padding: '24px', background: 'var(--bg-secondary)', borderRadius: 16 }}>
+                                <p style={{ color: 'var(--text-secondary)', fontSize: 13 }}>Hozircha faol buyurtma yo'q</p>
+                            </div>
+                        ) : activeOrders.map((o, idx) => (
+                            <div key={o.id} style={{ background: 'var(--bg-secondary)', border: '1px solid var(--card-border)', borderRadius: 18, padding: 14 }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+                                    <div style={{ fontWeight: 800, color: 'var(--text-primary)' }}>{idx + 1}-buyurtma</div>
+                                    <div style={{ color: 'var(--brand-accent2)', fontWeight: 800 }}>₩{o.totalAmount?.toLocaleString()}</div>
+                                </div>
+                                <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{o.user?.address}</div>
+                            </div>
+                        ))}
                     </div>
-
-                    {workMode === 'active' ? (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                            {activeOrders.length === 0 ? (
-                                <div style={{ textAlign: 'center', padding: '40px', background: 'var(--card-bg)', borderRadius: 16 }}>
-                                    <p style={{ color: 'var(--text-secondary)', fontSize: 14 }}>Faol buyurtmalar yo'q</p>
-                                </div>
-                            ) : activeOrders.map((o, idx) => (
-                                <div key={o.id} style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)', borderRadius: 18, padding: 14 }}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-                                        <div style={{ fontWeight: 800, color: 'var(--text-primary)' }}>{idx + 1}-buyurtma</div>
-                                        <div style={{ color: 'var(--brand-accent2)', fontWeight: 800 }}>₩{o.totalAmount?.toLocaleString()}</div>
-                                    </div>
-                                    <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{o.user?.address}</div>
-                                </div>
-                            ))}
-                        </div>
-                    ) : (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                            {orders.length === 0 ? (
-                                <div style={{ textAlign: 'center', padding: '40px', background: 'var(--card-bg)', borderRadius: 16 }}>
-                                    <div style={{ fontSize: 40, marginBottom: 12 }}>📦</div>
-                                    <p style={{ color: 'var(--text-secondary)', fontSize: 14 }}>Yangi buyurtmalar yo'q</p>
-                                </div>
-                            ) : (
-                                orders.map(order => {
-                                    const distFromRestaurant = order.distance || 0;
-                                    const estimatedMins = Math.round(distFromRestaurant / 0.5 * 3);
-                                    const estimatedEarning = Math.round(distFromRestaurant * 2 * 1000); 
-
-                                    return (
-                                        <div key={order.id} style={{ padding: '16px', borderRadius: '18px', background: 'var(--card-bg)', border: '1px solid var(--card-border)', boxShadow: 'var(--shadow-main)' }}>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px', alignItems: 'center' }}>
-                                                <span style={{ fontWeight: 900, fontSize: '18px', color: 'var(--brand-accent)', fontFamily: "'Fraunces', serif" }}>
-                                                    ₩{(order.totalAmount || 0).toLocaleString()}
-                                                </span>
-                                                <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                                                    <span style={{ background: order.status === 'ready_for_pickup' ? 'rgba(39,174,96,0.15)' : 'rgba(255,165,0,0.15)', color: order.status === 'ready_for_pickup' ? '#27AE60' : '#FF8C00', padding: '4px 10px', borderRadius: 8, fontSize: 10, fontWeight: 800 }}>
-                                                        {order.status === 'ready_for_pickup' ? '✅ Tayyor' : '🍳 Tayyorlanmoqda'}
-                                                    </span>
-                                                    <span style={{ color: 'var(--brand-accent2)', fontSize: 10 }}>{getTimeElapsed(order.createdAt)}</span>
-                                                </div>
-                                            </div>
-                                            <div style={{ fontSize: 13, color: 'var(--text-primary)', marginBottom: 6 }}>📍 {order.user?.address}</div>
-                                            <div style={{ display: 'flex', gap: 12, marginBottom: 12 }}>
-                                                <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>⏱ ~{estimatedMins} min</div>
-                                                <div style={{ fontSize: 12, color: '#27AE60', fontWeight: 800 }}>💰 ~₩{estimatedEarning.toLocaleString()}</div>
-                                            </div>
-                                            <button onClick={() => handleAccept(order)} style={{ width: '100%', padding: '14px', borderRadius: '14px', border: 'none', background: 'var(--brand-accent2)', color: '#fff', fontWeight: 800, fontSize: 15 }}>
-                                                Qabul Qilish 🛵
-                                            </button>
-                                        </div>
-                                    );
-                                })
-                            )}
-                        </div>
-                    )}
                 </div>
             )}
 
+            {/* TAB: NEW ORDERS (SEARCHING) */}
+            {activeTab === 'orders' && (
+                <div style={{ animation: 'fadeIn 0.3s ease', padding: '16px 20px', flex: 1, overflowY: 'auto' }}>
+                    <h2 style={{ fontSize: 22, fontWeight: 900, color: 'var(--text-primary)', fontFamily: "'Fraunces', serif", marginBottom: 20 }}>Yangi buyurtmalar 🔍</h2>
+                    
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                        {orders.length === 0 ? (
+                            <div style={{ textAlign: 'center', padding: '60px 40px', background: 'var(--card-bg)', borderRadius: 24, border: '1px dashed var(--card-border)' }}>
+                                <div style={{ fontSize: 48, marginBottom: 12, opacity: 0.5 }}>📦</div>
+                                <p style={{ color: 'var(--text-secondary)', fontSize: 15, fontWeight: 700 }}>Hozircha yangi buyurtmalar yo'q</p>
+                                <p style={{ color: 'var(--text-secondary)', fontSize: 12, marginTop: 4 }}>Yangi buyurtmalar paydo bo'lishi bilan bu yerda ko'rinadi.</p>
+                            </div>
+                        ) : (
+                            orders.map(order => {
+                                const distFromRestaurant = order.distance || 0;
+                                const estimatedMins = Math.round(distFromRestaurant / 0.5 * 3);
+                                const estimatedEarning = Math.round(distFromRestaurant * 2 * 1000); 
+
+                                return (
+                                    <div key={order.id} className="animate-fade-in" style={{ padding: '16px', borderRadius: '20px', background: 'var(--card-bg)', border: '1px solid var(--card-border)', boxShadow: 'var(--shadow-main)' }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px', alignItems: 'center' }}>
+                                            <span style={{ fontWeight: 900, fontSize: '20px', color: 'var(--brand-accent)', fontFamily: "'Fraunces', serif" }}>
+                                                ₩{(order.totalAmount || 0).toLocaleString()}
+                                            </span>
+                                            <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                                                <span style={{ background: order.status === 'ready_for_pickup' ? 'rgba(39,174,96,0.15)' : 'rgba(255,165,0,0.15)', color: order.status === 'ready_for_pickup' ? '#27AE60' : '#FF8C00', padding: '4px 12px', borderRadius: 10, fontSize: 11, fontWeight: 800 }}>
+                                                    {order.status === 'ready_for_pickup' ? '✅ Tayyor' : '🍳 Tayyorlanmoqda'}
+                                                </span>
+                                            </div>
+                                        </div>
+                                        <div style={{ fontSize: 14, color: 'var(--text-primary)', fontWeight: 700, marginBottom: 6 }}>📍 {order.user?.address}</div>
+                                        <div style={{ display: 'flex', gap: 16, marginBottom: 16 }}>
+                                            <div style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: 4 }}>⏱ <span>~{estimatedMins} min</span></div>
+                                            <div style={{ fontSize: 12, color: '#27AE60', fontWeight: 800, display: 'flex', alignItems: 'center', gap: 4 }}>💰 <span>~₩{estimatedEarning.toLocaleString()}</span></div>
+                                        </div>
+                                        <button onClick={() => handleAccept(order)} style={{ width: '100%', padding: '14px', borderRadius: '16px', border: 'none', background: 'var(--brand-accent2)', color: '#fff', fontWeight: 800, fontSize: 16, cursor: 'pointer', transition: 'transform 0.2s' }}>
+                                            Qabul Qilish 🛵
+                                        </button>
+                                    </div>
+                                );
+                            })
+                        )}
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

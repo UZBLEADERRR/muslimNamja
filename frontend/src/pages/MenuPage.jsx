@@ -135,25 +135,6 @@ const MenuPage = () => {
         <div className="animate-slide-up">
             <div style={{ padding: "8px 20px 0" }}>
 
-                {/* Monthly Winner */}
-                {winner && winner.user && (
-                    <div style={{ background: 'linear-gradient(135deg, rgba(255,215,0,0.15), rgba(255,107,53,0.1))', border: '2px solid rgba(255,215,0,0.4)', borderRadius: 18, padding: '14px 16px', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 12 }}>
-                        <div style={{ position: 'relative', flexShrink: 0 }}>
-                            <div style={{ width: 48, height: 48, borderRadius: '50%', background: 'linear-gradient(135deg, #FFD700, #FF6B35)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', border: '2px solid #FFD700' }}>
-                                {winner.user.avatarUrl?.startsWith('data:image')
-                                    ? <img src={winner.user.avatarUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                    : <span style={{ fontSize: 22 }}>👤</span>}
-                            </div>
-                            <div style={{ position: 'absolute', top: -6, right: -6, fontSize: 16 }}>👑</div>
-                        </div>
-                        <div style={{ flex: 1 }}>
-                            <div style={{ fontSize: 10, fontWeight: 800, color: '#FFD700', textTransform: 'uppercase', letterSpacing: 1 }}>🏆 Oyning G'olibi</div>
-                            <div style={{ fontSize: 15, fontWeight: 900, color: 'var(--text-primary)', fontFamily: "'Fraunces', serif" }}>{winner.user.nickname || winner.user.firstName}</div>
-                            <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>₩{winner.totalSpent?.toLocaleString()} sarflandi</div>
-                        </div>
-                        <div style={{ background: '#FFD700', color: '#000', fontWeight: 900, padding: '4px 10px', borderRadius: 8, fontSize: 11 }}>WINNER</div>
-                    </div>
-                )}
 
                 {/* Ad Banners Carousel */}
                 {adBanners.length > 0 && (

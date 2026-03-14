@@ -60,6 +60,7 @@ const CommunityPage = () => {
     const [transferring, setTransferring] = useState(false);
     const [selectedProfile, setSelectedProfile] = useState(null);
     const [dmConversation, setDmConversation] = useState(null);
+    const [winner, setWinner] = useState(null);
 
     // Swipe state
     const [swipingId, setSwipingId] = useState(null);
@@ -108,6 +109,10 @@ const CommunityPage = () => {
         });
 
         return () => { socket.disconnect(); };
+    }, []);
+
+    useEffect(() => {
+        fetch((import.meta.env.VITE_API_URL || '/api') + '/public/monthly-winner').then(r => r.json()).then(d => setWinner(d)).catch(() => { });
     }, []);
 
     useEffect(() => {
@@ -265,8 +270,8 @@ const CommunityPage = () => {
                 </div>
             </div>
 
-            {/* Pinned Message Banner - Clickable */}
-            {pinnedMsg && (
+            {/* Pinned Message or Monthly Winner Fallback */}
+            {pinnedMsg ? (
                 <div onClick={() => scrollToMsg(pinnedMsg.id)} style={{ padding: '8px 20px', background: 'rgba(255,107,53,0.08)', borderBottom: '1px solid rgba(255,107,53,0.2)', display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
                     <Pin size={14} color="var(--brand-accent)" />
                     <div style={{ flex: 1 }}>
@@ -274,7 +279,23 @@ const CommunityPage = () => {
                         <div style={{ fontSize: 12, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{pinnedMsg.text}</div>
                     </div>
                 </div>
-            )}
+            ) : winner && winner.user ? (
+                <div style={{ padding: '10px 20px', background: 'linear-gradient(135deg, rgba(255,215,0,0.1), rgba(255,107,53,0.05))', borderBottom: '1px solid rgba(255,215,0,0.15)', display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <div style={{ position: 'relative' }}>
+                        <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'linear-gradient(135deg, #FFD700, #FF6B35)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', border: '1.5px solid #FFD700', flexShrink: 0 }}>
+                            {winner.user.avatarUrl?.startsWith('data:image') 
+                                ? <img src={winner.user.avatarUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> 
+                                : <span style={{ fontSize: 16 }}>👑</span>}
+                        </div>
+                    </div>
+                    <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: 9, fontWeight: 800, color: '#FFD700', textTransform: 'uppercase', letterSpacing: 0.5 }}>🏆 Oyning G'olibi</div>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>
+                            {winner.user.nickname || winner.user.firstName} <span style={{ color: 'var(--text-secondary)', fontWeight: 400, fontSize: 11 }}>· ₩{winner.totalSpent?.toLocaleString()} sarflandi</span>
+                        </div>
+                    </div>
+                </div>
+            ) : null}
 
             {/* Messages Scroll Area */}
             <div style={{ flex: 1, overflowY: 'auto', padding: '12px 20px' }}>

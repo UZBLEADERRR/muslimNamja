@@ -45,6 +45,7 @@ const ProfilePage = () => {
     const [history, setHistory] = useState({ orders: [], paymentRequests: [] });
     const [adminCard, setAdminCard] = useState('');
     const [loading, setLoading] = useState(true);
+    const [courierStats, setCourierStats] = useState({ totalEarnings: 0 });
 
     // Edit Profile Modal
     const [showEdit, setShowEdit] = useState(false);
@@ -107,6 +108,10 @@ const ProfilePage = () => {
                     setShowTopUp(true);
                 }
             });
+
+            if (user.role === 'delivery' || user.role === 'admin') {
+                api.get('/delivery/stats').then(res => setCourierStats(res.data)).catch(() => { });
+            }
         }
     }, [user]);
 
@@ -345,6 +350,26 @@ const ProfilePage = () => {
                     </div>
                 </div>
             </div>
+
+            {/* Courier Earnings Shortcut */}
+            {user.role === 'delivery' && (
+                <div onClick={() => (window.location.href = '/delivery')} style={{ 
+                    background: 'linear-gradient(135deg, var(--brand-accent2), #27AE60)', 
+                    borderRadius: 20, padding: '16px 20px', marginBottom: 16, 
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between', 
+                    cursor: 'pointer', boxShadow: '0 8px 25px rgba(39,174,96,0.25)',
+                    border: '1px solid rgba(255,255,255,0.1)'
+                }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                        <div style={{ width: 44, height: 44, borderRadius: 14, background: 'rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24 }}>🛵</div>
+                        <div>
+                            <div style={{ color: 'rgba(255,255,255,0.9)', fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.5 }}>Kuryer Paneli</div>
+                            <div style={{ color: '#fff', fontSize: 18, fontWeight: 900 }}>Daromad: ₩{(courierStats.totalEarnings || 0).toLocaleString()}</div>
+                        </div>
+                    </div>
+                    <div style={{ color: '#fff', fontSize: 18, background: 'rgba(255,255,255,0.2)', width: 32, height: 32, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>→</div>
+                </div>
+            )}
 
             {/* Action Buttons Grid */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, marginBottom: 20 }}>
