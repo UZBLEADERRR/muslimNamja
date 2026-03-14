@@ -261,6 +261,13 @@ ${orderDetails}
 
             const imageUrl = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
 
+            // Calculate earning immediately so it reflects in stats
+            const earning = 3000 + (order.distance * 500);
+            order.deliveryManEarning = earning;
+            order.status = 'delivered_awaiting_review';
+            order.deliveryPhotoUrl = imageUrl;
+            await order.save();
+
             // Create standard image message
             await ChatMessage.create({
                 orderId: id,
@@ -277,11 +284,6 @@ ${orderDetails}
                 isSystem: true,
                 offerAction: 'confirm_delivery_prompt'
             });
-
-            // Transition state
-            order.status = 'delivered_awaiting_review';
-            order.deliveryPhotoUrl = imageUrl;
-            await order.save();
 
             res.status(200).json({ message: 'Photo uploaded and prompt sent', order });
         } catch (err) {
@@ -311,9 +313,9 @@ ${orderDetails}
             if (reviewText) order.reviewText = reviewText;
 
             // Driver earning logic 
-            // If already set by deliveryController, keep it. Else calculate.
+            // If already set by previous steps, keep it. Else calculate using standard formula.
             if (!order.deliveryManEarning) {
-                order.deliveryManEarning = Math.floor(order.deliveryFee * 0.8) || 3000;
+                order.deliveryManEarning = 3000 + ((order.distance || 0) * 500);
             }
             await order.save({ transaction: trans });
 

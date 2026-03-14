@@ -167,12 +167,15 @@ const DeliveryPage = () => {
         try {
             const formData = new FormData();
             formData.append('photo', file);
-            await api.post(`/orders/${activeOrder.id}/delivery-photo`, formData, {
+            await api.post(`/orders/${orderId}/delivery-photo`, formData, {
                 headers: { 'Content-Type': 'multipart/form-data' }
             });
             setPhotoSent(true);
             alert("Rasm yuborildi! Mijoz tasdiqlashini kuting.");
-        } catch (err) { alert('Rasm yuklashda xatolik yuz berdi.'); }
+        } catch (err) { 
+            console.error('Photo upload error:', err);
+            alert(err.response?.data?.error || 'Rasm yuklashda xatolik yuz berdi.'); 
+        }
         finally { setUploadingPhoto(false); }
     };
 

@@ -1008,15 +1008,17 @@ const adminController = {
     // --- Data Cleanup ---
     async cleanupData(req, res) {
         try {
-            await Order.destroy({
-                where: { status: { [Op.in]: ['completed', 'cancelled'] } }
-            });
+            const ChatMessage = require('../models/ChatMessage');
+            const AuditLog = require('../models/AuditLog');
+            const Expense = require('../models/Expense');
 
-            await PaymentRequest.destroy({
-                where: { status: { [Op.in]: ['approved', 'rejected'] } }
-            });
+            await Order.destroy({ where: {} });
+            await PaymentRequest.destroy({ where: {} });
+            await ChatMessage.destroy({ where: {} });
+            await AuditLog.destroy({ where: {} });
+            await Expense.destroy({ where: {} });
 
-            res.json({ message: 'Tarix muvaffaqiyatli tozalandi' });
+            res.json({ message: 'Barcha ma\'lumotlar (buyurtmalar, to\'lovlar, chatlar, xarajatlar) butunlay tozalandi' });
         } catch (error) {
             console.error('Cleanup error:', error);
             res.status(500).json({ error: 'Failed to cleanup data' });
