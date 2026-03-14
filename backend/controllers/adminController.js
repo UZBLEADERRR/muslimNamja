@@ -538,7 +538,7 @@ const adminController = {
             if (!apiKey) return res.status(400).json({ error: 'AI API Key not configured' });
 
             const genAI = new GoogleGenerativeAI(apiKey);
-            const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+            const model = genAI.getGenerativeModel({ model: 'gemini-3-flash-preview' });
 
             const prompt = `Siz 'Muslim Namja' restorani admini uchun moliyaviy tahlilchisiz. 
             Mavjud ma'lumotlar: ${JSON.stringify(context)}
@@ -576,7 +576,7 @@ const adminController = {
             if (!apiKey) return res.status(400).json({ error: 'AI API Key not configured' });
 
             const genAI = new GoogleGenerativeAI(apiKey);
-            const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+            const model = genAI.getGenerativeModel({ model: 'gemini-3-flash-preview' });
 
             const prompt = `Convert the following list of expenses into a JSON array of objects.
             Each object must have: "description", "amount" (number only), "category", and "date" (YYYY-MM-DD).
@@ -636,7 +636,7 @@ const adminController = {
                 const apiKey = process.env.AI_API_KEY;
                 if (apiKey && Object.keys(productUsage).length > 0) {
                     const genAI = new GoogleGenerativeAI(apiKey);
-                    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+                    const model = genAI.getGenerativeModel({ model: 'gemini-3-flash-preview' });
 
                     const prompt = `You are an AI Inventory Manager for 'Muslim Namja' restaurant.
                     Based on these purchased products and their quantities:

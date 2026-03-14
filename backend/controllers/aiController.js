@@ -87,7 +87,7 @@ const aiController = {
                 const apiKey = process.env.AI_API_KEY;
                 if (apiKey) {
                     const genAI = new GoogleGenerativeAI(apiKey);
-                    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+                    const model = genAI.getGenerativeModel({ model: 'gemini-3-flash-preview' });
 
                     const prompt = `You are a geocoding assistant. Given these GPS coordinates: latitude=${lat}, longitude=${lng}
 
