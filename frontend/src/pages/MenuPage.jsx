@@ -229,17 +229,17 @@ const MenuPage = () => {
                                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 8 }}>
                                         <span style={{ color: "var(--brand-accent)", fontWeight: 800, fontSize: 15, fontFamily: "'Fraunces', serif" }}>₩{food.price?.toLocaleString()}</span>
                                         <div style={{ color: "var(--text-secondary)", fontSize: 10, textAlign: 'right' }}>
-                                            {food.stock === 0 ? <span style={{ color: '#E74C3C', fontWeight: 800 }}>Tugagan</span> : `Zaxira: ${food.stock === null ? '∞' : food.stock}`}
+                                            {food.stock === 0 ? <span style={{ color: '#E74C3C', fontWeight: 800 }}>Tugagan</span> : (food.stock !== null && food.stock < food.minOrderQuantity) ? <span style={{ color: '#E74C3C', fontWeight: 800 }}>Kam qoldi</span> : `Zaxira: ${food.stock === null ? '∞' : food.stock}`}
                                             {food.minOrderQuantity > 1 && <div style={{ color: 'var(--brand-accent2)' }}>Min {food.minOrderQuantity} ta</div>}
                                         </div>
                                     </div>
 
                                     <button
                                         onClick={(e) => { e.stopPropagation(); handleQuickAdd(food); }}
-                                        disabled={food.stock === 0 || !isStoreOpen}
-                                        style={{ width: "100%", background: food.stock === 0 || !isStoreOpen ? '#95a5a6' : addedFoodId === fid ? 'var(--brand-accent2)' : `linear-gradient(135deg, var(--brand-accent), #FF3CAC)`, color: "#fff", border: "none", borderRadius: 10, padding: "9px 0", fontSize: 12, fontWeight: 700, cursor: food.stock === 0 || !isStoreOpen ? "not-allowed" : "pointer", transition: "all 0.3s" }}
+                                        disabled={food.stock === 0 || (food.stock !== null && food.stock < food.minOrderQuantity) || !isStoreOpen}
+                                        style={{ width: "100%", background: food.stock === 0 || (food.stock !== null && food.stock < food.minOrderQuantity) || !isStoreOpen ? '#95a5a6' : addedFoodId === fid ? 'var(--brand-accent2)' : `linear-gradient(135deg, var(--brand-accent), #FF3CAC)`, color: "#fff", border: "none", borderRadius: 10, padding: "9px 0", fontSize: 12, fontWeight: 700, cursor: food.stock === 0 || (food.stock !== null && food.stock < food.minOrderQuantity) || !isStoreOpen ? "not-allowed" : "pointer", transition: "all 0.3s" }}
                                     >
-                                        {food.stock === 0 ? 'Sotuvda yoq' : !isStoreOpen ? 'Do\'kon yopiq' : addedFoodId === fid ? t('added') : (food.addons?.length > 0 ? '➕ Tanlash' : t('add'))}
+                                        {food.stock === 0 ? 'Sotuvda yoq' : (food.stock !== null && food.stock < food.minOrderQuantity) ? 'Zaxira kam' : !isStoreOpen ? 'Do\'kon yopiq' : addedFoodId === fid ? t('added') : (food.addons?.length > 0 ? '➕ Tanlash' : t('add'))}
                                     </button>
                                 </div>
                             </div>
@@ -286,7 +286,22 @@ const MenuPage = () => {
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
                                     <button onClick={() => setQty(Math.max(selectedFood.minOrderQuantity || 1, qty - 1))} style={{ width: 40, height: 40, borderRadius: '50%', border: '2px solid var(--card-border)', background: 'var(--card-bg)', color: 'var(--text-primary)', fontSize: 20, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>−</button>
                                     <span style={{ fontSize: 22, fontWeight: 900, color: 'var(--text-primary)', minWidth: 32, textAlign: 'center' }}>{qty}</span>
-                                    <button onClick={() => setQty(qty + 1)} style={{ width: 40, height: 40, borderRadius: '50%', border: '2px solid var(--brand-accent)', background: 'var(--brand-accent)', color: '#fff', fontSize: 20, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>+</button>
+                                    <button 
+                                        onClick={() => {
+                                            if (selectedFood.stock !== null && qty >= selectedFood.stock) return;
+                                            setQty(qty + 1);
+                                        }} 
+                                        style={{ 
+                                            width: 40, height: 40, borderRadius: '50%', 
+                                            border: `2px solid ${selectedFood.stock !== null && qty >= selectedFood.stock ? 'var(--card-border)' : 'var(--brand-accent)'}`, 
+                                            background: selectedFood.stock !== null && qty >= selectedFood.stock ? 'var(--bg-secondary)' : 'var(--brand-accent)', 
+                                            color: selectedFood.stock !== null && qty >= selectedFood.stock ? 'var(--text-secondary)' : '#fff', 
+                                            fontSize: 20, cursor: selectedFood.stock !== null && qty >= selectedFood.stock ? 'not-allowed' : 'pointer', 
+                                            display: 'flex', alignItems: 'center', justifyContent: 'center' 
+                                        }}
+                                    >
+                                        +
+                                    </button>
                                 </div>
                             </div>
 

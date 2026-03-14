@@ -23,12 +23,32 @@ const orderController = {
                 return res.status(400).json({ error: '2km dan uzoq manzilga faqat olib ketish (pick up) mumkin' });
             }
 
-            // 1. Wallet balance check — deduct first
+            // 1. Wallet balance check & Stock validation
             const userRecord = await User.findByPk(userId, { transaction: trans });
             if (!userRecord || userRecord.walletBalance < totalAmount) {
                 await trans.rollback();
                 return res.status(400).json({ error: 'Hamyonda mablag\' yetarli emas. Iltimos to\'ldiring.' });
             }
+
+            // --- NEW: Stock Check ---
+            for (const item of items) {
+                const product = await Product.findByPk(item.productId, { transaction: trans });
+                if (!product) {
+                    await trans.rollback();
+                    return res.status(404).json({ error: `Mahsulot topilmadi: ${item.productName}` });
+                }
+                if (product.stock !== null) { // null means unlimited
+                    if (product.stock < item.quantity) {
+                        await trans.rollback();
+                        const pName = typeof product.name === 'object' ? (product.name.uz || product.name.en) : product.name;
+                        return res.status(400).json({ error: `Zaxirada yetarli mahsulot yo'q: ${pName} (Mavjud: ${product.stock})` });
+                    }
+                    // Deduct stock
+                    product.stock -= item.quantity;
+                    await product.save({ transaction: trans });
+                }
+            }
+
             userRecord.walletBalance -= totalAmount;
             await userRecord.save({ transaction: trans });
 
@@ -250,19 +270,22 @@ ${orderDetails}
             const { id } = req.params;
             const senderId = req.user.userId;
 
-            if (!req.file) return res.status(400).json({ error: 'Photo is required' });
+            if (!req.file) return res.status(400).json({ error: 'Rasm yuklanmadi (Photo required)' });
 
             const order = await Order.findByPk(id);
-            if (!order) return res.status(404).json({ error: 'Order not found' });
+            if (!order) return res.status(404).json({ error: 'Buyurtma topilmadi (Order not found)' });
 
             if (order.status !== 'delivering') {
-                return res.status(400).json({ error: 'Order must be delivering' });
+                console.warn(`[UploadPhoto] Order ${id} is in status ${order.status}, not 'delivering'.`);
+                return res.status(400).json({ error: `Buyurtma holati noto'g'ri: ${order.status}. Avval 'Olib ketish'ni tasdiqlang.` });
             }
 
             const imageUrl = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
 
-            // Calculate earning immediately so it reflects in stats
-            const earning = 3000 + (order.distance * 500);
+            // Calculate earning safely
+            const dist = order.distance || 0;
+            const earning = Math.round(3000 + (dist * 500));
+            
             order.deliveryManEarning = earning;
             order.status = 'delivered_awaiting_review';
             order.deliveryPhotoUrl = imageUrl;
@@ -287,7 +310,8 @@ ${orderDetails}
 
             res.status(200).json({ message: 'Photo uploaded and prompt sent', order });
         } catch (err) {
-            res.status(500).json({ error: 'Failed to upload photo' });
+            console.error('[UploadPhoto Error]:', err);
+            res.status(500).json({ error: 'Rasm yuklashda serverda xatolik yuz berdi' });
         }
     },
 
@@ -315,7 +339,7 @@ ${orderDetails}
             // Driver earning logic 
             // If already set by previous steps, keep it. Else calculate using standard formula.
             if (!order.deliveryManEarning) {
-                order.deliveryManEarning = 3000 + ((order.distance || 0) * 500);
+                order.deliveryManEarning = Math.round(3000 + ((order.distance || 0) * 500));
             }
             await order.save({ transaction: trans });
 

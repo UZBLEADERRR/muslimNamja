@@ -123,7 +123,7 @@ const deliveryController = {
             const order = await Order.findOne({ where: { id: orderId, deliveryManId: deliveryManId, status: 'delivering' } });
             if (!order) return res.status(404).json({ error: 'Order not found or invalid status' });
 
-            const earning = 3000 + (order.distance * 500);
+            const earning = Math.round(3000 + ((order.distance || 0) * 500));
 
             order.status = 'delivered_awaiting_review';
             order.completedAt = new Date();
