@@ -112,43 +112,54 @@ const TrackPage = () => {
                 .then(res => { if (res.data?.driverLocation) setDriverLocation(res.data.driverLocation); })
                 .catch(() => null);
 
-            // Share CUSTOMER'S live location with driver
-            if (navigator.geolocation) {
-                const watchId = navigator.geolocation.watchPosition(
-                    (pos) => {
-                        const coords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-                        socket.emit('customer-location', { 
-                            room: `order_${activeOrder.id}`, 
-                            location: coords 
-                        });
-                    },
-                    (err) => console.error("Customer location error:", err),
-                    { enableHighAccuracy: true, maximumAge: 10000, timeout: 5000 }
-                );
-                return () => {
-                    navigator.geolocation.clearWatch(watchId);
-                    socket.disconnect();
-                };
+            socket.on('location-updated', (loc) => {
+                setDriverLocation(loc);
+            });
+
+            // Share CUSTOMER'S location with driver
+            // Optimized: Ask once per mount, or use stored location
+            const shareLocation = (coords) => {
+                socket.emit('customer-location', { 
+                    room: `order_${activeOrder.id}`, 
+                    location: coords 
+                });
+            };
+
+            if (activeOrder.status === 'delivering' || activeOrder.status === 'ready_for_pickup') {
+                if (user?.location) {
+                    shareLocation(user.location);
+                } else if (navigator.geolocation) {
+                    // Ask once and store in session state to avoid re-asking on this mount
+                    navigator.geolocation.getCurrentPosition(
+                        (pos) => {
+                            const coords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+                            shareLocation(coords);
+                        },
+                        (err) => console.error("One-time location error:", err),
+                        { enableHighAccuracy: false, timeout: 10000 }
+                    );
+                }
             }
         }
-        
-        socket.on('location-updated', (loc) => {
-            setDriverLocation(loc);
-        });
 
         return () => {
             socket.disconnect();
         };
     }, [user, activeTab, selectedChat, activeOrder?.id]);
 
-    const confirmDelivery = async () => {
-        if (!activeOrder) return;
+    const confirmDelivery = async (orderId) => {
+        const idToConfirm = orderId || selectedOrderId;
+        if (!idToConfirm) return;
+        
         if (!window.confirm("Rostdan ham taomni qabul qildingizmi?")) return;
         try {
-            await api.post(`/orders/${activeOrder.id}/confirm-delivery`);
+            await api.post(`/orders/${idToConfirm}/confirm-delivery`);
             alert("Tasdiqlandi! Yoqimli ishtaha! 🍽️");
             fetchOrder();
-        } catch (err) { alert('Tasdiqlashda xatolik'); }
+        } catch (err) { 
+            console.error('Confirmation error:', err);
+            alert(err.response?.data?.error || 'Tasdiqlashda xatolik'); 
+        }
     };
 
     const getStatusStep = (status) => {

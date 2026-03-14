@@ -4,11 +4,15 @@ export const useAppStore = create((set) => ({
     // Authentication & User
     user: null,
     token: localStorage.getItem('token') || null,
-    tempTgUser: null, // Temporary storage for registration
+    tempTgUser: null,
+    location: null, // Global user location
     setUser: (userData, token) => {
         if (token) localStorage.setItem('token', token);
-        set({ user: userData, token, tempTgUser: null });
+        // If user has a location in DB, sync it
+        const loc = userData && userData.location ? userData.location : null;
+        set({ user: userData, token, tempTgUser: null, location: loc });
     },
+    setLocation: (loc) => set({ location: loc }),
     setTempTgUser: (tgUser) => set({ tempTgUser: tgUser }),
     logout: () => {
         localStorage.removeItem('token');

@@ -6,7 +6,7 @@ import { MapPin, Phone, Home, Loader } from 'lucide-react';
 
 const RegisterPage = () => {
     const navigate = useNavigate();
-    const { tempTgUser, setUser } = useAppStore();
+    const { tempTgUser, setUser, setLocation: setGlobalLocation } = useAppStore();
 
     const [phone, setPhone] = useState('');
     const [address, setAddress] = useState('');
@@ -34,10 +34,12 @@ const RegisterPage = () => {
 
         navigator.geolocation.getCurrentPosition(
             (position) => {
-                setLocation({
+                const coords = {
                     lat: position.coords.latitude,
                     lng: position.coords.longitude
-                });
+                };
+                setLocation(coords);
+                setGlobalLocation(coords);
                 setGettingLocation(false);
             },
             (err) => {
