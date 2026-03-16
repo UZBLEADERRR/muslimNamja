@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useTranslation } from '../../i18n';
 import api from '../../utils/api';
 import { colors, cardStyle, inputStyle, btnPrimary, btnDanger, btnSuccess, chipStyle, kpiCard, badge, sectionTitle, subText, mainText, bigNum } from './adminStyles';
+import { RESTAURANT_ADDRESS } from '../../utils/constants';
 import AdminInbox from './AdminInbox';
 
 const tg = window.Telegram?.WebApp;
@@ -136,10 +137,10 @@ const AdminPage = () => {
         } catch { alert("Qo'shishda xatolik"); }
     };
     const handleRoleChange = async (userId, role) => {
-        try { 
-            await api.post('/admin/role', { userId, role }); 
+        try {
+            await api.post('/admin/role', { userId, role });
             alert("Ro'l o'zgartirildi!");
-            fetchData(); 
+            fetchData();
             setSelectedUser(null);
         } catch { alert("Xatolik"); }
     };
@@ -212,9 +213,9 @@ const AdminPage = () => {
         if (!confirm("O'chirasizmi?")) return;
         try { const r = await api.delete(`/admin/ads/${id}`); setAdBanners(r.data.banners); } catch { alert("Xatolik"); }
     };
-    const saveSpots = async (key, list) => { 
+    const saveSpots = async (key, list) => {
         try {
-            await api.post('/admin/settings', { key, value: JSON.stringify(list) }); 
+            await api.post('/admin/settings', { key, value: JSON.stringify(list) });
             // Optional: alert('Saqlandi');
         } catch (e) {
             alert("Xatolik: Saqlab bo'lmadi");
@@ -344,10 +345,10 @@ const AdminPage = () => {
 
                             <div style={{ height: 160, display: 'flex', alignItems: 'flex-end', gap: 4, padding: '0 10px' }}>
                                 {(expandedStats?.flow || []).map((d, i) => (
-                                    <div key={i} title={`${d.label}: ₩${d.revenue}`} style={{ 
-                                        flex: 1, 
-                                        height: `${Math.max(5, (d.revenue / (Math.max(1, ...expandedStats.flow.map(x => x.revenue)))) * 100)}%`, 
-                                        background: `linear-gradient(to top, ${colors.accent}, ${colors.profit})`, 
+                                    <div key={i} title={`${d.label}: ₩${d.revenue}`} style={{
+                                        flex: 1,
+                                        height: `${Math.max(5, (d.revenue / (Math.max(1, ...expandedStats.flow.map(x => x.revenue)))) * 100)}%`,
+                                        background: `linear-gradient(to top, ${colors.accent}, ${colors.profit})`,
                                         borderRadius: '4px 4px 0 0',
                                         minHeight: d.revenue > 0 ? 4 : 4,
                                         opacity: d.revenue > 0 ? 1 : 0.2
@@ -379,7 +380,7 @@ const AdminPage = () => {
                                                 <div key={i}>
                                                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: colors.text, marginBottom: 4 }}>
                                                         <span>{item.label}</span>
-                                                        <span>{Math.round((item.val/total)*100)}%</span>
+                                                        <span>{Math.round((item.val / total) * 100)}%</span>
                                                     </div>
                                                     <div style={{ height: 6, background: colors.surface, borderRadius: 3, overflow: 'hidden' }}>
                                                         <div style={{ width: `${(item.val / total) * 100}%`, height: '100%', background: item.color }} />
@@ -409,7 +410,7 @@ const AdminPage = () => {
                                     </div>
                                 </div>
                             </div>
-                            
+
                             <div style={cardStyle}>
                                 <div style={{ ...sectionTitle, fontSize: 13 }}>🛵 Kuryerlar Statistikasi</div>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -438,13 +439,13 @@ const AdminPage = () => {
                                     <div>
                                         <div style={{ fontSize: 9, color: colors.accent, marginBottom: 4 }}>🏠 Delivery</div>
                                         {(expandedStats?.locations?.delivery || []).slice(0, 3).map((loc, i) => (
-                                            <div key={i} style={{ fontSize: 9, color: colors.subtext, marginBottom: 2 }}>{i+1}. {loc.label.slice(0, 15)}.. ({loc.count})</div>
+                                            <div key={i} style={{ fontSize: 9, color: colors.subtext, marginBottom: 2 }}>{i + 1}. {loc.label.slice(0, 15)}.. ({loc.count})</div>
                                         ))}
                                     </div>
                                     <div>
                                         <div style={{ fontSize: 9, color: colors.purple, marginBottom: 4 }}>🤝 Meet-up</div>
                                         {(expandedStats?.locations?.meetup || []).slice(0, 3).map((loc, i) => (
-                                            <div key={i} style={{ fontSize: 9, color: colors.subtext, marginBottom: 2 }}>{i+1}. {loc.label} ({loc.count})</div>
+                                            <div key={i} style={{ fontSize: 9, color: colors.subtext, marginBottom: 2 }}>{i + 1}. {loc.label} ({loc.count})</div>
                                         ))}
                                     </div>
                                 </div>
@@ -550,10 +551,10 @@ const AdminPage = () => {
                             <div style={{ ...cardStyle, background: `linear-gradient(135deg, ${colors.purple}15, ${colors.card})`, border: `1px solid ${colors.purple}40` }}>
                                 <div style={sectionTitle}>🤖 AI Xarajatlarni yuklash</div>
                                 <div style={{ ...subText, marginBottom: 12 }}>Xarajatlar ro'yxatini (masalan: Go'sht 15000, Guruch 2kg 12000) pastga nusxalab tashlang. AI ularni jadvalga aylantirib beradi.</div>
-                                <textarea 
-                                    value={aiRawText} 
+                                <textarea
+                                    value={aiRawText}
                                     onChange={e => setAiRawText(e.target.value)}
-                                    placeholder="Masalan:&#10;Go'sht 2kg 30000&#10;Yog' 5L 15000&#10;Pishloq 12000" 
+                                    placeholder="Masalan:&#10;Go'sht 2kg 30000&#10;Yog' 5L 15000&#10;Pishloq 12000"
                                     style={{ ...inputStyle, height: 120, resize: 'none', marginBottom: 12 }}
                                 />
                                 {parsedPreview.length > 0 && (
@@ -591,7 +592,7 @@ const AdminPage = () => {
                         <div style={{ marginBottom: 16 }}>
                             <div style={sectionTitle}>📅 Sana bo'yicha saralash</div>
                             <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 8 }} className="hide-scrollbar">
-                                {[-3,-2,-1,0,1,2,3].map(offset => {
+                                {[-3, -2, -1, 0, 1, 2, 3].map(offset => {
                                     const d = new Date();
                                     d.setDate(d.getDate() + offset);
                                     const iso = d.toISOString().split('T')[0];
@@ -731,7 +732,7 @@ const AdminPage = () => {
                                     <input type="number" placeholder="Stok" value={productForm.stock} onChange={e => setProductForm({ ...productForm, stock: e.target.value })} style={{ ...inputStyle, flex: 1 }} />
                                     <input type="number" placeholder="Tannarx ₩" value={productForm.ingredientCost} onChange={e => setProductForm({ ...productForm, ingredientCost: e.target.value })} style={{ ...inputStyle, flex: 1 }} />
                                 </div>
-                                <input type="file" accept="image/*" onChange={e => setProductImage(e.target.files?.[0])} style={{ marginBottom: 10  }} />
+                                <input type="file" accept="image/*" onChange={e => setProductImage(e.target.files?.[0])} style={{ marginBottom: 10 }} />
 
                                 {/* Addons */}
                                 <div style={{ ...sectionTitle, fontSize: 13, marginTop: 12 }}>➕ Qo'shimchalar (Extra)</div>
@@ -838,7 +839,7 @@ const AdminPage = () => {
                         {/* Restaurant Address */}
                         <div style={{ ...cardStyle, background: `linear-gradient(135deg, ${colors.purple}15, ${colors.card})` }}>
                             <div style={sectionTitle}>🏠 Oshxona manzili</div>
-                            <div style={{ ...mainText, fontSize: 13 }}>서울특별시 광진구 군자로2길 12, B04</div>
+                            <div style={{ ...mainText, fontSize: 13 }}>{RESTAURANT_ADDRESS}</div>
                             <div style={{ ...subText, marginTop: 4 }}>2km radius ichida delivery, undan uzoqqa faqat pickup</div>
                         </div>
 
@@ -896,10 +897,10 @@ const AdminPage = () => {
                                 </div>
                                 {/* Actions */}
                                 <div>
-                                    <button onClick={() => { 
-                                        setStartChatUser(selectedUser); 
+                                    <button onClick={() => {
+                                        setStartChatUser(selectedUser);
                                         setSelectedUser(null);
-                                        setActiveTab('help'); 
+                                        setActiveTab('help');
                                     }} style={{ ...btnPrimary, width: '100%', fontSize: 13, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 6 }}>
                                         💬 Xabar yozish
                                     </button>

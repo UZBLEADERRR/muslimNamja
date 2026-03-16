@@ -8,6 +8,7 @@ import 'leaflet/dist/leaflet.css';
 import { Truck, MapPin, CheckCircle, Navigation, Camera, MessageSquare, Phone, Map, Wallet } from 'lucide-react';
 import DirectChat from '../components/DirectChat';
 import { io } from 'socket.io-client';
+import { RESTAURANT_COORD } from '../utils/constants';
 
 const SOCKET_URL = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace('/api', '') : 'http://localhost:5000';
 
@@ -19,7 +20,7 @@ L.Icon.Default.mergeOptions({
     shadowUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-shadow.png',
 });
 
-const RESTAURANT = { lat: 37.5503, lng: 127.0731 };
+const RESTAURANT = RESTAURANT_COORD;
 
 const haversineDistance = (c1, c2) => {
     const R = 6371; // km
